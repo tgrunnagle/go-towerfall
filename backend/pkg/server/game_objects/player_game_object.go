@@ -335,6 +335,7 @@ func (p *PlayerGameObject) handleDeath() {
 		p.SetState(constants.StateDx, 0.0)
 		p.SetState(constants.StateDy, 0.0)
 		p.SetState(constants.StateDir, math.Pi*3/2)
+		p.SetState(constants.StateLastLocUpdateTime, time.Now())
 		p.respawnTimer = nil
 		log.Printf("Player %s respawned", p.GetID())
 		p.respawning = true
