@@ -2,15 +2,15 @@ package server
 
 import (
 	"errors"
+	"go-ws-server/pkg/server/game_maps"
 	"go-ws-server/pkg/server/game_objects"
 	"go-ws-server/pkg/util"
 	"strings"
 
 	"log"
+	"maps"
 	"sync"
 	"time"
-
-	"maps"
 
 	"github.com/google/uuid"
 )
@@ -51,6 +51,13 @@ func NewGameRoom(id string, name string, password string, roomCode string) *Game
 		ObjectManager:  NewGameObjectManager(),
 		LastUpdateTime: time.Now(),
 		Players:        make(map[string]*ConnectedPlayer),
+	}
+}
+
+func (r *GameRoom) InitializeMap(mapType game_maps.MapType) {
+	objects := game_maps.CreateMap(mapType)
+	for _, object := range objects {
+		r.addObject(object)
 	}
 }
 
@@ -164,6 +171,9 @@ func NewGameWithPlayer(roomName string, playerName string) (*GameRoom, *Connecte
 	playerToken := uuid.New().String()
 
 	room := NewGameRoom(roomID, roomName, password, roomCode)
+
+	// TODO accept map type as parameter
+	room.InitializeMap(game_maps.MapWithBlocks)
 
 	// Create player
 	player := &ConnectedPlayer{

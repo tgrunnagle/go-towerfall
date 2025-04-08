@@ -1,8 +1,8 @@
 package game_objects
 
 import (
-	"sync"
 	"go-ws-server/pkg/server/geo"
+	"sync"
 )
 
 // GameObjectHandleEventResult represents the result of a GameObject handling an event
@@ -24,6 +24,8 @@ type GameObjectProperty int
 const (
 	// true / false, indicates the object should stop when colliding with another solid object
 	GameObjectPropertyIsSolid GameObjectProperty = iota
+	// mass of the object in kilograms
+	GameObjectPropertyMassKg
 )
 
 // GameObject is an interface that all game objects must implement

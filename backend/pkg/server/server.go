@@ -16,12 +16,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// TODO move to constants.go
 const (
 	FULL_UPDATE_INTERVAL = 10 * 1000 * time.Millisecond
 	// Time to keep inactive rooms before cleanup
 	ROOM_CLEANUP_INTERVAL = 1 * time.Minute
 	ROOM_INACTIVE_TIMEOUT = 10 * time.Minute
-	GAME_TICK_INTERVAL    = 100 * time.Millisecond
+	GAME_TICK_INTERVAL    = 20 * time.Millisecond
 )
 
 var upgrader = websocket.Upgrader{

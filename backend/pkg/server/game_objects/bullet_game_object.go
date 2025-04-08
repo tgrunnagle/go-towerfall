@@ -65,13 +65,15 @@ func (b *BulletGameObject) Handle(event *GameEvent, roomObjects map[string]GameO
 func (b *BulletGameObject) GetState() map[string]interface{} {
 	result := b.BaseGameObject.GetState()
 	// Extrapolate position without updating state
-	nextX, nextY, err := GetExtrapolatedPosition(b)
+	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(b)
 	if err != nil {
 		log.Printf("Failed to extrapolate bullet position: %v", err)
 		return result
 	}
 	result[constants.StateX] = nextX
 	result[constants.StateY] = nextY
+	result[constants.StateDx] = nextDx
+	result[constants.StateDy] = nextDy
 	return result
 }
 

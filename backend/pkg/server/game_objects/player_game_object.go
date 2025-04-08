@@ -11,16 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Constants for player movement
-const (
-	PlayerSpeed    = 128.0 // Speed in pixels per ms
-	StartingX      = 100.0
-	StartingY      = 100.0
-	PlayerRadius   = 16.0
-	StartingHealth = 100.0
-	RespawnTime    = 5 * time.Second // Time until player respawns
-)
-
 // PlayerGameObject represents a player in the game
 type PlayerGameObject struct {
 	*BaseGameObject
@@ -43,15 +33,15 @@ func NewPlayerGameObject(id string, name string, token string) *PlayerGameObject
 	// Initialize player state
 	player.SetState(constants.StateID, id)
 	player.SetState(constants.StateName, name)
-	player.SetState(constants.StateX, StartingX)     // Starting X position
-	player.SetState(constants.StateY, StartingY)     // Starting Y position
-	player.SetState(constants.StateDx, 0.0)          // X velocity
-	player.SetState(constants.StateDy, 0.0)          // Y velocity
-	player.SetState(constants.StateDir, math.Pi*3/2) // Point downward
+	player.SetState(constants.StateX, constants.PlayerStartingX) // Starting X position
+	player.SetState(constants.StateY, constants.PlayerStartingY) // Starting Y position
+	player.SetState(constants.StateDx, 0.0)                      // X velocity
+	player.SetState(constants.StateDy, 0.0)                      // Y velocity
+	player.SetState(constants.StateDir, math.Pi*3/2)             // Point downward
 	player.SetState(constants.StateLastLocUpdateTime, time.Now())
-	player.SetState(constants.StateRadius, PlayerRadius)   // Player radius
-	player.SetState(constants.StateHealth, StartingHealth) // Player health
-	player.SetState(constants.StateDead, false)            // Player is not dead
+	player.SetState(constants.StateRadius, constants.PlayerRadius)         // Player radius
+	player.SetState(constants.StateHealth, constants.PlayerStartingHealth) // Player health
+	player.SetState(constants.StateDead, false)                            // Player is not dead
 
 	player.respawning = false
 	return player
@@ -90,13 +80,15 @@ func (p *PlayerGameObject) Handle(event *GameEvent, roomObjects map[string]GameO
 // GetState returns the current state of the game object
 func (p *PlayerGameObject) GetState() map[string]interface{} {
 	result := p.BaseGameObject.GetState() // Extrapolate position without updating state
-	nextX, nextY, err := GetExtrapolatedPosition(p)
+	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(p)
 	if err != nil {
 		log.Printf("Failed to extrapolate player position: %v", err)
 		return result
 	}
 	result[constants.StateX] = nextX
 	result[constants.StateY] = nextY
+	result[constants.StateDx] = nextDx
+	result[constants.StateDy] = nextDy
 	return result
 }
 
@@ -115,37 +107,32 @@ func (p *PlayerGameObject) handlePlayerKeyStatus(event *GameEvent) (bool, []*Gam
 	}
 
 	// extrapolate position from last update
-	nextX, nextY, err := GetExtrapolatedPosition(p)
+	nextX, nextY, _, nextDy, err := GetExtrapolatedPosition(p)
 	if err != nil {
 		log.Printf("Failed to extrapolate player position: %v", err)
 		return false, nil
 	}
 
 	// Update velocity based on keys pressed
-	dxHat := 0.0
-	dyHat := 0.0
+	inputX := 0.0
+	inputY := 0.0
 	for _, key := range keysPressed {
 		switch key {
 		case "W":
-			dyHat -= 1.0
-		case "S":
-			dyHat += 1.0
+			inputY -= 1.0
+		// case "S":
+		// 	dyHat += 1.0
 		case "A":
-			dxHat -= 1.0
+			inputX -= 1.0
 		case "D":
-			dxHat += 1.0
+			inputX += 1.0
 		}
 	}
 
-	bothZero := dxHat == 0.0 && dyHat == 0.0
-	var dx, dy float64
-	if bothZero {
-		dx = 0.0
-		dy = 0.0
-	} else {
-		angle := math.Atan2(dyHat, dxHat)
-		dx = PlayerSpeed * math.Cos(angle)
-		dy = PlayerSpeed * math.Sin(angle)
+	dx := inputX * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
+	dy := nextDy
+	if inputY != 0.0 {
+		dy = inputY * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
 	}
 
 	p.SetState(constants.StateX, nextX)
@@ -165,13 +152,15 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 	}
 
 	// Update current position of the player so that the bullet spawns at the correct place
-	nextX, nextY, err := GetExtrapolatedPosition(p)
+	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(p)
 	if err != nil {
 		log.Printf("Failed to extrapolate player position: %v", err)
 		return false, nil
 	}
 	p.SetState(constants.StateX, nextX)
 	p.SetState(constants.StateY, nextY)
+	p.SetState(constants.StateDx, nextDx)
+	p.SetState(constants.StateDy, nextDy)
 	p.SetState(constants.StateLastLocUpdateTime, time.Now())
 
 	bullet := NewBulletGameObject(uuid.New().String(), p, event.Data["x"].(float64), event.Data["y"].(float64))
@@ -206,7 +195,7 @@ func (p *PlayerGameObject) GetBoundingShape() geo.Shape {
 }
 
 func (p *PlayerGameObject) GetNextBoundingShape() geo.Shape {
-	nextX, nextY, err := GetExtrapolatedPosition(p)
+	nextX, nextY, _, _, err := GetExtrapolatedPosition(p)
 	if err != nil {
 		log.Printf("Failed to extrapolate player position: %v", err)
 		return nil
@@ -233,12 +222,14 @@ func (p *PlayerGameObject) handlePlayerDirection(event *GameEvent) (bool, []*Gam
 }
 
 func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[string]GameObject) (bool, []*GameEvent) {
-	// Check collisions
-	shape := p.GetNextBoundingShape()
-	if shape == nil {
-		log.Printf("Failed to get bounding shape for player: %v", p.GetState())
+	// Check collisions with next location
+	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(p)
+	if err != nil {
+		log.Printf("Failed to extrapolate player position: %v", err)
 		return false, nil
 	}
+	point := geo.NewPoint(nextX, nextY)
+	shape := geo.NewCircle(point, constants.PlayerRadius)
 
 	events := []*GameEvent{}
 
@@ -260,11 +251,28 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 		}
 		collides, collisionPoints := shape.CollidesWith(otherShape)
 		if collides {
+
 			if isSolid {
 				// Collision detected, stop moving
-				p.SetState(constants.StateDx, 0.0)
-				p.SetState(constants.StateDy, 0.0)
-				p.SetState(constants.StateLastLocUpdateTime, time.Now())
+				// TODO only stop moving in the direction of the collision
+				// Get the average of the angle of the collision point to the player x, y (center of the bounding shape)
+				var totalAngle float64
+				var count int
+				for _, point := range collisionPoints {
+					angle := math.Atan2(point.Y-nextY, point.X-nextX)
+					totalAngle += angle
+					count++
+				}
+				if count > 0 {
+					averageAngle := totalAngle / float64(count)
+					if math.Abs(math.Cos(averageAngle)) > 0.1 {
+						nextDx = 0.0
+					}
+					if math.Abs(math.Sin(averageAngle)) > 0.1 {
+						nextDy = 0.0
+					}
+					nextX, nextY, _ = GetExtrapolatedPositionForDxDy(p, nextDx, nextDy)
+				}
 			}
 			if isEnemyBullet {
 				// Report collision to bullet
@@ -285,6 +293,8 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 				p.SetState(constants.StateHealth, newHealth)
 
 				if newHealth <= 0.0 {
+					p.handleDeath()
+
 					events = append(events, NewGameEvent(
 						event.RoomID,
 						EventPlayerDied,
@@ -297,50 +307,49 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 						p,
 					))
 
-					p.SetState(constants.StateDead, true)
-					p.SetState(constants.StateDx, 0.0)
-					p.SetState(constants.StateDy, 0.0)
-					p.SetState(constants.StateLastLocUpdateTime, time.Now())
-					p.respawnTimer = time.AfterFunc(constants.PlayerRespawnTimeSec*time.Second, func() {
-						p.SetState(constants.StateDead, false)
-						p.SetState(constants.StateHealth, StartingHealth)
-						p.SetState(constants.StateX, StartingX)
-						p.SetState(constants.StateY, StartingY)
-						p.SetState(constants.StateDx, 0.0)
-						p.SetState(constants.StateDy, 0.0)
-						p.SetState(constants.StateDir, math.Pi*3/2)
-						p.respawnTimer = nil
-						log.Printf("Player %s respawned", p.GetID())
-						p.respawning = true
-					})
-
 					// Stop processing further collisions if the player dies
-					break
+					return true, events
 				}
 			}
 		}
 	}
 
-	nextX, nextY, err := GetExtrapolatedPosition(p)
-	if err != nil {
-		log.Printf("Failed to extrapolate player position: %v", err)
-		return false, nil
-	}
 	p.SetState(constants.StateX, nextX)
 	p.SetState(constants.StateY, nextY)
+	p.SetState(constants.StateDx, nextDx)
+	p.SetState(constants.StateDy, nextDy)
 	p.SetState(constants.StateLastLocUpdateTime, time.Now())
 	return true, events
 }
 
+func (p *PlayerGameObject) handleDeath() {
+	p.SetState(constants.StateDead, true)
+	p.SetState(constants.StateDx, 0.0)
+	p.SetState(constants.StateDy, 0.0)
+	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+	p.respawnTimer = time.AfterFunc(constants.PlayerRespawnTimeSec*time.Second, func() {
+		p.SetState(constants.StateDead, false)
+		p.SetState(constants.StateHealth, constants.PlayerStartingHealth)
+		p.SetState(constants.StateX, constants.PlayerStartingX)
+		p.SetState(constants.StateY, constants.PlayerStartingY)
+		p.SetState(constants.StateDx, 0.0)
+		p.SetState(constants.StateDy, 0.0)
+		p.SetState(constants.StateDir, math.Pi*3/2)
+		p.SetState(constants.StateLastLocUpdateTime, time.Now())
+		p.respawnTimer = nil
+		log.Printf("Player %s respawned", p.GetID())
+		p.respawning = true
+	})
+}
+
 // GetProperty returns the game object's properties
 func (p *PlayerGameObject) GetProperty(key GameObjectProperty) (interface{}, bool) {
-	return nil, false
-	// switch key {
-	// case GameObjectPropertyIsSolid:
-	// 	return true, true
-	// default:
-	// 	return nil, false
-	// }
+	switch key {
+	case GameObjectPropertyMassKg:
+		return 1.0, true
+	default:
+		return nil, false
+	}
 }
 
 // GetEventTypes returns the event types this player is interested in
