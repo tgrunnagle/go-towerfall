@@ -23,12 +23,13 @@ func GetExtrapolatedPosition(p GameObject) (float64, float64, float64, float64, 
 		return 0.0, 0.0, 0.0, 0.0, errors.New("missing dy state")
 	}
 
-	mass, exists := p.GetStateValue(constants.ObjectPropertyMassKg)
+	_, exists = p.GetProperty(GameObjectPropertyMassKg)
 	if exists {
-		dy = dy.(float64) + deltaTime*float64(mass.(float64))*constants.AccelerationDueToGravity
+		// Apply gravity
+		dy = dy.(float64) + deltaTime*constants.AccelerationDueToGravity*constants.PxPerMeter
 	}
 
-	dy = math.Min(dy.(float64), constants.MaxVelocityMetersPerSec)
+	dy = math.Min(dy.(float64), constants.MaxVelocityMetersPerSec*constants.PxPerMeter)
 
 	x, exists := p.GetStateValue(constants.StateX)
 	if !exists {

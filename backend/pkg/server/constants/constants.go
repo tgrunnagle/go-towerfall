@@ -1,9 +1,18 @@
 package constants
 
+// Physics constants
+const (
+	AccelerationDueToGravity = 9.81
+	MaxVelocityMetersPerSec  = 20.0
+	PxPerMeter               = 20.0
+)
+
 // Room constants
 const (
-	RoomSizeX = 800
-	RoomSizeY = 600
+	RoomSizeMetersX = 40.0
+	RoomSizeMetersY = 30.0
+	RoomSizePixelsX = RoomSizeMetersX * PxPerMeter
+	RoomSizePixelsY = RoomSizeMetersY * PxPerMeter
 )
 
 // Object types
@@ -31,19 +40,6 @@ const (
 	StateDestroyedAtX      = "dAtX" // x position when destroyed
 	StateDestroyedAtY      = "dAtY" // y position when destroyed
 	StateDead              = "dead" // dead state (boolean)
-)
-
-// Physics constants
-const (
-	AccelerationDueToGravity = 9.81
-	MaxVelocityMetersPerSec  = 5.0
-	PxPerMeter               = 20.0
-)
-
-// Object properties
-const (
-	ObjectPropertyIsSolid = "isSolid"
-	ObjectPropertyMassKg  = "mass"
 )
 
 // Object constants

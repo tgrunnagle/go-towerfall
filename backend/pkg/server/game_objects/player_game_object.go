@@ -129,10 +129,10 @@ func (p *PlayerGameObject) handlePlayerKeyStatus(event *GameEvent) (bool, []*Gam
 		}
 	}
 
-	dx := inputX * constants.PlayerSpeedXMetersPerSec
+	dx := inputX * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
 	dy := nextDy
 	if inputY != 0.0 {
-		dy = inputY * constants.PlayerJumpSpeedMetersPerSec
+		dy = inputY * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
 	}
 
 	p.SetState(constants.StateX, nextX)
@@ -326,13 +326,12 @@ func (p *PlayerGameObject) handleDeath() {
 
 // GetProperty returns the game object's properties
 func (p *PlayerGameObject) GetProperty(key GameObjectProperty) (interface{}, bool) {
-	return nil, false
-	// switch key {
-	// case GameObjectPropertyIsSolid:
-	// 	return true, true
-	// default:
-	// 	return nil, false
-	// }
+	switch key {
+	case GameObjectPropertyMassKg:
+		return 1.0, true
+	default:
+		return nil, false
+	}
 }
 
 // GetEventTypes returns the event types this player is interested in
