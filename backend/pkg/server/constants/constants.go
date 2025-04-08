@@ -30,10 +30,25 @@ const (
 	StateDead              = "dead" // dead state (boolean)
 )
 
+// Physics constants
+const (
+	AccelerationDueToGravity = 9.81
+	MaxVelocityMetersPerSec  = 5.0
+	PxPerMeter               = 20.0
+)
+
+// Object properties
+const (
+	ObjectPropertyIsSolid = "isSolid"
+	ObjectPropertyMassKg  = "mass"
+)
+
 // Object constants
 const (
-	PlayerRadius         = 16.0
-	PlayerRespawnTimeSec = 5.0
+	PlayerRadius                = 16.0
+	PlayerRespawnTimeSec        = 5.0
+	PlayerSpeedXMetersPerSec    = 10.0
+	PlayerJumpSpeedMetersPerSec = 20.0
 )
 
 const (

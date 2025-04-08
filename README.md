@@ -59,7 +59,7 @@ The frontend will be available at `http://localhost:4001`
 The test helper is a Selenium script that can be used to manually test the application. It will start two browser instances and create a new game in one instance, then join the game in the other instance. Make sure the servers are running before running the test helper.
 
 ```bash
-cd test
+cd test/selenium
 npm install
 npm test
 ```
