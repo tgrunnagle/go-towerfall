@@ -10,6 +10,7 @@ const (
 const (
 	ObjectTypePlayer = "player"
 	ObjectTypeBullet = "bullet"
+	ObjectTypeBlock  = "block"
 )
 
 // Object state keys
@@ -18,6 +19,8 @@ const (
 	StateName              = "name"
 	StateX                 = "x"
 	StateY                 = "y"
+	StateWidth             = "w"
+	StateHeight            = "h"
 	StateDx                = "dx"
 	StateDy                = "dy"
 	StateLastLocUpdateTime = "llut"
@@ -49,6 +52,9 @@ const (
 	PlayerRespawnTimeSec        = 5.0
 	PlayerSpeedXMetersPerSec    = 10.0
 	PlayerJumpSpeedMetersPerSec = 20.0
+	PlayerStartingX             = 100.0
+	PlayerStartingY             = 100.0
+	PlayerStartingHealth        = 100.0
 )
 
 const (

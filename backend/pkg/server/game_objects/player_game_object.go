@@ -11,16 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Constants for player movement
-const (
-	PlayerSpeed    = 128.0 // Speed in pixels per ms
-	StartingX      = 100.0
-	StartingY      = 100.0
-	PlayerRadius   = 16.0
-	StartingHealth = 100.0
-	RespawnTime    = 5 * time.Second // Time until player respawns
-)
-
 // PlayerGameObject represents a player in the game
 type PlayerGameObject struct {
 	*BaseGameObject
@@ -43,15 +33,15 @@ func NewPlayerGameObject(id string, name string, token string) *PlayerGameObject
 	// Initialize player state
 	player.SetState(constants.StateID, id)
 	player.SetState(constants.StateName, name)
-	player.SetState(constants.StateX, StartingX)     // Starting X position
-	player.SetState(constants.StateY, StartingY)     // Starting Y position
-	player.SetState(constants.StateDx, 0.0)          // X velocity
-	player.SetState(constants.StateDy, 0.0)          // Y velocity
-	player.SetState(constants.StateDir, math.Pi*3/2) // Point downward
+	player.SetState(constants.StateX, constants.PlayerStartingX) // Starting X position
+	player.SetState(constants.StateY, constants.PlayerStartingY) // Starting Y position
+	player.SetState(constants.StateDx, 0.0)                      // X velocity
+	player.SetState(constants.StateDy, 0.0)                      // Y velocity
+	player.SetState(constants.StateDir, math.Pi*3/2)             // Point downward
 	player.SetState(constants.StateLastLocUpdateTime, time.Now())
-	player.SetState(constants.StateRadius, PlayerRadius)   // Player radius
-	player.SetState(constants.StateHealth, StartingHealth) // Player health
-	player.SetState(constants.StateDead, false)            // Player is not dead
+	player.SetState(constants.StateRadius, constants.PlayerRadius)         // Player radius
+	player.SetState(constants.StateHealth, constants.PlayerStartingHealth) // Player health
+	player.SetState(constants.StateDead, false)                            // Player is not dead
 
 	player.respawning = false
 	return player
@@ -322,9 +312,9 @@ func (p *PlayerGameObject) handleDeath() {
 	p.SetState(constants.StateLastLocUpdateTime, time.Now())
 	p.respawnTimer = time.AfterFunc(constants.PlayerRespawnTimeSec*time.Second, func() {
 		p.SetState(constants.StateDead, false)
-		p.SetState(constants.StateHealth, StartingHealth)
-		p.SetState(constants.StateX, StartingX)
-		p.SetState(constants.StateY, StartingY)
+		p.SetState(constants.StateHealth, constants.PlayerStartingHealth)
+		p.SetState(constants.StateX, constants.PlayerStartingX)
+		p.SetState(constants.StateY, constants.PlayerStartingY)
 		p.SetState(constants.StateDx, 0.0)
 		p.SetState(constants.StateDy, 0.0)
 		p.SetState(constants.StateDir, math.Pi*3/2)
