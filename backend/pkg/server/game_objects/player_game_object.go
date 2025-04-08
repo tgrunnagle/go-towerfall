@@ -251,11 +251,14 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 		}
 		collides, collisionPoints := shape.CollidesWith(otherShape)
 		if collides {
-			log.Printf("Player %s collided with %s %s", p.GetID(), object.GetObjectType(), object.GetID())
 
 			if isSolid {
 				// Collision detected, stop moving
 				// TODO only stop moving in the direction of the collision
+				x, _ := p.GetStateValue(constants.StateX)
+				y, _ := p.GetStateValue(constants.StateY)
+				nextX = x.(float64)
+				nextY = y.(float64)
 				nextDx = 0.0
 				nextDy = 0.0
 			}
