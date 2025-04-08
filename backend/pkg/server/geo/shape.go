@@ -2,9 +2,8 @@ package geo
 
 import (
 	"math"
-	"reflect"
-
 	"gonum.org/v1/gonum/mat"
+	"sort"
 )
 
 type Point struct {
@@ -154,89 +153,244 @@ func checkPolygonPolygonCollision(p1 *Polygon, p2 *Polygon) (bool, []*Point) {
 	collides := false
 	collisionPoints := []*Point{}
 
+	// Check each line from p1 against each line from p2
 	for _, p1Line := range p1Lines {
 		for _, p2Line := range p2Lines {
 			linesCollide, lineCollisionPoints := checkLineLineCollision(p1Line, p2Line)
 			if linesCollide {
 				collides = true
-				collisionPoints = append(collisionPoints, lineCollisionPoints...)
+				// Only add points that are actually on both line segments
+				for _, point := range lineCollisionPoints {
+					if pointOnLineSegment(point, p1Line) && pointOnLineSegment(point, p2Line) {
+						collisionPoints = append(collisionPoints, point)
+					}
+				}
 			}
 		}
 	}
-	return collides, collisionPoints
-
+	return collides, deduplicatePoints(collisionPoints)
 }
 
-func checkLineCircleCollision(l *Line, c *Circle) (bool, []*Point) {
-	aX := l.A.X
-	aY := l.A.Y
-	bX := l.B.X
-	bY := l.B.Y
-	cX := c.C.X
-	cY := c.C.Y
-	cR := c.R
+func checkLineCircleCollision(line *Line, circle *Circle) (bool, []*Point) {
+	// Convert line segment to parametric form: P = A + t(B-A), where t in [0,1]
+	dx := line.B.X - line.A.X
+	dy := line.B.Y - line.A.Y
 
-	// https://stackoverflow.com/a/1088058
-	// compute the euclidean distance between A and B
-	lab := math.Sqrt(math.Pow(bX-aX, 2) + math.Pow(bY-aY, 2))
+	// Compute coefficients of quadratic equation
+	// (x - cx)^2 + (y - cy)^2 = r^2
+	// where x = ax + t*dx and y = ay + t*dy
+	a := dx*dx + dy*dy
+	b := 2 * (dx*(line.A.X-circle.C.X) + dy*(line.A.Y-circle.C.Y))
+	c := math.Pow(line.A.X-circle.C.X, 2) + math.Pow(line.A.Y-circle.C.Y, 2) - circle.R*circle.R
 
-	// compute the direction vector D from A to B
-	dX := (bX - aX) / lab
-	dY := (bY - aY) / lab
-
-	// the equation of the line AB is x = Dx*t + Ax, y = Dy*t + Ay with 0 <= t <= LAB.
-
-	// compute the distance between the points A and E, where
-	// E is the point of AB closest the circle center (Cx, Cy)
-	t := dX*(cX-aX) + dY*(cY-aY)
-
-	// compute the coordinates of the point E
-	eX := t*dX + aX
-	eY := t*dY + aY
-
-	// compute the euclidean distance between E and C
-	lec := math.Sqrt(math.Pow(eX-cX, 2) + math.Pow(eY-cY, 2))
-
-	// test if the line intersects the circle
-	if lec < cR {
-		// compute distance from t to circle intersection point
-		dt := math.Sqrt(math.Pow(cR, 2) - math.Pow(lec, 2))
-		// compute first intersection point
-		fX := (t-dt)*dX + aX
-		fY := (t-dt)*dY + aY
-		// compute second intersection point
-		gX := (t+dt)*dX + aX
-		gY := (t+dt)*dY + aY
-		return true, []*Point{{X: fX, Y: fY}, {X: gX, Y: gY}}
-	} else if lec == cR {
-		// tangent point to circle is E
-		return true, []*Point{{X: eX, Y: eY}}
+	// Handle special case where line is a point
+	if math.Abs(a) < 1e-10 {
+		// Check if the point is on the circle
+		dist := math.Sqrt(math.Pow(line.A.X-circle.C.X, 2) + math.Pow(line.A.Y-circle.C.Y, 2))
+		if math.Abs(dist-circle.R) < 1e-10 {
+			return true, []*Point{{X: line.A.X, Y: line.A.Y}}
+		}
+		return false, []*Point{}
 	}
-	// line doesn't touch circle
-	return false, nil
+
+	// Solve quadratic equation
+	discriminant := b*b - 4*a*c
+	if discriminant < -1e-10 { // No intersection
+		return false, []*Point{}
+	}
+
+	// Handle tangent case (discriminant ≈ 0)
+	if math.Abs(discriminant) < 1e-10 {
+		t := -b / (2 * a)
+		// Check if the point lies on the line segment
+		if t >= 0 && t <= 1 {
+			x := line.A.X + t*dx
+			y := line.A.Y + t*dy
+			return true, []*Point{{X: x, Y: y}}
+		}
+		return false, []*Point{}
+	}
+
+	// Handle intersection case (discriminant > 0)
+	sqrtD := math.Sqrt(discriminant)
+	t1 := (-b - sqrtD) / (2 * a)
+	t2 := (-b + sqrtD) / (2 * a)
+
+	points := []*Point{}
+	// Check first intersection point
+	if t1 >= 0 && t1 <= 1 {
+		x := line.A.X + t1*dx
+		y := line.A.Y + t1*dy
+		points = append(points, &Point{X: x, Y: y})
+	}
+	// Check second intersection point
+	if t2 >= 0 && t2 <= 1 {
+		x := line.A.X + t2*dx
+		y := line.A.Y + t2*dy
+		points = append(points, &Point{X: x, Y: y})
+	}
+
+	// Handle case where line is tangent to circle at an endpoint
+	if len(points) == 0 {
+		// Check if either endpoint is on the circle
+		dist1 := math.Sqrt(math.Pow(line.A.X-circle.C.X, 2) + math.Pow(line.A.Y-circle.C.Y, 2))
+		if math.Abs(dist1-circle.R) < 1e-10 {
+			points = append(points, &Point{X: line.A.X, Y: line.A.Y})
+		}
+		dist2 := math.Sqrt(math.Pow(line.B.X-circle.C.X, 2) + math.Pow(line.B.Y-circle.C.Y, 2))
+		if math.Abs(dist2-circle.R) < 1e-10 {
+			points = append(points, &Point{X: line.B.X, Y: line.B.Y})
+		}
+	}
+
+	return len(points) > 0, points
 }
 
-func checkLinePolygonCollision(l *Line, p *Polygon) (bool, []*Point) {
-	pLines := p.GetLines()
-	return checkMultipleLinesShapeCollision(pLines, l)
+func checkLinePolygonCollision(line *Line, polygon *Polygon) (bool, []*Point) {
+	collides := false
+	collisionPoints := []*Point{}
+
+	for _, polygonLine := range polygon.GetLines() {
+		lineCollides, points := checkLineLineCollision(line, polygonLine)
+		if lineCollides {
+			collides = true
+			collisionPoints = append(collisionPoints, points...)
+		}
+	}
+	return collides, deduplicatePoints(collisionPoints)
 }
 
-func checkCirclePolygonCollision(c *Circle, p *Polygon) (bool, []*Point) {
-	pLines := p.GetLines()
-	return checkMultipleLinesShapeCollision(pLines, c)
+func checkCirclePolygonCollision(circle *Circle, polygon *Polygon) (bool, []*Point) {
+	lines := polygon.GetLines()
+	collides := false
+	collisionPoints := []*Point{}
+
+	// Check each edge of the polygon for intersection with the circle
+	for _, line := range lines {
+		linesCollide, lineCollisionPoints := checkLineCircleCollision(line, circle)
+		if linesCollide {
+			collides = true
+			// For each edge, only keep the intersection point closest to the start of the edge
+			if len(lineCollisionPoints) > 0 {
+				closestPoint := lineCollisionPoints[0]
+				minDist := math.Sqrt(math.Pow(closestPoint.X-line.A.X, 2) + math.Pow(closestPoint.Y-line.A.Y, 2))
+				for _, point := range lineCollisionPoints[1:] {
+					dist := math.Sqrt(math.Pow(point.X-line.A.X, 2) + math.Pow(point.Y-line.A.Y, 2))
+					if dist < minDist {
+						closestPoint = point
+						minDist = dist
+					}
+				}
+				collisionPoints = append(collisionPoints, closestPoint)
+			}
+		}
+	}
+
+	// Check if the circle's center is inside the polygon
+	// This is needed for cases where the circle is entirely inside the polygon
+	if pointInPolygon(circle.C, polygon) {
+		collides = true
+	}
+
+	return collides, deduplicatePoints(collisionPoints)
 }
 
 func checkMultipleLinesShapeCollision(lines []*Line, other Shape) (bool, []*Point) {
 	collides := false
 	collisionPoints := []*Point{}
 	for _, line := range lines {
-		collides, points := line.CollidesWith(other)
-		if collides {
+		lineCollides, points := line.CollidesWith(other)
+		if lineCollides {
 			collides = true
 			collisionPoints = append(collisionPoints, points...)
 		}
 	}
-	return collides, collisionPoints
+	return collides, deduplicatePoints(collisionPoints)
+}
+
+// pointInPolygon checks if a point is inside a polygon using the ray casting algorithm
+func pointInPolygon(point *Point, polygon *Polygon) bool {
+	inside := false
+	j := len(polygon.Points) - 1
+	for i := 0; i < len(polygon.Points); i++ {
+		if ((polygon.Points[i].Y > point.Y) != (polygon.Points[j].Y > point.Y)) &&
+			(point.X < (polygon.Points[j].X-polygon.Points[i].X)*(point.Y-polygon.Points[i].Y)/(polygon.Points[j].Y-polygon.Points[i].Y)+polygon.Points[i].X) {
+			inside = !inside
+		}
+		j = i
+	}
+	return inside
+}
+
+// Helper function to deduplicate points with floating-point tolerance
+func deduplicatePoints(points []*Point) []*Point {
+	if len(points) == 0 {
+		return points
+	}
+
+	// Sort points by X coordinate, then Y coordinate
+	sorted := make([]*Point, len(points))
+	copy(sorted, points)
+	sort.Slice(sorted, func(i, j int) bool {
+		if math.Abs(sorted[i].X-sorted[j].X) < 1e-10 {
+			return sorted[i].Y < sorted[j].Y
+		}
+		return sorted[i].X < sorted[j].X
+	})
+
+	// Keep only unique points within epsilon
+	const epsilon = 0.1 // Use a larger epsilon for circle-polygon collisions
+	result := []*Point{sorted[0]}
+	for i := 1; i < len(sorted); i++ {
+		curr := sorted[i]
+		// Check if this point is approximately equal to any previous point
+		isDuplicate := false
+		for j := 0; j < len(result); j++ {
+			prev := result[j]
+			// Two points are considered duplicates if:
+			// 1. They are very close to each other
+			// 2. They lie on the same horizontal or vertical line and are close in one coordinate
+			dx := math.Abs(curr.X - prev.X)
+			dy := math.Abs(curr.Y - prev.Y)
+			if dx*dx + dy*dy < epsilon*epsilon || // Points are very close to each other
+				(dx < epsilon && math.Abs(curr.Y-prev.Y) < 2*epsilon) || // Points are on same vertical line
+				(dy < epsilon && math.Abs(curr.X-prev.X) < 2*epsilon) { // Points are on same horizontal line
+				isDuplicate = true
+				break
+			}
+		}
+		if !isDuplicate {
+			result = append(result, curr)
+		}
+	}
+	return result
+}
+
+// Helper function to check if a point is close to a line segment
+func pointOnLineSegment(point *Point, line *Line) bool {
+	const epsilon = 1e-10
+	// Calculate the distance from the point to both endpoints of the line
+	d1 := math.Sqrt(math.Pow(point.X-line.A.X, 2) + math.Pow(point.Y-line.A.Y, 2))
+	d2 := math.Sqrt(math.Pow(point.X-line.B.X, 2) + math.Pow(point.Y-line.B.Y, 2))
+	lineLength := math.Sqrt(math.Pow(line.B.X-line.A.X, 2) + math.Pow(line.B.Y-line.A.Y, 2))
+	
+	// If the sum of distances from the point to both endpoints is approximately equal to the line length,
+	// then the point lies on the line segment
+	return math.Abs(d1 + d2 - lineLength) < epsilon
+}
+
+// approximatePointsEqual checks if two points are approximately equal within a small epsilon
+func approximatePointsEqual(p1 *Point, p2 *Point) bool {
+	if p1 == nil && p2 == nil {
+		return true
+	}
+	if p1 == nil || p2 == nil {
+		return false
+	}
+	const epsilon = 1e-10
+	dx := math.Abs(p1.X - p2.X)
+	dy := math.Abs(p1.Y - p2.Y)
+	return dx < epsilon && dy < epsilon
 }
 
 type BaseShape struct {
@@ -247,44 +401,46 @@ func (s *BaseShape) GetCenter() *Point {
 }
 
 func (s *BaseShape) CollidesWith(other Shape) (bool, []*Point) {
-	lines := []Shape{}
-	circles := []Shape{}
-	polygons := []Shape{}
+	var s1, s2 Shape = s, other
 
-	switch reflect.TypeOf(s) {
-	case reflect.TypeOf(&Line{}):
-		lines = append(lines, s)
-	case reflect.TypeOf(&Circle{}):
-		circles = append(circles, s)
-	case reflect.TypeOf(&Polygon{}):
-		polygons = append(polygons, s)
-	}
-	switch reflect.TypeOf(other) {
-	case reflect.TypeOf(&Line{}):
-		lines = append(lines, other)
-	case reflect.TypeOf(&Circle{}):
-		circles = append(circles, other)
-	case reflect.TypeOf(&Polygon{}):
-		polygons = append(polygons, other)
+	// Get the actual shape from s if it's a BaseShape
+	if bs, ok := s1.(*BaseShape); ok {
+		s1 = bs
 	}
 
-	if len(lines) == 2 {
-		return checkLineLineCollision(lines[0].(*Line), lines[1].(*Line))
+	// Get the actual shape from other if it's a BaseShape
+	if bs, ok := s2.(*BaseShape); ok {
+		s2 = bs
 	}
-	if len(circles) == 2 {
-		return checkCircleCircleCollision(circles[0].(*Circle), circles[1].(*Circle))
-	}
-	if len(polygons) == 2 {
-		return checkPolygonPolygonCollision(polygons[0].(*Polygon), polygons[1].(*Polygon))
-	}
-	if len(lines) == 1 && len(circles) == 1 {
-		return checkLineCircleCollision(lines[0].(*Line), circles[0].(*Circle))
-	}
-	if len(lines) == 1 && len(polygons) == 1 {
-		return checkLinePolygonCollision(lines[0].(*Line), polygons[0].(*Polygon))
-	}
-	if len(circles) > 0 && len(polygons) > 0 {
-		return checkCirclePolygonCollision(circles[0].(*Circle), polygons[0].(*Polygon))
+
+	switch s1.(type) {
+	case *Line:
+		switch s2.(type) {
+		case *Line:
+			return checkLineLineCollision(s1.(*Line), s2.(*Line))
+		case *Circle:
+			return checkLineCircleCollision(s1.(*Line), s2.(*Circle))
+		case *Polygon:
+			return checkLinePolygonCollision(s1.(*Line), s2.(*Polygon))
+		}
+	case *Circle:
+		switch s2.(type) {
+		case *Line:
+			return checkLineCircleCollision(s2.(*Line), s1.(*Circle))
+		case *Circle:
+			return checkCircleCircleCollision(s1.(*Circle), s2.(*Circle))
+		case *Polygon:
+			return checkCirclePolygonCollision(s1.(*Circle), s2.(*Polygon))
+		}
+	case *Polygon:
+		switch s2.(type) {
+		case *Line:
+			return checkLinePolygonCollision(s2.(*Line), s1.(*Polygon))
+		case *Circle:
+			return checkCirclePolygonCollision(s2.(*Circle), s1.(*Polygon))
+		case *Polygon:
+			return checkPolygonPolygonCollision(s1.(*Polygon), s2.(*Polygon))
+		}
 	}
 	return false, nil
 }
