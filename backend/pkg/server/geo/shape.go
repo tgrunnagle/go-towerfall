@@ -1,9 +1,10 @@
 package geo
 
 import (
-	"gonum.org/v1/gonum/mat"
 	"math"
 	"reflect"
+
+	"gonum.org/v1/gonum/mat"
 )
 
 type Point struct {
@@ -25,6 +26,7 @@ type Shape interface {
 }
 
 type Line struct {
+	*BaseShape
 	A *Point
 	B *Point
 }
@@ -37,26 +39,11 @@ func NewLine(a *Point, b *Point) *Line {
 }
 
 func (l *Line) GetCenter() *Point {
-	return NewPoint((l.A.X + l.B.X) / 2, (l.A.Y + l.B.Y) / 2)
-}
-
-func (l *Line) CollidesWith(other Shape) (bool, []*Point) {
-	if reflect.TypeOf(other) == reflect.TypeOf(&Line{}) {
-		return checkLineLineCollision(l, other.(*Line))
-	}
-	if reflect.TypeOf(other) == reflect.TypeOf(&Circle{}) {
-		return checkLineCircleCollision(l, other.(*Circle))
-	}
-	return false, nil
-}
-
-func (l *Line) DistanceTo(other Shape) float64 {
-	center := l.GetCenter()
-	otherCenter := other.GetCenter()
-	return math.Sqrt(math.Pow(otherCenter.X-center.X, 2) + math.Pow(otherCenter.Y-center.Y, 2))
+	return NewPoint((l.A.X+l.B.X)/2, (l.A.Y+l.B.Y)/2)
 }
 
 type Circle struct {
+	*BaseShape
 	C *Point
 	R float64
 }
@@ -72,22 +59,32 @@ func (c *Circle) GetCenter() *Point {
 	return NewPoint(c.C.X, c.C.Y)
 }
 
-func (c *Circle) CollidesWith(other Shape) (bool, []*Point) {
-	// TODO maybe move to static function
-	if reflect.TypeOf(other) == reflect.TypeOf(&Line{}) {
-		return checkLineCircleCollision(other.(*Line), c)
-	}
-	if reflect.TypeOf(other) == reflect.TypeOf(&Circle{}) {
-		return checkCircleCircleCollision(c, other.(*Circle))
-	}
-	return false, nil
+type Polygon struct {
+	*BaseShape
+	Points []*Point
 }
 
-func (c *Circle) DistanceTo(other Shape) float64 {
-	// TODO make more accurate based on the other shapes, maybe move to static function
-	center := c.GetCenter()
-	otherCenter := other.GetCenter()
-	return math.Sqrt(math.Pow(otherCenter.X-center.X, 2) + math.Pow(otherCenter.Y-center.Y, 2))
+func NewPolygon(points []*Point) *Polygon {
+	return &Polygon{
+		Points: points,
+	}
+}
+
+func (p *Polygon) GetCenter() *Point {
+	var sumX, sumY float64
+	for _, point := range p.Points {
+		sumX += point.X
+		sumY += point.Y
+	}
+	return NewPoint(sumX/float64(len(p.Points)), sumY/float64(len(p.Points)))
+}
+
+func (p *Polygon) GetLines() []*Line {
+	lines := []*Line{}
+	for i, point := range p.Points {
+		lines = append(lines, NewLine(point, p.Points[(i+1)%len(p.Points)]))
+	}
+	return lines
 }
 
 func checkLineLineCollision(l1 *Line, l2 *Line) (bool, []*Point) {
@@ -151,6 +148,25 @@ func checkCircleCircleCollision(c1 *Circle, c2 *Circle) (bool, []*Point) {
 	return true, []*Point{{X: xIntersect1, Y: yIntersect1}, {X: xIntersect2, Y: yIntersect2}}
 }
 
+func checkPolygonPolygonCollision(p1 *Polygon, p2 *Polygon) (bool, []*Point) {
+	p1Lines := p1.GetLines()
+	p2Lines := p2.GetLines()
+	collides := false
+	collisionPoints := []*Point{}
+
+	for _, p1Line := range p1Lines {
+		for _, p2Line := range p2Lines {
+			linesCollide, lineCollisionPoints := checkLineLineCollision(p1Line, p2Line)
+			if linesCollide {
+				collides = true
+				collisionPoints = append(collisionPoints, lineCollisionPoints...)
+			}
+		}
+	}
+	return collides, collisionPoints
+
+}
+
 func checkLineCircleCollision(l *Line, c *Circle) (bool, []*Point) {
 	aX := l.A.X
 	aY := l.A.Y
@@ -198,4 +214,83 @@ func checkLineCircleCollision(l *Line, c *Circle) (bool, []*Point) {
 	}
 	// line doesn't touch circle
 	return false, nil
+}
+
+func checkLinePolygonCollision(l *Line, p *Polygon) (bool, []*Point) {
+	pLines := p.GetLines()
+	return checkMultipleLinesShapeCollision(pLines, l)
+}
+
+func checkCirclePolygonCollision(c *Circle, p *Polygon) (bool, []*Point) {
+	pLines := p.GetLines()
+	return checkMultipleLinesShapeCollision(pLines, c)
+}
+
+func checkMultipleLinesShapeCollision(lines []*Line, other Shape) (bool, []*Point) {
+	collides := false
+	collisionPoints := []*Point{}
+	for _, line := range lines {
+		collides, points := line.CollidesWith(other)
+		if collides {
+			collides = true
+			collisionPoints = append(collisionPoints, points...)
+		}
+	}
+	return collides, collisionPoints
+}
+
+type BaseShape struct {
+}
+
+func (s *BaseShape) GetCenter() *Point {
+	return nil
+}
+
+func (s *BaseShape) CollidesWith(other Shape) (bool, []*Point) {
+	lines := []Shape{}
+	circles := []Shape{}
+	polygons := []Shape{}
+
+	switch reflect.TypeOf(s) {
+	case reflect.TypeOf(&Line{}):
+		lines = append(lines, s)
+	case reflect.TypeOf(&Circle{}):
+		circles = append(circles, s)
+	case reflect.TypeOf(&Polygon{}):
+		polygons = append(polygons, s)
+	}
+	switch reflect.TypeOf(other) {
+	case reflect.TypeOf(&Line{}):
+		lines = append(lines, other)
+	case reflect.TypeOf(&Circle{}):
+		circles = append(circles, other)
+	case reflect.TypeOf(&Polygon{}):
+		polygons = append(polygons, other)
+	}
+
+	if len(lines) == 2 {
+		return checkLineLineCollision(lines[0].(*Line), lines[1].(*Line))
+	}
+	if len(circles) == 2 {
+		return checkCircleCircleCollision(circles[0].(*Circle), circles[1].(*Circle))
+	}
+	if len(polygons) == 2 {
+		return checkPolygonPolygonCollision(polygons[0].(*Polygon), polygons[1].(*Polygon))
+	}
+	if len(lines) == 1 && len(circles) == 1 {
+		return checkLineCircleCollision(lines[0].(*Line), circles[0].(*Circle))
+	}
+	if len(lines) == 1 && len(polygons) == 1 {
+		return checkLinePolygonCollision(lines[0].(*Line), polygons[0].(*Polygon))
+	}
+	if len(circles) > 0 && len(polygons) > 0 {
+		return checkCirclePolygonCollision(circles[0].(*Circle), polygons[0].(*Polygon))
+	}
+	return false, nil
+}
+
+func (s *BaseShape) DistanceTo(other Shape) float64 {
+	center := s.GetCenter()
+	otherCenter := other.GetCenter()
+	return math.Sqrt(math.Pow(otherCenter.X-center.X, 2) + math.Pow(otherCenter.Y-center.Y, 2))
 }
