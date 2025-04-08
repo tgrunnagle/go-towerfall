@@ -1,6 +1,7 @@
 package geo
 
 import (
+	"fmt"
 	"math"
 	"gonum.org/v1/gonum/mat"
 	"sort"
@@ -173,39 +174,65 @@ func checkPolygonPolygonCollision(p1 *Polygon, p2 *Polygon) (bool, []*Point) {
 
 func checkLineCircleCollision(line *Line, circle *Circle) (bool, []*Point) {
 	// Convert line segment to parametric form: P = A + t(B-A), where t in [0,1]
-	dx := line.B.X - line.A.X
-	dy := line.B.Y - line.A.Y
+	// We want to ensure that the t values are in [0,1], so we need to orient
+	// the line segment correctly based on its relationship to the circle center
+	var a, b *Point
+	if math.Abs(line.A.X-line.B.X) > math.Abs(line.A.Y-line.B.Y) {
+		// Line is more horizontal
+		if line.A.X <= line.B.X {
+			a, b = line.A, line.B
+		} else {
+			a, b = line.B, line.A
+		}
+	} else {
+		// Line is more vertical
+		if line.A.Y <= line.B.Y {
+			a, b = line.A, line.B
+		} else {
+			a, b = line.B, line.A
+		}
+	}
+
+	dx := b.X - a.X
+	dy := b.Y - a.Y
 
 	// Compute coefficients of quadratic equation
 	// (x - cx)^2 + (y - cy)^2 = r^2
 	// where x = ax + t*dx and y = ay + t*dy
-	a := dx*dx + dy*dy
-	b := 2 * (dx*(line.A.X-circle.C.X) + dy*(line.A.Y-circle.C.Y))
-	c := math.Pow(line.A.X-circle.C.X, 2) + math.Pow(line.A.Y-circle.C.Y, 2) - circle.R*circle.R
+	aa := dx*dx + dy*dy
+	bb := 2 * (dx*(a.X-circle.C.X) + dy*(a.Y-circle.C.Y))
+	cc := math.Pow(a.X-circle.C.X, 2) + math.Pow(a.Y-circle.C.Y, 2) - circle.R*circle.R
 
 	// Handle special case where line is a point
-	if math.Abs(a) < 1e-10 {
+	if math.Abs(aa) < 1e-10 {
 		// Check if the point is on the circle
-		dist := math.Sqrt(math.Pow(line.A.X-circle.C.X, 2) + math.Pow(line.A.Y-circle.C.Y, 2))
+		dist := math.Sqrt(math.Pow(a.X-circle.C.X, 2) + math.Pow(a.Y-circle.C.Y, 2))
 		if math.Abs(dist-circle.R) < 1e-10 {
-			return true, []*Point{{X: line.A.X, Y: line.A.Y}}
+			return true, []*Point{{X: a.X, Y: a.Y}}
 		}
 		return false, []*Point{}
 	}
 
 	// Solve quadratic equation
-	discriminant := b*b - 4*a*c
+	discriminant := bb*bb - 4*aa*cc
+
+	// Debug output
+	fmt.Printf("Line: (%f,%f) to (%f,%f)\n", a.X, a.Y, b.X, b.Y)
+	fmt.Printf("Circle: center=(%f,%f), radius=%f\n", circle.C.X, circle.C.Y, circle.R)
+	fmt.Printf("Quadratic equation: %fx^2 + %fx + %f = 0\n", aa, bb, cc)
+	fmt.Printf("Discriminant: %f\n", discriminant)
+
 	if discriminant < -1e-10 { // No intersection
 		return false, []*Point{}
 	}
 
 	// Handle tangent case (discriminant ≈ 0)
 	if math.Abs(discriminant) < 1e-10 {
-		t := -b / (2 * a)
+		t := -bb / (2 * aa)
 		// Check if the point lies on the line segment
-		if t >= 0 && t <= 1 {
-			x := line.A.X + t*dx
-			y := line.A.Y + t*dy
+		if t >= -1e-10 && t <= 1+1e-10 {
+			x := a.X + t*dx
+			y := a.Y + t*dy
 			return true, []*Point{{X: x, Y: y}}
 		}
 		return false, []*Point{}
@@ -213,34 +240,41 @@ func checkLineCircleCollision(line *Line, circle *Circle) (bool, []*Point) {
 
 	// Handle intersection case (discriminant > 0)
 	sqrtD := math.Sqrt(discriminant)
-	t1 := (-b - sqrtD) / (2 * a)
-	t2 := (-b + sqrtD) / (2 * a)
+	t1 := (-bb - sqrtD) / (2 * aa)
+	t2 := (-bb + sqrtD) / (2 * aa)
+
+	fmt.Printf("t1=%f, t2=%f\n", t1, t2)
 
 	points := []*Point{}
 	// Check first intersection point
-	if t1 >= 0 && t1 <= 1 {
-		x := line.A.X + t1*dx
-		y := line.A.Y + t1*dy
+	if t1 >= -1e-10 && t1 <= 1+1e-10 { // Use epsilon to handle floating point errors
+		x := a.X + t1*dx
+		y := a.Y + t1*dy
 		points = append(points, &Point{X: x, Y: y})
 	}
 	// Check second intersection point
-	if t2 >= 0 && t2 <= 1 {
-		x := line.A.X + t2*dx
-		y := line.A.Y + t2*dy
+	if t2 >= -1e-10 && t2 <= 1+1e-10 { // Use epsilon to handle floating point errors
+		x := a.X + t2*dx
+		y := a.Y + t2*dy
 		points = append(points, &Point{X: x, Y: y})
 	}
 
 	// Handle case where line is tangent to circle at an endpoint
 	if len(points) == 0 {
 		// Check if either endpoint is on the circle
-		dist1 := math.Sqrt(math.Pow(line.A.X-circle.C.X, 2) + math.Pow(line.A.Y-circle.C.Y, 2))
+		dist1 := math.Sqrt(math.Pow(a.X-circle.C.X, 2) + math.Pow(a.Y-circle.C.Y, 2))
 		if math.Abs(dist1-circle.R) < 1e-10 {
-			points = append(points, &Point{X: line.A.X, Y: line.A.Y})
+			points = append(points, &Point{X: a.X, Y: a.Y})
 		}
-		dist2 := math.Sqrt(math.Pow(line.B.X-circle.C.X, 2) + math.Pow(line.B.Y-circle.C.Y, 2))
+		dist2 := math.Sqrt(math.Pow(b.X-circle.C.X, 2) + math.Pow(b.Y-circle.C.Y, 2))
 		if math.Abs(dist2-circle.R) < 1e-10 {
-			points = append(points, &Point{X: line.B.X, Y: line.B.Y})
+			points = append(points, &Point{X: b.X, Y: b.Y})
 		}
+	}
+
+	fmt.Printf("Found %d intersection points\n", len(points))
+	for i, p := range points {
+		fmt.Printf("Point %d: (%f,%f)\n", i, p.X, p.Y)
 	}
 
 	return len(points) > 0, points
@@ -270,18 +304,9 @@ func checkCirclePolygonCollision(circle *Circle, polygon *Polygon) (bool, []*Poi
 		linesCollide, lineCollisionPoints := checkLineCircleCollision(line, circle)
 		if linesCollide {
 			collides = true
-			// For each edge, only keep the intersection point closest to the start of the edge
-			if len(lineCollisionPoints) > 0 {
-				closestPoint := lineCollisionPoints[0]
-				minDist := math.Sqrt(math.Pow(closestPoint.X-line.A.X, 2) + math.Pow(closestPoint.Y-line.A.Y, 2))
-				for _, point := range lineCollisionPoints[1:] {
-					dist := math.Sqrt(math.Pow(point.X-line.A.X, 2) + math.Pow(point.Y-line.A.Y, 2))
-					if dist < minDist {
-						closestPoint = point
-						minDist = dist
-					}
-				}
-				collisionPoints = append(collisionPoints, closestPoint)
+			// For each edge, keep all intersection points
+			for _, point := range lineCollisionPoints {
+				collisionPoints = append(collisionPoints, point)
 			}
 		}
 	}
@@ -290,6 +315,14 @@ func checkCirclePolygonCollision(circle *Circle, polygon *Polygon) (bool, []*Poi
 	// This is needed for cases where the circle is entirely inside the polygon
 	if pointInPolygon(circle.C, polygon) {
 		collides = true
+	}
+
+	// Check if any polygon vertex is inside the circle
+	for _, vertex := range polygon.Points {
+		dist := math.Sqrt(math.Pow(vertex.X-circle.C.X, 2) + math.Pow(vertex.Y-circle.C.Y, 2))
+		if dist <= circle.R+1e-10 {
+			collisionPoints = append(collisionPoints, vertex)
+		}
 	}
 
 	return collides, deduplicatePoints(collisionPoints)
