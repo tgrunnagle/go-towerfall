@@ -2,8 +2,9 @@ package geo
 
 import (
 	"math"
-	"gonum.org/v1/gonum/mat"
 	"sort"
+
+	"gonum.org/v1/gonum/mat"
 )
 
 type Point struct {
@@ -41,6 +42,18 @@ func (l *Line) GetCenter() *Point {
 	return NewPoint((l.A.X+l.B.X)/2, (l.A.Y+l.B.Y)/2)
 }
 
+func (l *Line) CollidesWith(other Shape) (bool, []*Point) {
+	switch other.(type) {
+	case *Line:
+		return checkLineLineCollision(l, other.(*Line))
+	case *Circle:
+		return checkLineCircleCollision(l, other.(*Circle))
+	case *Polygon:
+		return checkLinePolygonCollision(l, other.(*Polygon))
+	}
+	return false, nil
+}
+
 type Circle struct {
 	*BaseShape
 	C *Point
@@ -56,6 +69,18 @@ func NewCircle(c *Point, r float64) *Circle {
 
 func (c *Circle) GetCenter() *Point {
 	return NewPoint(c.C.X, c.C.Y)
+}
+
+func (c *Circle) CollidesWith(other Shape) (bool, []*Point) {
+	switch other.(type) {
+	case *Line:
+		return checkLineCircleCollision(other.(*Line), c)
+	case *Circle:
+		return checkCircleCircleCollision(c, other.(*Circle))
+	case *Polygon:
+		return checkCirclePolygonCollision(c, other.(*Polygon))
+	}
+	return false, nil
 }
 
 type Polygon struct {
@@ -84,6 +109,18 @@ func (p *Polygon) GetLines() []*Line {
 		lines = append(lines, NewLine(point, p.Points[(i+1)%len(p.Points)]))
 	}
 	return lines
+}
+
+func (p *Polygon) CollidesWith(other Shape) (bool, []*Point) {
+	switch other.(type) {
+	case *Line:
+		return checkLinePolygonCollision(other.(*Line), p)
+	case *Circle:
+		return checkCirclePolygonCollision(other.(*Circle), p)
+	case *Polygon:
+		return checkPolygonPolygonCollision(p, other.(*Polygon))
+	}
+	return false, nil
 }
 
 func checkLineLineCollision(l1 *Line, l2 *Line) (bool, []*Point) {
@@ -291,9 +328,7 @@ func checkCirclePolygonCollision(circle *Circle, polygon *Polygon) (bool, []*Poi
 		if linesCollide {
 			collides = true
 			// For each edge, keep all intersection points
-			for _, point := range lineCollisionPoints {
-				collisionPoints = append(collisionPoints, point)
-			}
+			collisionPoints = append(collisionPoints, lineCollisionPoints...)
 		}
 	}
 
@@ -311,19 +346,6 @@ func checkCirclePolygonCollision(circle *Circle, polygon *Polygon) (bool, []*Poi
 		}
 	}
 
-	return collides, deduplicatePoints(collisionPoints)
-}
-
-func checkMultipleLinesShapeCollision(lines []*Line, other Shape) (bool, []*Point) {
-	collides := false
-	collisionPoints := []*Point{}
-	for _, line := range lines {
-		lineCollides, points := line.CollidesWith(other)
-		if lineCollides {
-			collides = true
-			collisionPoints = append(collisionPoints, points...)
-		}
-	}
 	return collides, deduplicatePoints(collisionPoints)
 }
 
@@ -371,7 +393,7 @@ func deduplicatePoints(points []*Point) []*Point {
 			// 2. They lie on the same horizontal or vertical line and are close in one coordinate
 			dx := math.Abs(curr.X - prev.X)
 			dy := math.Abs(curr.Y - prev.Y)
-			if dx*dx + dy*dy < epsilon*epsilon || // Points are very close to each other
+			if dx*dx+dy*dy < epsilon*epsilon || // Points are very close to each other
 				(dx < epsilon && math.Abs(curr.Y-prev.Y) < 2*epsilon) || // Points are on same vertical line
 				(dy < epsilon && math.Abs(curr.X-prev.X) < 2*epsilon) { // Points are on same horizontal line
 				isDuplicate = true
@@ -392,10 +414,10 @@ func pointOnLineSegment(point *Point, line *Line) bool {
 	d1 := math.Sqrt(math.Pow(point.X-line.A.X, 2) + math.Pow(point.Y-line.A.Y, 2))
 	d2 := math.Sqrt(math.Pow(point.X-line.B.X, 2) + math.Pow(point.Y-line.B.Y, 2))
 	lineLength := math.Sqrt(math.Pow(line.B.X-line.A.X, 2) + math.Pow(line.B.Y-line.A.Y, 2))
-	
+
 	// If the sum of distances from the point to both endpoints is approximately equal to the line length,
 	// then the point lies on the line segment
-	return math.Abs(d1 + d2 - lineLength) < epsilon
+	return math.Abs(d1+d2-lineLength) < epsilon
 }
 
 // approximatePointsEqual checks if two points are approximately equal within a small epsilon
@@ -420,46 +442,13 @@ func (s *BaseShape) GetCenter() *Point {
 }
 
 func (s *BaseShape) CollidesWith(other Shape) (bool, []*Point) {
-	var s1, s2 Shape = s, other
-
-	// Get the actual shape from s if it's a BaseShape
-	if bs, ok := s1.(*BaseShape); ok {
-		s1 = bs
-	}
-
-	// Get the actual shape from other if it's a BaseShape
-	if bs, ok := s2.(*BaseShape); ok {
-		s2 = bs
-	}
-
-	switch s1.(type) {
+	switch other.(type) {
 	case *Line:
-		switch s2.(type) {
-		case *Line:
-			return checkLineLineCollision(s1.(*Line), s2.(*Line))
-		case *Circle:
-			return checkLineCircleCollision(s1.(*Line), s2.(*Circle))
-		case *Polygon:
-			return checkLinePolygonCollision(s1.(*Line), s2.(*Polygon))
-		}
+		return false, nil
 	case *Circle:
-		switch s2.(type) {
-		case *Line:
-			return checkLineCircleCollision(s2.(*Line), s1.(*Circle))
-		case *Circle:
-			return checkCircleCircleCollision(s1.(*Circle), s2.(*Circle))
-		case *Polygon:
-			return checkCirclePolygonCollision(s1.(*Circle), s2.(*Polygon))
-		}
+		return false, nil
 	case *Polygon:
-		switch s2.(type) {
-		case *Line:
-			return checkLinePolygonCollision(s2.(*Line), s1.(*Polygon))
-		case *Circle:
-			return checkCirclePolygonCollision(s2.(*Circle), s1.(*Polygon))
-		case *Polygon:
-			return checkPolygonPolygonCollision(s1.(*Polygon), s2.(*Polygon))
-		}
+		return false, nil
 	}
 	return false, nil
 }
