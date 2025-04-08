@@ -6,31 +6,31 @@ import (
 
 func TestLineLineCollision(t *testing.T) {
 	tests := []struct {
-		name     string
-		line1    Line
-		line2    Line
-		want     bool
+		name      string
+		line1     Line
+		line2     Line
+		want      bool
 		wantPoint *Point
 	}{
 		{
-			name:  "Intersecting lines",
-			line1: Line{A: &Point{X: 0, Y: 0}, B: &Point{X: 2, Y: 2}},
-			line2: Line{A: &Point{X: 0, Y: 2}, B: &Point{X: 2, Y: 0}},
-			want:  true,
+			name:      "Intersecting lines",
+			line1:     Line{A: &Point{X: 0, Y: 0}, B: &Point{X: 2, Y: 2}},
+			line2:     Line{A: &Point{X: 0, Y: 2}, B: &Point{X: 2, Y: 0}},
+			want:      true,
 			wantPoint: &Point{X: 1, Y: 1},
 		},
 		{
-			name:  "Parallel lines",
-			line1: Line{A: &Point{X: 0, Y: 0}, B: &Point{X: 2, Y: 2}},
-			line2: Line{A: &Point{X: 0, Y: 1}, B: &Point{X: 2, Y: 3}},
-			want:  false,
+			name:      "Parallel lines",
+			line1:     Line{A: &Point{X: 0, Y: 0}, B: &Point{X: 2, Y: 2}},
+			line2:     Line{A: &Point{X: 0, Y: 1}, B: &Point{X: 2, Y: 3}},
+			want:      false,
 			wantPoint: nil,
 		},
 		{
-			name:  "Non-intersecting lines",
-			line1: Line{A: &Point{X: 0, Y: 0}, B: &Point{X: 1, Y: 1}},
-			line2: Line{A: &Point{X: 3, Y: 3}, B: &Point{X: 4, Y: 4}},
-			want:  false,
+			name:      "Non-intersecting lines",
+			line1:     Line{A: &Point{X: 0, Y: 0}, B: &Point{X: 1, Y: 1}},
+			line2:     Line{A: &Point{X: 3, Y: 3}, B: &Point{X: 4, Y: 4}},
+			want:      false,
 			wantPoint: nil,
 		},
 	}
@@ -138,10 +138,10 @@ func TestCircleLineCollision(t *testing.T) {
 
 func TestPolygonPolygonCollision(t *testing.T) {
 	tests := []struct {
-		name     string
-		polygon1 Polygon
-		polygon2 Polygon
-		want     bool
+		name      string
+		polygon1  Polygon
+		polygon2  Polygon
+		want      bool
 		numPoints int
 	}{
 		{
@@ -206,6 +206,27 @@ func TestPolygonPolygonCollision(t *testing.T) {
 			},
 			want:      true,
 			numPoints: 1,
+		},
+		{
+			name: "Squares with overlapping edge",
+			polygon1: Polygon{
+				Points: []*Point{
+					{X: 0, Y: 0},
+					{X: 2, Y: 0},
+					{X: 2, Y: 2},
+					{X: 0, Y: 2},
+				},
+			},
+			polygon2: Polygon{
+				Points: []*Point{
+					{X: 2, Y: 1},
+					{X: 4, Y: 1},
+					{X: 4, Y: 3},
+					{X: 2, Y: 3},
+				},
+			},
+			want:      true,
+			numPoints: 2,  // Two points: one at each end of the overlapping edge (2,1) and (2,2)
 		},
 	}
 
@@ -372,24 +393,24 @@ func TestPolygonCircleCollision(t *testing.T) {
 
 func TestCollidesWith(t *testing.T) {
 	tests := []struct {
-		name     string
-		shape1   Shape
-		shape2   Shape
-		want     bool
+		name       string
+		shape1     Shape
+		shape2     Shape
+		want       bool
 		wantPoints int // Number of collision points expected
 	}{
 		{
-			name:   "Line-Line collision",
-			shape1: &Line{BaseShape: &BaseShape{}, A: &Point{X: 0, Y: 0}, B: &Point{X: 2, Y: 2}},
-			shape2: &Line{BaseShape: &BaseShape{}, A: &Point{X: 0, Y: 2}, B: &Point{X: 2, Y: 0}},
-			want:   true,
+			name:       "Line-Line collision",
+			shape1:     &Line{BaseShape: &BaseShape{}, A: &Point{X: 0, Y: 0}, B: &Point{X: 2, Y: 2}},
+			shape2:     &Line{BaseShape: &BaseShape{}, A: &Point{X: 0, Y: 2}, B: &Point{X: 2, Y: 0}},
+			want:       true,
 			wantPoints: 1,
 		},
 		{
-			name:   "Line-Circle collision",
-			shape1: &Line{BaseShape: &BaseShape{}, A: &Point{X: -2, Y: 0}, B: &Point{X: 2, Y: 0}},
-			shape2: &Circle{BaseShape: &BaseShape{}, C: &Point{X: 0, Y: 0.5}, R: 1},
-			want:   true,
+			name:       "Line-Circle collision",
+			shape1:     &Line{BaseShape: &BaseShape{}, A: &Point{X: -2, Y: 0}, B: &Point{X: 2, Y: 0}},
+			shape2:     &Circle{BaseShape: &BaseShape{}, C: &Point{X: 0, Y: 0.5}, R: 1},
+			want:       true,
 			wantPoints: 2,
 		},
 		{
@@ -404,15 +425,15 @@ func TestCollidesWith(t *testing.T) {
 					&Point{X: 0, Y: 1},
 				},
 			},
-			want:   true,
+			want:       true,
 			wantPoints: 2,
 		},
 		{
-			name:   "Circle-Circle collision",
-			shape1: &Circle{BaseShape: &BaseShape{}, C: &Point{X: 0, Y: 0}, R: 1},
-			shape2: &Circle{BaseShape: &BaseShape{}, C: &Point{X: 1, Y: 0}, R: 1},
-			want:   true,
-			wantPoints: 2,  // Circle-Circle intersection produces 2 points
+			name:       "Circle-Circle collision",
+			shape1:     &Circle{BaseShape: &BaseShape{}, C: &Point{X: 0, Y: 0}, R: 1},
+			shape2:     &Circle{BaseShape: &BaseShape{}, C: &Point{X: 1, Y: 0}, R: 1},
+			want:       true,
+			wantPoints: 2, // Circle-Circle intersection produces 2 points
 		},
 		{
 			name:   "Circle-Polygon collision",
@@ -426,11 +447,11 @@ func TestCollidesWith(t *testing.T) {
 					&Point{X: 0.5, Y: 1},
 				},
 			},
-			want:   true,
-			wantPoints: 3,  // Circle-Polygon intersection can produce multiple points
+			want:       true,
+			wantPoints: 3, // Circle-Polygon intersection can produce multiple points
 		},
 		{
-			name:   "Polygon-Polygon collision",
+			name: "Polygon-Polygon collision",
 			shape1: &Polygon{
 				BaseShape: &BaseShape{},
 				Points: []*Point{
@@ -449,25 +470,25 @@ func TestCollidesWith(t *testing.T) {
 					&Point{X: 1, Y: 3},
 				},
 			},
-			want:   true,
-			wantPoints: 2,  // Overlapping squares produce 2 intersection points
+			want:       true,
+			wantPoints: 2, // Overlapping squares produce 2 intersection points
 		},
 		{
-			name:   "No collision - Line-Line parallel",
-			shape1: &Line{BaseShape: &BaseShape{}, A: &Point{X: 0, Y: 0}, B: &Point{X: 2, Y: 2}},
-			shape2: &Line{BaseShape: &BaseShape{}, A: &Point{X: 0, Y: 1}, B: &Point{X: 2, Y: 3}},
-			want:   false,
+			name:       "No collision - Line-Line parallel",
+			shape1:     &Line{BaseShape: &BaseShape{}, A: &Point{X: 0, Y: 0}, B: &Point{X: 2, Y: 2}},
+			shape2:     &Line{BaseShape: &BaseShape{}, A: &Point{X: 0, Y: 1}, B: &Point{X: 2, Y: 3}},
+			want:       false,
 			wantPoints: 0,
 		},
 		{
-			name:   "No collision - Circle-Circle distant",
-			shape1: &Circle{BaseShape: &BaseShape{}, C: &Point{X: 0, Y: 0}, R: 1},
-			shape2: &Circle{BaseShape: &BaseShape{}, C: &Point{X: 3, Y: 3}, R: 1},
-			want:   false,
+			name:       "No collision - Circle-Circle distant",
+			shape1:     &Circle{BaseShape: &BaseShape{}, C: &Point{X: 0, Y: 0}, R: 1},
+			shape2:     &Circle{BaseShape: &BaseShape{}, C: &Point{X: 3, Y: 3}, R: 1},
+			want:       false,
 			wantPoints: 0,
 		},
 		{
-			name:   "No collision - Polygon-Polygon distant",
+			name: "No collision - Polygon-Polygon distant",
 			shape1: &Polygon{
 				BaseShape: &BaseShape{},
 				Points: []*Point{
@@ -486,7 +507,7 @@ func TestCollidesWith(t *testing.T) {
 					&Point{X: 3, Y: 4},
 				},
 			},
-			want:   false,
+			want:       false,
 			wantPoints: 0,
 		},
 	}
