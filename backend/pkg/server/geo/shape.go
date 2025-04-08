@@ -1,7 +1,6 @@
 package geo
 
 import (
-	"fmt"
 	"math"
 	"gonum.org/v1/gonum/mat"
 	"sort"
@@ -216,12 +215,6 @@ func checkLineCircleCollision(line *Line, circle *Circle) (bool, []*Point) {
 	// Solve quadratic equation
 	discriminant := bb*bb - 4*aa*cc
 
-	// Debug output
-	fmt.Printf("Line: (%f,%f) to (%f,%f)\n", a.X, a.Y, b.X, b.Y)
-	fmt.Printf("Circle: center=(%f,%f), radius=%f\n", circle.C.X, circle.C.Y, circle.R)
-	fmt.Printf("Quadratic equation: %fx^2 + %fx + %f = 0\n", aa, bb, cc)
-	fmt.Printf("Discriminant: %f\n", discriminant)
-
 	if discriminant < -1e-10 { // No intersection
 		return false, []*Point{}
 	}
@@ -242,8 +235,6 @@ func checkLineCircleCollision(line *Line, circle *Circle) (bool, []*Point) {
 	sqrtD := math.Sqrt(discriminant)
 	t1 := (-bb - sqrtD) / (2 * aa)
 	t2 := (-bb + sqrtD) / (2 * aa)
-
-	fmt.Printf("t1=%f, t2=%f\n", t1, t2)
 
 	points := []*Point{}
 	// Check first intersection point
@@ -270,11 +261,6 @@ func checkLineCircleCollision(line *Line, circle *Circle) (bool, []*Point) {
 		if math.Abs(dist2-circle.R) < 1e-10 {
 			points = append(points, &Point{X: b.X, Y: b.Y})
 		}
-	}
-
-	fmt.Printf("Found %d intersection points\n", len(points))
-	for i, p := range points {
-		fmt.Printf("Point %d: (%f,%f)\n", i, p.X, p.Y)
 	}
 
 	return len(points) > 0, points

@@ -138,10 +138,10 @@ func TestCircleLineCollision(t *testing.T) {
 
 func TestPolygonPolygonCollision(t *testing.T) {
 	tests := []struct {
-		name      string
-		polygon1  Polygon
-		polygon2  Polygon
-		want      bool
+		name     string
+		polygon1 Polygon
+		polygon2 Polygon
+		want     bool
 		numPoints int
 	}{
 		{
@@ -212,11 +212,6 @@ func TestPolygonPolygonCollision(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, points := checkPolygonPolygonCollision(&tt.polygon1, &tt.polygon2)
-			t.Logf("Test case: %s", tt.name)
-			t.Logf("Points found (%d):", len(points))
-			for i, p := range points {
-				t.Logf("  Point %d: (%.2f, %.2f)", i, p.X, p.Y)
-			}
 			if got != tt.want {
 				t.Errorf("Polygon.CollidesWith() collision = %v, want %v", got, tt.want)
 			}
@@ -365,11 +360,6 @@ func TestPolygonCircleCollision(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, points := checkCirclePolygonCollision(&tt.circle, &tt.polygon)
-			t.Logf("Test case: %s", tt.name)
-			t.Logf("Points found (%d):", len(points))
-			for i, p := range points {
-				t.Logf("  Point %d: (%.2f, %.2f)", i, p.X, p.Y)
-			}
 			if got != tt.want {
 				t.Errorf("Polygon.CollidesWith() collision = %v, want %v", got, tt.want)
 			}
