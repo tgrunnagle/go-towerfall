@@ -47,7 +47,7 @@ const (
 	PlayerRadius                = 16.0
 	PlayerRespawnTimeSec        = 5.0
 	PlayerSpeedXMetersPerSec    = 10.0
-	PlayerJumpSpeedMetersPerSec = 20.0
+	PlayerJumpSpeedMetersPerSec = 12.0
 	PlayerStartingX             = 100.0
 	PlayerStartingY             = 100.0
 	PlayerStartingHealth        = 100.0

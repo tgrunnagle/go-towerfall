@@ -2,6 +2,7 @@ package util
 
 import (
 	"encoding/json"
+	"math"
 
 	"github.com/google/uuid"
 )
@@ -32,4 +33,12 @@ func Must(data []byte, err error) json.RawMessage {
 		panic(err)
 	}
 	return data
+}
+
+func RoundToTenths(num float64) float64 {
+	return RoundToDecimalPlace(num, 1)
+}
+
+func RoundToDecimalPlace(num float64, decimalPlaces int) float64 {
+	return math.Round(num*float64(math.Pow(10, float64(decimalPlaces)))) / float64(math.Pow(10, float64(decimalPlaces)))
 }

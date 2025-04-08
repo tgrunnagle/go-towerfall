@@ -31,9 +31,9 @@ func createMapWithBlocks() []game_objects.GameObject {
 	floor := game_objects.NewBlockGameObject(
 		uuid.New().String(),
 		0,
-		constants.RoomSizePixelsY-game_objects.BlockSizeUnitPixels,
+		constants.RoomSizePixelsY-game_objects.BlockSizeUnitPixels*3,
 		constants.RoomSizePixelsX,
-		game_objects.BlockSizeUnitPixels,
+		game_objects.BlockSizeUnitPixels*3,
 	)
 	return []game_objects.GameObject{floor}
 }

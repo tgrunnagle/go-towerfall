@@ -255,12 +255,24 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 			if isSolid {
 				// Collision detected, stop moving
 				// TODO only stop moving in the direction of the collision
-				x, _ := p.GetStateValue(constants.StateX)
-				y, _ := p.GetStateValue(constants.StateY)
-				nextX = x.(float64)
-				nextY = y.(float64)
-				nextDx = 0.0
-				nextDy = 0.0
+				// Get the average of the angle of the collision point to the player x, y (center of the bounding shape)
+				var totalAngle float64
+				var count int
+				for _, point := range collisionPoints {
+					angle := math.Atan2(point.Y-nextY, point.X-nextX)
+					totalAngle += angle
+					count++
+				}
+				if count > 0 {
+					averageAngle := totalAngle / float64(count)
+					if math.Abs(math.Cos(averageAngle)) > 0.1 {
+						nextDx = 0.0
+					}
+					if math.Abs(math.Sin(averageAngle)) > 0.1 {
+						nextDy = 0.0
+					}
+					nextX, nextY, _ = GetExtrapolatedPositionForDxDy(p, nextDx, nextDy)
+				}
 			}
 			if isEnemyBullet {
 				// Report collision to bullet

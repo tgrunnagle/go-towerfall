@@ -7,6 +7,27 @@ import (
 	"time"
 )
 
+func GetExtrapolatedPositionForDxDy(p GameObject, dX float64, dY float64) (float64, float64, error) {
+	lastUpdateTIme, exists := p.GetStateValue(constants.StateLastLocUpdateTime)
+	if !exists {
+		return 0.0, 0.0, errors.New("missing lastLocUpdateTime state")
+	}
+	deltaTime := time.Since(lastUpdateTIme.(time.Time)).Seconds()
+
+	x, exists := p.GetStateValue(constants.StateX)
+	if !exists {
+		return 0.0, 0.0, errors.New("missing x state")
+	}
+	y, exists := p.GetStateValue(constants.StateY)
+	if !exists {
+		return 0.0, 0.0, errors.New("missing y state")
+	}
+
+	nextX := x.(float64) + dX*deltaTime
+	nextY := y.(float64) + dY*deltaTime
+	return nextX, nextY, nil
+}
+
 func GetExtrapolatedPosition(p GameObject) (float64, float64, float64, float64, error) {
 	lastUpdateTIme, exists := p.GetStateValue(constants.StateLastLocUpdateTime)
 	if !exists {
