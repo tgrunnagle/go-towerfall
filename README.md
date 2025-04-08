@@ -1,0 +1,72 @@
+# Multiplayer Game WebSocket Server
+
+A Go-based WebSocket server with a React frontend designed for multiplayer online games. This server maintains state about connected players and provides real-time game state updates.
+
+## Features
+
+- WebSocket-based communication using Gorilla WebSocket
+- Player state management with position tracking
+- Game room creation and management
+- Player authentication with tokens
+- Real-time game state broadcasting
+- Position interpolation for smooth movement
+- React-based frontend with canvas rendering
+- Keyboard controls for player movement
+- Bullets!
+
+## Project Structure
+
+- `/backend` - Go WebSocket server
+- `/frontend` - React frontend application
+- `/test` - Selenium tests
+
+## Running the Application
+
+### Using Docker Compose (Recommended)
+
+This will start both the backend server and frontend application:
+
+```bash
+docker compose up --build
+```
+
+The backend server will be available at `ws://localhost:4000/ws`
+The frontend application will be available at `http://localhost:4001`
+
+### Running Locally
+
+#### Backend Server
+
+```bash
+cd backend
+go run main.go
+```
+
+The server will be available at `ws://localhost:4000/ws`
+
+#### Frontend Application
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+The frontend will be available at `http://localhost:4001`
+
+### Manual test helper
+
+The test helper is a Selenium script that can be used to manually test the application. It will start two browser instances and create a new game in one instance, then join the game in the other instance. Make sure the servers are running before running the test helper.
+
+```bash
+cd test
+npm install
+npm test
+```
+
+## Game Controls
+
+- Use W, A, S, D keys to move your player
+- Use left mouse button to shoot bullets
+- Create a new game room or join an existing one from the landing page
+- View room information and other players in the game view

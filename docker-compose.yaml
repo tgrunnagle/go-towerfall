@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  game-server:
+    build:
+      context: ./backend
+    ports:
+      - "4000:4000"
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "4001:80"
+    depends_on:
+      - game-server
+    environment:
+      - REACT_APP_WS_URL=ws://localhost:4000/ws

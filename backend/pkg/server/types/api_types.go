@@ -1,0 +1,99 @@
+package types
+
+import (
+	"encoding/json"
+	"go-ws-server/pkg/server/game_objects"
+)
+
+// Message represents a WebSocket message
+type Message struct {
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+// Request/Response structs
+type CreateGameRequest struct {
+	RoomName   string `json:"roomName"`
+	PlayerName string `json:"playerName"`
+}
+
+type CreateGameResponse struct {
+	Success      bool   `json:"success"`
+	Error        string `json:"error"`
+	RoomID       string `json:"roomId"`
+	RoomName     string `json:"roomName"`
+	RoomCode     string `json:"roomCode"`
+	RoomPassword string `json:"roomPassword"`
+	PlayerID     string `json:"playerId"`
+	PlayerToken  string `json:"playerToken"`
+}
+
+type JoinGameRequest struct {
+	RoomCode     string `json:"roomCode"`
+	RoomPassword string `json:"roomPassword"`
+	PlayerName   string `json:"playerName"`
+}
+
+type JoinGameResponse struct {
+	Success     bool   `json:"success"`
+	Error       string `json:"error"`
+	RoomID      string `json:"roomId"`
+	RoomName    string `json:"roomName"`
+	RoomCode    string `json:"roomCode"`
+	PlayerID    string `json:"playerId"`
+	PlayerToken string `json:"playerToken"`
+}
+
+type RejoinGameRequest struct {
+	RoomID      string `json:"roomId"`
+	PlayerID    string `json:"playerId"`
+	PlayerToken string `json:"playerToken"`
+}
+
+type RejoinGameResponse struct {
+	Success      bool   `json:"success"`
+	Error        string `json:"error"`
+	RoomName     string `json:"roomName"`
+	RoomCode     string `json:"roomCode"`
+	RoomPassword string `json:"roomPassword"`
+	PlayerName   string `json:"playerName"`
+	PlayerID     string `json:"playerId"`
+}
+
+type KeyStatusRequest struct {
+	KeysPressed []string `json:"keysPressed"` // List of currently pressed keys (W, A, S, D)
+}
+
+type ClientStateRequest struct {
+	Direction float64 `json:"dir"` // Direction in radians
+}
+
+type PlayerClickRequest struct {
+	X float64 `json:"x"` // Click position X
+	Y float64 `json:"y"` // Click position Y
+}
+
+type GameUpdateEvent struct {
+	Type game_objects.EventType `json:"type"`
+	Data map[string]interface{} `json:"data"`
+}
+
+type GameUpdate struct {
+	FullUpdate   bool                              `json:"fullUpdate"`
+	ObjectStates map[string]map[string]interface{} `json:"objectStates"` // Map of ObjectID -> ObjectState
+	Events       []GameUpdateEvent                 `json:"events"`       // List of events
+}
+
+// ExitGameRequest is sent when a player wants to exit a game
+type ExitGameRequest struct {
+}
+
+type ExitGameResponse struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error"`
+}
+
+// ErrorMessage is sent when an error occurs
+type ErrorMessage struct {
+	Message string `json:"message"`
+}

@@ -1,0 +1,354 @@
+package game_objects
+
+import (
+	"log"
+	"math"
+	"time"
+
+	"go-ws-server/pkg/server/constants"
+	"go-ws-server/pkg/server/geo"
+
+	"github.com/google/uuid"
+)
+
+// Constants for player movement
+const (
+	PlayerSpeed    = 128.0 // Speed in pixels per ms
+	StartingX      = 100.0
+	StartingY      = 100.0
+	PlayerRadius   = 16.0
+	StartingHealth = 100.0
+	RespawnTime    = 5 * time.Second // Time until player respawns
+)
+
+// PlayerGameObject represents a player in the game
+type PlayerGameObject struct {
+	*BaseGameObject
+	Name         string
+	Token        string
+	respawnTimer *time.Timer
+	respawning   bool
+}
+
+// NewPlayerGameObject creates a new PlayerGameObject
+func NewPlayerGameObject(id string, name string, token string) *PlayerGameObject {
+	base := NewBaseGameObject(id, constants.ObjectTypePlayer)
+	player := &PlayerGameObject{
+		BaseGameObject: base,
+		Name:           name,
+		Token:          token,
+		respawnTimer:   nil,
+	}
+
+	// Initialize player state
+	player.SetState(constants.StateID, id)
+	player.SetState(constants.StateName, name)
+	player.SetState(constants.StateX, StartingX)     // Starting X position
+	player.SetState(constants.StateY, StartingY)     // Starting Y position
+	player.SetState(constants.StateDx, 0.0)          // X velocity
+	player.SetState(constants.StateDy, 0.0)          // Y velocity
+	player.SetState(constants.StateDir, math.Pi*3/2) // Point downward
+	player.SetState(constants.StateLastLocUpdateTime, time.Now())
+	player.SetState(constants.StateRadius, PlayerRadius)   // Player radius
+	player.SetState(constants.StateHealth, StartingHealth) // Player health
+	player.SetState(constants.StateDead, false)            // Player is not dead
+
+	player.respawning = false
+	return player
+}
+
+// Handle processes events for the player
+func (p *PlayerGameObject) Handle(event *GameEvent, roomObjects map[string]GameObject) *GameObjectHandleEventResult {
+	if p.respawning {
+		// If the player is respawning, send an update to the client
+		p.respawning = false
+		return NewGameObjectHandleEventResult(true, nil)
+	}
+
+	// Skip event handling if player is dead
+	dead, exists := p.GetStateValue(constants.StateDead)
+	if exists && dead.(bool) {
+		return NewGameObjectHandleEventResult(false, nil)
+	}
+
+	stateChanged := false
+	var raisedEvents []*GameEvent = nil
+	switch event.EventType {
+	case EventPlayerKeyStatus:
+		stateChanged, raisedEvents = p.handlePlayerKeyStatus(event)
+	case EventPlayerClickInput:
+		stateChanged, raisedEvents = p.handlePlayerClickInput(event)
+	case EventPlayerDirection:
+		stateChanged, raisedEvents = p.handlePlayerDirection(event)
+	case EventGameTick:
+		stateChanged, raisedEvents = p.handleGameTick(event, roomObjects)
+	}
+
+	return NewGameObjectHandleEventResult(stateChanged, raisedEvents)
+}
+
+// GetState returns the current state of the game object
+func (p *PlayerGameObject) GetState() map[string]interface{} {
+	result := p.BaseGameObject.GetState() // Extrapolate position without updating state
+	nextX, nextY, err := GetExtrapolatedPosition(p)
+	if err != nil {
+		log.Printf("Failed to extrapolate player position: %v", err)
+		return result
+	}
+	result[constants.StateX] = nextX
+	result[constants.StateY] = nextY
+	return result
+}
+
+// handlePlayerKeyStatus processes player key status events
+func (p *PlayerGameObject) handlePlayerKeyStatus(event *GameEvent) (bool, []*GameEvent) {
+	// Check if this event is for this player
+	playerID, ok := event.Data["playerId"].(string)
+	if !ok || playerID != p.GetID() {
+		return false, nil
+	}
+
+	keysPressed, ok := event.Data["keysPressed"].([]string)
+	if !ok {
+		log.Printf("Invalid keysPressed type: %T", event.Data["keysPressed"])
+		return false, nil
+	}
+
+	// extrapolate position from last update
+	nextX, nextY, err := GetExtrapolatedPosition(p)
+	if err != nil {
+		log.Printf("Failed to extrapolate player position: %v", err)
+		return false, nil
+	}
+
+	// Update velocity based on keys pressed
+	dxHat := 0.0
+	dyHat := 0.0
+	for _, key := range keysPressed {
+		switch key {
+		case "W":
+			dyHat -= 1.0
+		case "S":
+			dyHat += 1.0
+		case "A":
+			dxHat -= 1.0
+		case "D":
+			dxHat += 1.0
+		}
+	}
+
+	bothZero := dxHat == 0.0 && dyHat == 0.0
+	var dx, dy float64
+	if bothZero {
+		dx = 0.0
+		dy = 0.0
+	} else {
+		angle := math.Atan2(dyHat, dxHat)
+		dx = PlayerSpeed * math.Cos(angle)
+		dy = PlayerSpeed * math.Sin(angle)
+	}
+
+	p.SetState(constants.StateX, nextX)
+	p.SetState(constants.StateY, nextY)
+	p.SetState(constants.StateDx, dx)
+	p.SetState(constants.StateDy, dy)
+	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+
+	return true, nil
+}
+
+func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*GameEvent) {
+	// Check if this event is for this player
+	playerID, ok := event.Data["playerId"].(string)
+	if !ok || playerID != p.GetID() {
+		return false, nil
+	}
+
+	// Update current position of the player so that the bullet spawns at the correct place
+	nextX, nextY, err := GetExtrapolatedPosition(p)
+	if err != nil {
+		log.Printf("Failed to extrapolate player position: %v", err)
+		return false, nil
+	}
+	p.SetState(constants.StateX, nextX)
+	p.SetState(constants.StateY, nextY)
+	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+
+	bullet := NewBulletGameObject(uuid.New().String(), p, event.Data["x"].(float64), event.Data["y"].(float64))
+	if bullet == nil {
+		return false, nil
+	}
+	return false, []*GameEvent{NewGameEvent(
+		"",
+		EventObjectCreated,
+		map[string]interface{}{
+			"type":   constants.ObjectTypeBullet,
+			"object": bullet,
+		},
+		1,
+		p,
+	)}
+}
+
+func (p *PlayerGameObject) GetBoundingShape() geo.Shape {
+	x, exists := p.GetStateValue(constants.StateX)
+	if !exists {
+		log.Printf("Player %s has no x state", p.GetID())
+		return nil
+	}
+	y, exists := p.GetStateValue(constants.StateY)
+	if !exists {
+		log.Printf("Player %s has no y state", p.GetID())
+		return nil
+	}
+	point := geo.NewPoint(x.(float64), y.(float64))
+	return geo.NewCircle(point, constants.PlayerRadius)
+}
+
+func (p *PlayerGameObject) GetNextBoundingShape() geo.Shape {
+	nextX, nextY, err := GetExtrapolatedPosition(p)
+	if err != nil {
+		log.Printf("Failed to extrapolate player position: %v", err)
+		return nil
+	}
+	point := geo.NewPoint(nextX, nextY)
+	return geo.NewCircle(point, constants.PlayerRadius)
+}
+
+func (p *PlayerGameObject) handlePlayerDirection(event *GameEvent) (bool, []*GameEvent) {
+	// Check if this event is for this player
+	playerID, ok := event.Data["playerId"].(string)
+	if !ok || playerID != p.GetID() {
+		return false, nil
+	}
+
+	direction, ok := event.Data["direction"].(float64)
+	if !ok {
+		log.Printf("Invalid direction type: %T", event.Data["direction"])
+		return false, nil
+	}
+
+	p.SetState(constants.StateDir, direction)
+	return true, nil
+}
+
+func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[string]GameObject) (bool, []*GameEvent) {
+	// Check collisions
+	shape := p.GetNextBoundingShape()
+	if shape == nil {
+		log.Printf("Failed to get bounding shape for player: %v", p.GetState())
+		return false, nil
+	}
+
+	events := []*GameEvent{}
+
+	// Check for collisions with solid objects and enemy bullets
+	for _, object := range roomObjects {
+		if object == p {
+			continue
+		}
+		iIsSolid, exists := object.GetProperty(GameObjectPropertyIsSolid)
+		isSolid := exists && iIsSolid.(bool)
+		isEnemyBullet := object.GetObjectType() == constants.ObjectTypeBullet && object.(*BulletGameObject).SourcePlayer != p
+		if !isSolid && !isEnemyBullet {
+			continue
+		}
+
+		otherShape := object.GetBoundingShape()
+		if otherShape == nil {
+			continue
+		}
+		collides, collisionPoints := shape.CollidesWith(otherShape)
+		if collides {
+			if isSolid {
+				// Collision detected, stop moving
+				p.SetState(constants.StateDx, 0.0)
+				p.SetState(constants.StateDy, 0.0)
+				p.SetState(constants.StateLastLocUpdateTime, time.Now())
+			}
+			if isEnemyBullet {
+				// Report collision to bullet
+				if len(collisionPoints) > 0 {
+					x := collisionPoints[0].X
+					y := collisionPoints[0].Y
+					object.(*BulletGameObject).ReportCollision(p, x, y)
+				} else {
+					log.Printf("Player %s collided with bullet %s but no collision point found", p.GetID(), object.GetID())
+				}
+
+				currentHealth, exists := p.GetStateValue(constants.StateHealth)
+				if !exists {
+					log.Printf("Player %s has no health state", p.GetID())
+					return false, nil
+				}
+				newHealth := currentHealth.(float64) - 10.0
+				p.SetState(constants.StateHealth, newHealth)
+
+				if newHealth <= 0.0 {
+					events = append(events, NewGameEvent(
+						event.RoomID,
+						EventPlayerDied,
+						map[string]interface{}{
+							"objectID": p.GetID(),
+							"x":        shape.GetCenter().X,
+							"y":        shape.GetCenter().Y,
+						},
+						10,
+						p,
+					))
+
+					p.SetState(constants.StateDead, true)
+					p.SetState(constants.StateDx, 0.0)
+					p.SetState(constants.StateDy, 0.0)
+					p.SetState(constants.StateLastLocUpdateTime, time.Now())
+					p.respawnTimer = time.AfterFunc(constants.PlayerRespawnTimeSec*time.Second, func() {
+						p.SetState(constants.StateDead, false)
+						p.SetState(constants.StateHealth, StartingHealth)
+						p.SetState(constants.StateX, StartingX)
+						p.SetState(constants.StateY, StartingY)
+						p.SetState(constants.StateDx, 0.0)
+						p.SetState(constants.StateDy, 0.0)
+						p.SetState(constants.StateDir, math.Pi*3/2)
+						p.respawnTimer = nil
+						log.Printf("Player %s respawned", p.GetID())
+						p.respawning = true
+					})
+
+					// Stop processing further collisions if the player dies
+					break
+				}
+			}
+		}
+	}
+
+	nextX, nextY, err := GetExtrapolatedPosition(p)
+	if err != nil {
+		log.Printf("Failed to extrapolate player position: %v", err)
+		return false, nil
+	}
+	p.SetState(constants.StateX, nextX)
+	p.SetState(constants.StateY, nextY)
+	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+	return true, events
+}
+
+// GetProperty returns the game object's properties
+func (p *PlayerGameObject) GetProperty(key GameObjectProperty) (interface{}, bool) {
+	return nil, false
+	// switch key {
+	// case GameObjectPropertyIsSolid:
+	// 	return true, true
+	// default:
+	// 	return nil, false
+	// }
+}
+
+// GetEventTypes returns the event types this player is interested in
+func (p *PlayerGameObject) GetEventTypes() []EventType {
+	return []EventType{
+		EventPlayerKeyStatus,
+		EventPlayerClickInput,
+		EventPlayerDirection,
+		EventGameTick,
+	}
+}
