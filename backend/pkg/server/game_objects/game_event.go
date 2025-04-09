@@ -5,17 +5,17 @@ type EventType string
 
 // Event type constants
 const (
-	EventPlayerKeyStatus   EventType = "player_key_status"
-	EventPlayerClickInput  EventType = "player_click_input"
-	EventPlayerDirection   EventType = "player_direction"
-	EventPlayerDied        EventType = "player_died"
-	EventPlayerJoin        EventType = "player_join"
-	EventPlayerLeave       EventType = "player_leave"
-	EventGameStart         EventType = "game_start"
-	EventGameEnd           EventType = "game_end"
-	EventGameTick          EventType = "game_tick"
-	EventObjectCreated     EventType = "object_created"
-	EventObjectDestroyed   EventType = "object_destroyed"
+	EventPlayerKeyStatus  EventType = "player_key_status"
+	EventPlayerClickInput EventType = "player_click_input"
+	EventPlayerDirection  EventType = "player_direction"
+	EventPlayerDied       EventType = "player_died"
+	EventPlayerJoin       EventType = "player_join"
+	EventPlayerLeave      EventType = "player_leave"
+	EventGameStart        EventType = "game_start"
+	EventGameEnd          EventType = "game_end"
+	EventGameTick         EventType = "game_tick"
+	EventObjectCreated    EventType = "object_created"
+	EventObjectDestroyed  EventType = "object_destroyed"
 )
 
 // GameEvent represents an event in the game

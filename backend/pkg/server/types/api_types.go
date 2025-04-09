@@ -69,8 +69,10 @@ type ClientStateRequest struct {
 }
 
 type PlayerClickRequest struct {
-	X float64 `json:"x"` // Click position X
-	Y float64 `json:"y"` // Click position Y
+	X      float64 `json:"x"`      // Click position X
+	Y      float64 `json:"y"`      // Click position Y
+	IsDown bool    `json:"isDown"` // True for mouse down, false for mouse up
+	Button int     `json:"button"` // 0 for left click, 2 for right click
 }
 
 type GameUpdateEvent struct {
