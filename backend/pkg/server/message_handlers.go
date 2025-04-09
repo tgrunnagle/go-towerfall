@@ -298,6 +298,8 @@ func (s *Server) handlePlayerClick(conn *Connection, req types.PlayerClickReques
 		"playerId": conn.PlayerID,
 		"x":        req.X,
 		"y":        req.Y,
+		"isDown":   req.IsDown,
+		"button":   req.Button,
 	}
 
 	event := game_objects.NewGameEvent(

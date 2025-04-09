@@ -42,6 +42,8 @@ const (
 	StateDestroyedAtY      = "dAtY" // y position when destroyed
 	StateDead              = "dead" // dead state (boolean)
 	StateArrowGrounded     = "ag"   // arrow grounded state (boolean)
+	StateShooting          = "sht"  // shooting state (boolean)
+	StateShootingStartTime = "shts" // shooting start time (float64)
 )
 
 // Object constants
@@ -63,6 +65,7 @@ const (
 
 const (
 	ArrowMaxPowerNewton        = 100.0
+	ArrowMaxPowerTimeSec       = 2.0
 	ArrowMassKg                = 0.1
 	ArrowLengthMeters          = 1.0
 	ArrowDestroyDistanceMeters = 5.0

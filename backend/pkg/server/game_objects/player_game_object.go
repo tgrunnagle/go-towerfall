@@ -42,6 +42,7 @@ func NewPlayerGameObject(id string, name string, token string) *PlayerGameObject
 	player.SetState(constants.StateRadius, constants.PlayerRadius)         // Player radius
 	player.SetState(constants.StateHealth, constants.PlayerStartingHealth) // Player health
 	player.SetState(constants.StateDead, false)                            // Player is not dead
+	player.SetState(constants.StateShooting, false)                        // Player is not shooting
 
 	player.respawning = false
 	return player
@@ -151,32 +152,42 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 		return false, nil
 	}
 
-	// Update current position of the player so that the bullet spawns at the correct place
-	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(p)
-	if err != nil {
-		log.Printf("Failed to extrapolate player position: %v", err)
-		return false, nil
-	}
-	p.SetState(constants.StateX, nextX)
-	p.SetState(constants.StateY, nextY)
-	p.SetState(constants.StateDx, nextDx)
-	p.SetState(constants.StateDy, nextDy)
-	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+	if event.Data["isDown"].(bool) && event.Data["button"].(int) == 0 {
+		p.SetState(constants.StateShooting, true)
+		p.SetState(constants.StateShootingStartTime, time.Now())
+		return true, nil
+	} else if !event.Data["isDown"].(bool) && event.Data["button"].(int) == 0 {
+		if shooting, exists := p.GetStateValue(constants.StateShooting); exists && shooting.(bool) {
+			// stop shooting
+			p.SetState(constants.StateShooting, false)
 
-	bullet := NewBulletGameObject(uuid.New().String(), p, event.Data["x"].(float64), event.Data["y"].(float64))
-	if bullet == nil {
+			// create an arrow
+			startTime, _ := p.GetStateValue(constants.StateShootingStartTime)
+			powerRatio := math.Min(time.Since(startTime.(time.Time)).Seconds()/constants.ArrowMaxPowerTimeSec, 1.0)
+			dir, _ := p.GetStateValue(constants.StateDir)
+
+			arrow := NewArrowGameObject(uuid.New().String(), p, dir.(float64), powerRatio)
+			return true, []*GameEvent{NewGameEvent(
+				"",
+				EventObjectCreated,
+				map[string]interface{}{
+					"type":   constants.ObjectTypeArrow,
+					"object": arrow,
+				},
+				1,
+				p,
+			)}
+		}
+		return false, nil
+	} else if event.Data["button"].(int) == 2 {
+		if shooting, exists := p.GetStateValue(constants.StateShooting); exists && shooting.(bool) {
+			// stop shooting
+			p.SetState(constants.StateShooting, false)
+			return true, nil
+		}
 		return false, nil
 	}
-	return false, []*GameEvent{NewGameEvent(
-		"",
-		EventObjectCreated,
-		map[string]interface{}{
-			"type":   constants.ObjectTypeBullet,
-			"object": bullet,
-		},
-		1,
-		p,
-	)}
+	return false, nil
 }
 
 func (p *PlayerGameObject) GetBoundingShape() geo.Shape {
