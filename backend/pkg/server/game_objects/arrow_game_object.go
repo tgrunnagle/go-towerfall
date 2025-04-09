@@ -53,6 +53,19 @@ func NewArrowGameObject(id string, source GameObject, toX float64, toY float64, 
 	}
 }
 
+func (a *ArrowGameObject) GetState() map[string]interface{} {
+	state := a.BaseGameObject.GetState()
+
+	// supplement with 'dir' based on dx, dy
+	dx := state[constants.StateDx].(float64)
+	dy := state[constants.StateDy].(float64)
+	normDx := dx / math.Sqrt(dx*dx+dy*dy)
+	normDy := dy / math.Sqrt(dx*dx+dy*dy)
+	dir := math.Atan2(normDy, normDx)
+	state[constants.StateDir] = dir
+	return state
+}
+
 func (a *ArrowGameObject) Handle(event *GameEvent, roomObjects map[string]GameObject) *GameObjectHandleEventResult {
 	switch event.EventType {
 	case EventGameTick:
@@ -138,9 +151,6 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 		}
 		collides, _ := shape.CollidesWith(otherShape)
 		if collides {
-			log.Printf("Arrow %s collides with %s %s", a.GetID(), object.GetObjectType(), object.GetID())
-			log.Printf("Arrow shape: %f, %f to %f, %f", shape.(*geo.Line).A.X, shape.(*geo.Line).A.Y, shape.(*geo.Line).B.X, shape.(*geo.Line).B.Y)
-			log.Printf("Other shape: %f, %f to %f, %f", otherShape.(*geo.Polygon).Points[0].X, otherShape.(*geo.Polygon).Points[0].Y, otherShape.(*geo.Polygon).Points[2].X, otherShape.(*geo.Polygon).Points[2].Y)
 			grounded = true
 			// TODO: set nextX, nextY to the collision point closest to the current x, y
 			break
