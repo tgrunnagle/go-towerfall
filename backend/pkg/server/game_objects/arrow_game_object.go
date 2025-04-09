@@ -138,10 +138,12 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 		}
 		collides, _ := shape.CollidesWith(otherShape)
 		if collides {
+			log.Printf("Arrow %s collides with %s %s", a.GetID(), object.GetObjectType(), object.GetID())
+			log.Printf("Arrow shape: %f, %f to %f, %f", shape.(*geo.Line).A.X, shape.(*geo.Line).A.Y, shape.(*geo.Line).B.X, shape.(*geo.Line).B.Y)
+			log.Printf("Other shape: %f, %f to %f, %f", otherShape.(*geo.Polygon).Points[0].X, otherShape.(*geo.Polygon).Points[0].Y, otherShape.(*geo.Polygon).Points[2].X, otherShape.(*geo.Polygon).Points[2].Y)
 			grounded = true
 			// TODO: set nextX, nextY to the collision point closest to the current x, y
 			break
-
 		}
 	}
 
