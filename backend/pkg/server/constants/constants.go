@@ -20,6 +20,7 @@ const (
 	ObjectTypePlayer = "player"
 	ObjectTypeBullet = "bullet"
 	ObjectTypeBlock  = "block"
+	ObjectTypeArrow  = "arrow"
 )
 
 // Object state keys
@@ -40,6 +41,7 @@ const (
 	StateDestroyedAtX      = "dAtX" // x position when destroyed
 	StateDestroyedAtY      = "dAtY" // y position when destroyed
 	StateDead              = "dead" // dead state (boolean)
+	StateArrowGrounded     = "ag"   // arrow grounded state (boolean)
 )
 
 // Object constants
@@ -51,9 +53,20 @@ const (
 	PlayerStartingX             = 100.0
 	PlayerStartingY             = 100.0
 	PlayerStartingHealth        = 100.0
+	PlayerMassKg                = 50.0
 )
 
 const (
 	BulletDistance    = 1024.0 // Distance in pixels
 	BulletLifetimeSec = 0.1
+)
+
+const (
+	ArrowMaxPowerNewton        = 100.0
+	ArrowMassKg                = 0.1
+	ArrowLengthMeters          = 1.0
+	ArrowDestroyDistanceMeters = 5.0
+	ArrowDestroyDistancePx     = ArrowDestroyDistanceMeters * PxPerMeter
+	ArrowGroundedRadiusMeters  = 0.5
+	ArrowGroundedRadiusPx      = ArrowGroundedRadiusMeters * PxPerMeter
 )

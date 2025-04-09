@@ -346,7 +346,7 @@ func (p *PlayerGameObject) handleDeath() {
 func (p *PlayerGameObject) GetProperty(key GameObjectProperty) (interface{}, bool) {
 	switch key {
 	case GameObjectPropertyMassKg:
-		return 1.0, true
+		return constants.PlayerMassKg, true
 	default:
 		return nil, false
 	}
