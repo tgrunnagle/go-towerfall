@@ -68,6 +68,7 @@ const (
 	ArrowMaxPowerTimeSec       = 2.0
 	ArrowMassKg                = 0.1
 	ArrowLengthMeters          = 1.0
+	ArrowLengthPx              = ArrowLengthMeters * PxPerMeter
 	ArrowDestroyDistanceMeters = 5.0
 	ArrowDestroyDistancePx     = ArrowDestroyDistanceMeters * PxPerMeter
 	ArrowGroundedRadiusMeters  = 0.5

@@ -176,9 +176,14 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 			// create an arrow
 			startTime, _ := p.GetStateValue(constants.StateShootingStartTime)
 			powerRatio := math.Min(time.Since(startTime.(time.Time)).Seconds()/constants.ArrowMaxPowerTimeSec, 1.0)
-			dir, _ := p.GetStateValue(constants.StateDir)
-
-			arrow := NewArrowGameObject(uuid.New().String(), p, dir.(float64), powerRatio)
+			xClick := event.Data["x"].(float64)
+			yClick := event.Data["y"].(float64)
+			xPlayer, _ := p.GetStateValue(constants.StateX)
+			yPlayer, _ := p.GetStateValue(constants.StateY)
+			distanceX := xClick - xPlayer.(float64)
+			distanceY := yClick - yPlayer.(float64)
+			dir := math.Atan2(distanceY, distanceX) / math.Sqrt(distanceX*distanceX+distanceY*distanceY)
+			arrow := NewArrowGameObject(uuid.New().String(), p, dir, powerRatio)
 			return true, []*GameEvent{NewGameEvent(
 				"",
 				EventObjectCreated,

@@ -16,7 +16,7 @@ type ArrowGameObject struct {
 	CreatedAt    time.Time
 }
 
-func NewArrowGameObject(id string, source GameObject, direction float64, powerRatio float64) *ArrowGameObject {
+func NewArrowGameObject(id string, source GameObject, toX float64, toY float64, powerRatio float64) *ArrowGameObject {
 	base := NewBaseGameObject(id, constants.ObjectTypeArrow)
 	x, exists := source.GetStateValue(constants.StateX)
 	if !exists {
@@ -32,13 +32,20 @@ func NewArrowGameObject(id string, source GameObject, direction float64, powerRa
 	base.SetState(constants.StateX, x)
 	base.SetState(constants.StateY, y)
 
+	// calculate initial velocity based on power ratio, E = 0.5*m*v^2
 	initialVelocityPxPerSec := math.Sqrt(2*powerRatio*constants.ArrowMaxPowerNewton/constants.ArrowMassKg) * constants.PxPerMeter
-	dx := math.Cos(direction) * initialVelocityPxPerSec
-	dy := math.Sin(direction) * initialVelocityPxPerSec
+	distanceX := toX - x.(float64)
+	distanceY := toY - y.(float64)
+	dxNorm := distanceX / math.Sqrt(distanceX*distanceX+distanceY*distanceY)
+	dyNorm := distanceY / math.Sqrt(distanceX*distanceX+distanceY*distanceY)
+	dx := dxNorm * initialVelocityPxPerSec
+	dy := dyNorm * initialVelocityPxPerSec
+
 	base.SetState(constants.StateDx, dx)
 	base.SetState(constants.StateDy, dy)
 	base.SetState(constants.StateLastLocUpdateTime, time.Now())
 	base.SetState(constants.StateArrowGrounded, false)
+
 	return &ArrowGameObject{
 		BaseGameObject: base,
 		SourcePlayer:   source,
@@ -51,13 +58,14 @@ func (a *ArrowGameObject) Handle(event *GameEvent, roomObjects map[string]GameOb
 	case EventGameTick:
 		return a.handleGameTick(event, roomObjects)
 	}
+	log.Printf("ArrowGameObject: Unexpected event: %v", event.EventType)
 	// Base implementation does nothing
 	return NewGameObjectHandleEventResult(false, nil)
 }
 
 func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[string]GameObject) *GameObjectHandleEventResult {
 	// Check collisions with next location
-	nextX, nextY, _, _, err := GetExtrapolatedPosition(a)
+	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(a)
 	if err != nil {
 		log.Printf("Failed to extrapolate arrow position: %v", err)
 		return NewGameObjectHandleEventResult(false, nil)
@@ -112,13 +120,8 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 	}
 
 	// Check for collisions with other objects
-	dir, exists := a.GetStateValue(constants.StateDir)
-	if !exists {
-		log.Printf("GetBoundingShape: Failed to get direction for arrow: %v", a.GetState())
-		return NewGameObjectHandleEventResult(false, nil)
-	}
-
-	shape := a.getBoundingShapeFor(nextX, nextY, dir.(float64))
+	// calculate direction based on nextDx, nextDy
+	shape := a.getBoundingShapeFor(nextX, nextY, nextDx, nextDy)
 	grounded := false
 	for _, object := range roomObjects {
 		if object == a {
@@ -143,11 +146,14 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 	}
 
 	if grounded {
+		log.Printf("Arrow %s grounded", a.GetID())
 		a.SetState(constants.StateArrowGrounded, true)
-		a.SetState(constants.StateDx, 0.0)
-		a.SetState(constants.StateDy, 0.0)
+		nextDx = 0.0
+		nextDy = 0.0
 	}
 
+	a.SetState(constants.StateDx, nextDx)
+	a.SetState(constants.StateDy, nextDy)
 	a.SetState(constants.StateX, nextX)
 	a.SetState(constants.StateY, nextY)
 	a.SetState(constants.StateLastLocUpdateTime, time.Now())
@@ -166,33 +172,40 @@ func (a *ArrowGameObject) ReportCollision(source GameObject, collidedAtX float64
 func (a *ArrowGameObject) GetBoundingShape() geo.Shape {
 	x, exists := a.GetStateValue(constants.StateX)
 	if !exists {
-		log.Printf("GetBoundingShape: Failed to get x position for arrow: %v", a.GetState())
+		log.Printf("ArrowGameObject.GetBoundingShape: Failed to get x position for arrow: %v", a.GetState())
 		return nil
 	}
 	y, exists := a.GetStateValue(constants.StateY)
 	if !exists {
-		log.Printf("GetBoundingShape: Failed to get y position for arrow: %v", a.GetState())
+		log.Printf("ArrowGameObject.GetBoundingShape: Failed to get y position for arrow: %v", a.GetState())
 		return nil
 	}
-	dir, exists := a.GetStateValue(constants.StateDir)
+	dx, exists := a.GetStateValue(constants.StateDx)
 	if !exists {
-		log.Printf("GetBoundingShape: Failed to get direction for arrow: %v", a.GetState())
+		log.Printf("ArrowGameObject.GetBoundingShape: Failed to get dx for arrow: %v", a.GetState())
+		return nil
+	}
+	dy, exists := a.GetStateValue(constants.StateDy)
+	if !exists {
+		log.Printf("ArrowGameObject.GetBoundingShape: Failed to get dy for arrow: %v", a.GetState())
 		return nil
 	}
 
-	return a.getBoundingShapeFor(x.(float64), y.(float64), dir.(float64))
+	return a.getBoundingShapeFor(x.(float64), y.(float64), dx.(float64), dy.(float64))
 }
 
-func (a *ArrowGameObject) getBoundingShapeFor(x float64, y float64, dir float64) geo.Shape {
+func (a *ArrowGameObject) getBoundingShapeFor(x float64, y float64, dX float64, dY float64) geo.Shape {
 
 	if grounded, exists := a.GetStateValue(constants.StateArrowGrounded); exists && grounded.(bool) {
 		return geo.NewCircle(geo.NewPoint(x, y), constants.ArrowGroundedRadiusPx)
 	}
 
+	dXNorm := dX / math.Sqrt(dX*dX+dY*dY)
+	dYNorm := dY / math.Sqrt(dX*dX+dY*dY)
 	p0 := geo.NewPoint(x, y)
 	p1 := geo.NewPoint(
-		x+constants.ArrowLengthMeters*math.Cos(dir),
-		y+constants.ArrowLengthMeters*math.Sin(dir),
+		x+dXNorm*constants.ArrowLengthPx,
+		y+dYNorm*constants.ArrowLengthPx,
 	)
 	return geo.NewLine(p0, p1)
 }
@@ -207,5 +220,11 @@ func (a *ArrowGameObject) GetProperty(key GameObjectProperty) (interface{}, bool
 		return constants.ArrowMassKg, true
 	default:
 		return nil, false
+	}
+}
+
+func (a *ArrowGameObject) GetEventTypes() []EventType {
+	return []EventType{
+		EventGameTick,
 	}
 }
