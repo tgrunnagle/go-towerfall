@@ -152,12 +152,24 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 		return false, nil
 	}
 
+	// left click
 	if event.Data["isDown"].(bool) && event.Data["button"].(int) == 0 {
+		// if the x is within the room bounds, start shooting
+		x := event.Data["x"].(float64)
+		y := event.Data["y"].(float64)
+		if x < 0 || x > constants.RoomSizePixelsX || y < 0 || y > constants.RoomSizePixelsY {
+			return false, nil
+		}
 		p.SetState(constants.StateShooting, true)
 		p.SetState(constants.StateShootingStartTime, time.Now())
 		return true, nil
-	} else if !event.Data["isDown"].(bool) && event.Data["button"].(int) == 0 {
+	}
+
+	// left release
+	if !event.Data["isDown"].(bool) && event.Data["button"].(int) == 0 {
+		// if shooting, fire an arrow
 		if shooting, exists := p.GetStateValue(constants.StateShooting); exists && shooting.(bool) {
+
 			// stop shooting
 			p.SetState(constants.StateShooting, false)
 
@@ -179,9 +191,12 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 			)}
 		}
 		return false, nil
-	} else if event.Data["button"].(int) == 2 {
+	}
+
+	// right click
+	if event.Data["button"].(int) == 2 {
+		// if right click, stop shooting
 		if shooting, exists := p.GetStateValue(constants.StateShooting); exists && shooting.(bool) {
-			// stop shooting
 			p.SetState(constants.StateShooting, false)
 			return true, nil
 		}
