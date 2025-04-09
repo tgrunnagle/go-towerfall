@@ -216,17 +216,11 @@ func (p *PlayerGameObject) GetBoundingShape() geo.Shape {
 		log.Printf("Player %s has no y state", p.GetID())
 		return nil
 	}
-	point := geo.NewPoint(x.(float64), y.(float64))
-	return geo.NewCircle(point, constants.PlayerRadius)
+	return p.getBoundingShapeFor(x.(float64), y.(float64))
 }
 
-func (p *PlayerGameObject) GetNextBoundingShape() geo.Shape {
-	nextX, nextY, _, _, err := GetExtrapolatedPosition(p)
-	if err != nil {
-		log.Printf("Failed to extrapolate player position: %v", err)
-		return nil
-	}
-	point := geo.NewPoint(nextX, nextY)
+func (p *PlayerGameObject) getBoundingShapeFor(x float64, y float64) geo.Shape {
+	point := geo.NewPoint(x, y)
 	return geo.NewCircle(point, constants.PlayerRadius)
 }
 
@@ -254,8 +248,7 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 		log.Printf("Failed to extrapolate player position: %v", err)
 		return false, nil
 	}
-	point := geo.NewPoint(nextX, nextY)
-	shape := geo.NewCircle(point, constants.PlayerRadius)
+	shape := p.getBoundingShapeFor(nextX, nextY)
 
 	events := []*GameEvent{}
 

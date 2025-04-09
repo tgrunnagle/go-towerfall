@@ -56,6 +56,10 @@ func NewArrowGameObject(id string, source GameObject, toX float64, toY float64, 
 func (a *ArrowGameObject) GetState() map[string]interface{} {
 	state := a.BaseGameObject.GetState()
 
+	if state[constants.StateArrowGrounded].(bool) {
+		return state
+	}
+
 	// supplement with 'dir' based on dx, dy
 	dx := state[constants.StateDx].(float64)
 	dy := state[constants.StateDy].(float64)
@@ -77,16 +81,9 @@ func (a *ArrowGameObject) Handle(event *GameEvent, roomObjects map[string]GameOb
 }
 
 func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[string]GameObject) *GameObjectHandleEventResult {
-	// Check collisions with next location
-	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(a)
-	if err != nil {
-		log.Printf("Failed to extrapolate arrow position: %v", err)
-		return NewGameObjectHandleEventResult(false, nil)
-	}
 
 	// Check if arrow is destroyed (e.g. from hitting a player)
-	destroyed, exists := a.GetStateValue(constants.StateDestroyed)
-	if exists && destroyed.(bool) {
+	if destroyed, exists := a.GetStateValue(constants.StateDestroyed); exists && destroyed.(bool) {
 		x, exists := a.GetStateValue(constants.StateDestroyedAtX)
 		if !exists {
 			x, _ = a.GetStateValue(constants.StateX)
@@ -107,6 +104,18 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 			a,
 		)}
 		return NewGameObjectHandleEventResult(true, events)
+	}
+
+	// Check if arrow is grounded (e.g. from hitting a solid object)
+	if grounded, exists := a.GetStateValue(constants.StateArrowGrounded); exists && grounded.(bool) {
+		return NewGameObjectHandleEventResult(false, nil)
+	}
+
+	// Calculate the next location
+	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(a)
+	if err != nil {
+		log.Printf("Failed to extrapolate arrow position: %v", err)
+		return NewGameObjectHandleEventResult(false, nil)
 	}
 
 	// Check if arrow is out of bounds
@@ -133,7 +142,7 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 	}
 
 	// Check for collisions with other objects
-	// calculate direction based on nextDx, nextDy
+	// Use the next location and direction for the bounding shape
 	shape := a.getBoundingShapeFor(nextX, nextY, nextDx, nextDy)
 	grounded := false
 	for _, object := range roomObjects {
@@ -158,7 +167,6 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 	}
 
 	if grounded {
-		log.Printf("Arrow %s grounded", a.GetID())
 		a.SetState(constants.StateArrowGrounded, true)
 		nextDx = 0.0
 		nextDy = 0.0
