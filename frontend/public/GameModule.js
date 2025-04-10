@@ -69,7 +69,8 @@ class Game {
     this.handleKeyUp = this.handleKeyUp.bind(this);
     this.sendKeyStatus = this.sendKeyStatus.bind(this);
     this.handleCanvasMouseMove = this.handleCanvasMouseMove.bind(this);
-    this.handleCanvasClick = this.handleCanvasClick.bind(this);
+    this.handleCanvasMouseDown = this.handleCanvasMouseDown.bind(this);
+    this.handleCanvasMouseUp = this.handleCanvasMouseUp.bind(this);
     this.animate = this.animate.bind(this);
     this.setClientStateUpdateInterval = this.setClientStateUpdateInterval.bind(this);
   }
@@ -94,6 +95,9 @@ class Game {
     // Set up canvas
     this.canvas.width = Constants.CANVAS_SIZE_X;
     this.canvas.height = Constants.CANVAS_SIZE_Y;
+
+    // Prevent context menu on right click
+    this.canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     // Update callbacks
     if (callbacks.onConnectionChange) {
@@ -123,7 +127,8 @@ class Game {
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
     document.addEventListener('mousemove', this.handleCanvasMouseMove);
-    document.addEventListener('click', this.handleCanvasClick);
+    document.addEventListener('mousedown', this.handleCanvasMouseDown);
+    document.addEventListener('mouseup', this.handleCanvasMouseUp);
 
     // Rejoin game when the connection is ready
     this.subscribeToConnectionReadyStateOpen(() => {
@@ -148,7 +153,8 @@ class Game {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     document.removeEventListener('mousemove', this.handleCanvasMouseMove);
-    document.removeEventListener('click', this.handleCanvasClick);
+    document.removeEventListener('mousedown', this.handleCanvasMouseDown);
+    document.removeEventListener('mouseup', this.handleCanvasMouseUp);
 
     // Reset canvas
     this.canvas = null;
@@ -488,10 +494,23 @@ class Game {
     this.gameStateManager.handleMouseMove(relativeX, relativeY);
   }
 
-  handleCanvasClick(e) {
+  handleCanvasMouseDown(e) {
+    // Only handle left (0) and right (2) clicks
+    // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
+    if (e.button !== 0 && e.button !== 2) return;
+    
     const relativeX = e.clientX - this.canvas.offsetLeft;
     const relativeY = e.clientY - this.canvas.offsetTop;
-    this.sendMessage('Click', { x: relativeX, y: relativeY });
+    this.sendMessage('Click', { x: relativeX, y: relativeY, isDown: true, button: e.button });
+  }
+
+  handleCanvasMouseUp(e) {
+    // Only handle left (0) and right (2) clicks
+    if (e.button !== 0 && e.button !== 2) return;
+    
+    const relativeX = e.clientX - this.canvas.offsetLeft;
+    const relativeY = e.clientY - this.canvas.offsetTop;
+    this.sendMessage('Click', { x: relativeX, y: relativeY, isDown: false, button: e.button });
   }
 
   sendKeyStatus() {

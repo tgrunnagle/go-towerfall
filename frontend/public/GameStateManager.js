@@ -1,6 +1,7 @@
 import { PlayerGameObject } from './game_objects/PlayerGameObject.js';
 import { BulletGameObject } from './game_objects/BulletGameObject.js';
 import { BlockGameObject } from './game_objects/BlockGameObject.js';
+import { ArrowGameObject } from './game_objects/ArrowGameObject.js';
 import { AnimationsManager } from './AnimationsManager.js';
 import { Constants } from './Constants.js';
 
@@ -68,6 +69,13 @@ export class GameStateManager {
                             break;
                         case 'block':
                             this.gameObjects[objectId] = new BlockGameObject(
+                                {
+                                    ...payload.objectStates[objectId],
+                                },
+                            );
+                            break;
+                        case 'arrow':
+                            this.gameObjects[objectId] = new ArrowGameObject(
                                 {
                                     ...payload.objectStates[objectId],
                                 },

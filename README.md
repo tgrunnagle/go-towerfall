@@ -1,5 +1,7 @@
 # Multiplayer Game WebSocket Server
 
+*Based on [go-ws-server](https://github.com/tgrunnagle/go-ws-server).*
+
 A Go-based WebSocket server with a React frontend designed for multiplayer online games. This server maintains state about connected players and provides real-time game state updates.
 
 ## Features

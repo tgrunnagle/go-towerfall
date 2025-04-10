@@ -42,6 +42,7 @@ func NewPlayerGameObject(id string, name string, token string) *PlayerGameObject
 	player.SetState(constants.StateRadius, constants.PlayerRadius)         // Player radius
 	player.SetState(constants.StateHealth, constants.PlayerStartingHealth) // Player health
 	player.SetState(constants.StateDead, false)                            // Player is not dead
+	player.SetState(constants.StateShooting, false)                        // Player is not shooting
 
 	player.respawning = false
 	return player
@@ -151,32 +152,57 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 		return false, nil
 	}
 
-	// Update current position of the player so that the bullet spawns at the correct place
-	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(p)
-	if err != nil {
-		log.Printf("Failed to extrapolate player position: %v", err)
-		return false, nil
+	// left click
+	if event.Data["isDown"].(bool) && event.Data["button"].(int) == 0 {
+		// if the x is within the room bounds, start shooting
+		x := event.Data["x"].(float64)
+		y := event.Data["y"].(float64)
+		if x < 0 || x > constants.RoomSizePixelsX || y < 0 || y > constants.RoomSizePixelsY {
+			return false, nil
+		}
+		p.SetState(constants.StateShooting, true)
+		p.SetState(constants.StateShootingStartTime, time.Now())
+		return true, nil
 	}
-	p.SetState(constants.StateX, nextX)
-	p.SetState(constants.StateY, nextY)
-	p.SetState(constants.StateDx, nextDx)
-	p.SetState(constants.StateDy, nextDy)
-	p.SetState(constants.StateLastLocUpdateTime, time.Now())
 
-	bullet := NewBulletGameObject(uuid.New().String(), p, event.Data["x"].(float64), event.Data["y"].(float64))
-	if bullet == nil {
+	// left release
+	if !event.Data["isDown"].(bool) && event.Data["button"].(int) == 0 {
+		// if shooting, fire an arrow
+		if shooting, exists := p.GetStateValue(constants.StateShooting); exists && shooting.(bool) {
+
+			// stop shooting
+			p.SetState(constants.StateShooting, false)
+
+			// create an arrow
+			startTime, _ := p.GetStateValue(constants.StateShootingStartTime)
+			powerRatio := math.Min(time.Since(startTime.(time.Time)).Seconds()/constants.ArrowMaxPowerTimeSec, 1.0)
+			xClick := event.Data["x"].(float64)
+			yClick := event.Data["y"].(float64)
+			arrow := NewArrowGameObject(uuid.New().String(), p, xClick, yClick, powerRatio)
+			return true, []*GameEvent{NewGameEvent(
+				"",
+				EventObjectCreated,
+				map[string]interface{}{
+					"type":   constants.ObjectTypeArrow,
+					"object": arrow,
+				},
+				1,
+				p,
+			)}
+		}
 		return false, nil
 	}
-	return false, []*GameEvent{NewGameEvent(
-		"",
-		EventObjectCreated,
-		map[string]interface{}{
-			"type":   constants.ObjectTypeBullet,
-			"object": bullet,
-		},
-		1,
-		p,
-	)}
+
+	// right click
+	if event.Data["button"].(int) == 2 {
+		// if right click, stop shooting
+		if shooting, exists := p.GetStateValue(constants.StateShooting); exists && shooting.(bool) {
+			p.SetState(constants.StateShooting, false)
+			return true, nil
+		}
+		return false, nil
+	}
+	return false, nil
 }
 
 func (p *PlayerGameObject) GetBoundingShape() geo.Shape {
@@ -190,17 +216,11 @@ func (p *PlayerGameObject) GetBoundingShape() geo.Shape {
 		log.Printf("Player %s has no y state", p.GetID())
 		return nil
 	}
-	point := geo.NewPoint(x.(float64), y.(float64))
-	return geo.NewCircle(point, constants.PlayerRadius)
+	return p.getBoundingShapeFor(x.(float64), y.(float64))
 }
 
-func (p *PlayerGameObject) GetNextBoundingShape() geo.Shape {
-	nextX, nextY, _, _, err := GetExtrapolatedPosition(p)
-	if err != nil {
-		log.Printf("Failed to extrapolate player position: %v", err)
-		return nil
-	}
-	point := geo.NewPoint(nextX, nextY)
+func (p *PlayerGameObject) getBoundingShapeFor(x float64, y float64) geo.Shape {
+	point := geo.NewPoint(x, y)
 	return geo.NewCircle(point, constants.PlayerRadius)
 }
 
@@ -228,8 +248,7 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 		log.Printf("Failed to extrapolate player position: %v", err)
 		return false, nil
 	}
-	point := geo.NewPoint(nextX, nextY)
-	shape := geo.NewCircle(point, constants.PlayerRadius)
+	shape := p.getBoundingShapeFor(nextX, nextY)
 
 	events := []*GameEvent{}
 
@@ -346,7 +365,7 @@ func (p *PlayerGameObject) handleDeath() {
 func (p *PlayerGameObject) GetProperty(key GameObjectProperty) (interface{}, bool) {
 	switch key {
 	case GameObjectPropertyMassKg:
-		return 1.0, true
+		return constants.PlayerMassKg, true
 	default:
 		return nil, false
 	}

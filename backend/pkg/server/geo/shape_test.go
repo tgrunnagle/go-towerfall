@@ -302,6 +302,23 @@ func TestPolygonLineCollision(t *testing.T) {
 			want:      true,
 			numPoints: 2,
 		},
+		{
+			name: "Line far above rectangle",
+			polygon: Polygon{
+				Points: []*Point{
+					{X: 0, Y: 540},
+					{X: 800, Y: 540},
+					{X: 800, Y: 600},
+					{X: 0, Y: 600},
+				},
+			},
+			line: Line{
+				A: &Point{X: 275.983354, Y: 522.589787},
+				B: &Point{X: 290.013471, Y: 508.336513},
+			},
+			want:      false,
+			numPoints: 0,
+		},
 	}
 
 	for _, tt := range tests {

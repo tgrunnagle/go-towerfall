@@ -307,11 +307,17 @@ func checkLinePolygonCollision(line *Line, polygon *Polygon) (bool, []*Point) {
 	collides := false
 	collisionPoints := []*Point{}
 
+	// Check each line segment of the polygon
 	for _, polygonLine := range polygon.GetLines() {
 		lineCollides, points := checkLineLineCollision(line, polygonLine)
 		if lineCollides {
-			collides = true
-			collisionPoints = append(collisionPoints, points...)
+			// Verify that the intersection points are actually on both line segments
+			for _, point := range points {
+				if pointOnLineSegment(point, line) && pointOnLineSegment(point, polygonLine) {
+					collides = true
+					collisionPoints = append(collisionPoints, point)
+				}
+			}
 		}
 	}
 	return collides, deduplicatePoints(collisionPoints)
