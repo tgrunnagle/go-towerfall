@@ -161,7 +161,7 @@ func (s *Server) handleConnection(conn *Connection) {
 			}
 			s.handleRejoinGame(conn, req)
 
-		case "Keys":
+		case "Key":
 			var req types.KeyStatusRequest
 			if err := json.Unmarshal(msg.Payload, &req); err != nil {
 				log.Printf("Error unmarshalling KeyStatus payload: %v", err)

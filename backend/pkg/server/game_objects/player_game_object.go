@@ -43,6 +43,7 @@ func NewPlayerGameObject(id string, name string, token string) *PlayerGameObject
 	player.SetState(constants.StateHealth, constants.PlayerStartingHealth) // Player health
 	player.SetState(constants.StateDead, false)                            // Player is not dead
 	player.SetState(constants.StateShooting, false)                        // Player is not shooting
+	player.SetState(constants.StateJumpCount, 0)
 
 	player.respawning = false
 	return player
@@ -101,39 +102,59 @@ func (p *PlayerGameObject) handlePlayerKeyStatus(event *GameEvent) (bool, []*Gam
 		return false, nil
 	}
 
-	keysPressed, ok := event.Data["keysPressed"].([]string)
+	key, ok := event.Data["key"].(string)
 	if !ok {
-		log.Printf("Invalid keysPressed type: %T", event.Data["keysPressed"])
+		log.Printf("Invalid key type: %T", event.Data["key"])
+		return false, nil
+	}
+
+	isDown, ok := event.Data["isDown"].(bool)
+	if !ok {
+		log.Printf("Invalid isDown type: %T", event.Data["isDown"])
 		return false, nil
 	}
 
 	// extrapolate position from last update
-	nextX, nextY, _, nextDy, err := GetExtrapolatedPosition(p)
+	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(p)
 	if err != nil {
 		log.Printf("Failed to extrapolate player position: %v", err)
 		return false, nil
 	}
 
-	// Update velocity based on keys pressed
-	inputX := 0.0
-	inputY := 0.0
-	for _, key := range keysPressed {
+	// Update velocity based on key event
+	dx := nextDx
+	dy := nextDy
+
+	if isDown {
 		switch key {
 		case "W":
-			inputY -= 1.0
-		// case "S":
-		// 	dyHat += 1.0
+			// Only allow jumping if we haven't exceeded max jumps
+			jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
+			if !exists || jumpCount.(int) < constants.MaxJumps {
+				dy = -1.0 * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
+				if exists {
+					p.SetState(constants.StateJumpCount, jumpCount.(int)+1)
+				} else {
+					p.SetState(constants.StateJumpCount, 1)
+				}
+			}
 		case "A":
-			inputX -= 1.0
+			dx = -1.0 * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
 		case "D":
-			inputX += 1.0
+			dx = 1.0 * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
 		}
-	}
-
-	dx := inputX * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
-	dy := nextDy
-	if inputY != 0.0 {
-		dy = inputY * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
+	} else {
+		// On key release, stop movement in that direction if we were moving that way
+		switch key {
+		case "A":
+			if dx < 0 {
+				dx = 0
+			}
+		case "D":
+			if dx > 0 {
+				dx = 0
+			}
+		}
 	}
 
 	p.SetState(constants.StateX, nextX)
@@ -251,6 +272,7 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 	shape := p.getBoundingShapeFor(nextX, nextY)
 
 	events := []*GameEvent{}
+	isOnGround := false
 
 	// Check for collisions with solid objects and enemy bullets
 	for _, object := range roomObjects {
@@ -270,7 +292,6 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 		}
 		collides, collisionPoints := shape.CollidesWith(otherShape)
 		if collides {
-
 			if isSolid {
 				// Collision detected, stop moving
 				// TODO only stop moving in the direction of the collision
@@ -289,6 +310,10 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 					}
 					if math.Abs(math.Sin(averageAngle)) > 0.1 {
 						nextDy = 0.0
+						// Check if we're on ground (collision from below)
+						if averageAngle > -math.Pi/4 && averageAngle < math.Pi/4 {
+							isOnGround = true
+						}
 					}
 					nextX, nextY, _ = GetExtrapolatedPositionForDxDy(p, nextDx, nextDy)
 				}
@@ -333,11 +358,17 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 		}
 	}
 
+	// Reset jump count when on ground
+	if isOnGround {
+		p.SetState(constants.StateJumpCount, 0)
+	}
+
 	p.SetState(constants.StateX, nextX)
 	p.SetState(constants.StateY, nextY)
 	p.SetState(constants.StateDx, nextDx)
 	p.SetState(constants.StateDy, nextDy)
 	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+
 	return true, events
 }
 

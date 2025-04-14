@@ -44,18 +44,20 @@ const (
 	StateArrowGrounded     = "ag"   // arrow grounded state (boolean)
 	StateShooting          = "sht"  // shooting state (boolean)
 	StateShootingStartTime = "shts" // shooting start time (float64)
+	StateJumpCount         = "jc"   // jumping count (int)
 )
 
-// Object constants
+// Player constants
 const (
-	PlayerRadius                = 16.0
-	PlayerRespawnTimeSec        = 5.0
-	PlayerSpeedXMetersPerSec    = 10.0
-	PlayerJumpSpeedMetersPerSec = 12.0
-	PlayerStartingX             = 100.0
-	PlayerStartingY             = 100.0
-	PlayerStartingHealth        = 100.0
-	PlayerMassKg                = 50.0
+	PlayerStartingX           = RoomSizePixelsX / 2.0
+	PlayerStartingY          = RoomSizePixelsY / 2.0
+	PlayerRadius             = 20.0
+	PlayerSpeedXMetersPerSec = 10.0
+	PlayerJumpSpeedMetersPerSec = 10.0
+	PlayerStartingHealth     = 100
+	MaxJumps                 = 2
+	PlayerRespawnTimeSec     = 5.0
+	PlayerMassKg             = 50.0
 )
 
 const (

@@ -61,7 +61,8 @@ type RejoinGameResponse struct {
 }
 
 type KeyStatusRequest struct {
-	KeysPressed []string `json:"keysPressed"` // List of currently pressed keys (W, A, S, D)
+	Key    string `json:"key"`    // Key that changed (W, A, S, D)
+	IsDown bool   `json:"isDown"` // True when pressed, false when released
 }
 
 type ClientStateRequest struct {

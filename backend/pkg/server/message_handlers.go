@@ -228,7 +228,7 @@ func (s *Server) handleRejoinGame(conn *Connection, req types.RejoinGameRequest)
 	}
 }
 
-// handleKeyStatus handles periodic key status updates
+// handleKeyStatus handles key events (press/release)
 func (s *Server) handleKeyStatus(conn *Connection, req types.KeyStatusRequest) {
 	room, _, exists := s.findRoomAndPlayer(conn, conn.RoomID, conn.PlayerID)
 
@@ -241,8 +241,9 @@ func (s *Server) handleKeyStatus(conn *Connection, req types.KeyStatusRequest) {
 
 	// Create a PlayerInput event
 	eventData := map[string]interface{}{
-		"playerId":    conn.PlayerID,
-		"keysPressed": req.KeysPressed,
+		"playerId": conn.PlayerID,
+		"key":      req.Key,
+		"isDown":   req.IsDown,
 	}
 
 	event := game_objects.NewGameEvent(
