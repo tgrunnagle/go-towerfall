@@ -10,7 +10,7 @@ const (
 // Room constants
 const (
 	RoomSizeMetersX = 40.0
-	RoomSizeMetersY = 30.0
+	RoomSizeMetersY = 40.0
 	RoomSizePixelsX = RoomSizeMetersX * PxPerMeter
 	RoomSizePixelsY = RoomSizeMetersY * PxPerMeter
 )
@@ -53,8 +53,8 @@ const (
 	PlayerStartingX             = RoomSizePixelsX / 2.0
 	PlayerStartingY             = RoomSizePixelsY / 2.0
 	PlayerRadius                = 20.0
-	PlayerSpeedXMetersPerSec    = 10.0
-	PlayerJumpSpeedMetersPerSec = 10.0
+	PlayerSpeedXMetersPerSec    = 15.0
+	PlayerJumpSpeedMetersPerSec = 20.0
 	PlayerStartingHealth        = 100
 	PlayerMaxJumps              = 2
 	PlayerRespawnTimeSec        = 5.0

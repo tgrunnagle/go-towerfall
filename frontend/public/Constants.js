@@ -1,7 +1,7 @@
 export class Constants {
     // TODO get from backend so it's all defined in one place
     static ROOM_SIZE_METERS_X = 40.0;
-    static ROOM_SIZE_METERS_Y = 30.0;
+    static ROOM_SIZE_METERS_Y = 40.0;
     static PX_PER_METER = 20.0;
 
     static ROOM_SIZE_PIXELS_X = Constants.ROOM_SIZE_METERS_X * Constants.PX_PER_METER;

@@ -131,23 +131,29 @@ func (p *PlayerGameObject) handlePlayerKeyInput(event *GameEvent) (bool, []*Game
 			// Only allow jumping if we haven't exceeded max jumps
 			jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
 			if !exists || jumpCount.(int) < constants.PlayerMaxJumps {
+				log.Printf("Player %s jumped", p.GetID())
 				dy = -1.0 * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
 				if exists {
 					p.SetState(constants.StateJumpCount, jumpCount.(int)+1)
 				} else {
 					p.SetState(constants.StateJumpCount, 1)
 				}
+			} else {
+				log.Printf("Player %s cannot jump - max jumps reached", p.GetID())
 			}
 		case "S": // Dive
 			// Only allow diving if we haven't exceeded max jumps
 			jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
 			if !exists || jumpCount.(int) < constants.PlayerMaxJumps {
+				log.Printf("Player %s dived", p.GetID())
 				dy = 1.0 * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
 				if exists {
 					p.SetState(constants.StateJumpCount, jumpCount.(int)+1)
 				} else {
 					p.SetState(constants.StateJumpCount, 1)
 				}
+			} else {
+				log.Printf("Player %s cannot dive - max jumps reached", p.GetID())
 			}
 		case "A": // Left
 			dx = -1.0 * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
@@ -321,10 +327,7 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 					}
 					if math.Abs(math.Sin(averageAngle)) > 0.1 {
 						nextDy = 0.0
-						// Check if we're on ground (collision from below)
-						if averageAngle > -math.Pi/4 && averageAngle < math.Pi/4 {
-							isOnGround = true
-						}
+						isOnGround = true
 					}
 					nextX, nextY, _ = GetExtrapolatedPositionForDxDy(p, nextDx, nextDy)
 				}
