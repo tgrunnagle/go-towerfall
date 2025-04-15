@@ -380,7 +380,7 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 
 					// Create a grounded arrow if the player has any
 					if arrowCount, exists := p.GetStateValue(constants.StateArrowCount); exists && arrowCount.(int) > 0 {
-						arrow := NewArrowGameObject(uuid.New().String(), p, playerShape.GetCenter().X, playerShape.GetCenter().Y+(constants.PlayerRadius/2.0), 0.0)
+						arrow := NewArrowGameObject(uuid.New().String(), p, playerShape.GetCenter().X, playerShape.GetCenter().Y+(playerShape.(*geo.Circle).R), 0.0)
 						arrow.SetState(constants.StateArrowGrounded, true)
 						raisedEvents = append(raisedEvents, NewGameEvent(
 							event.RoomID,
