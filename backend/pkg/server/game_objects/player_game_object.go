@@ -307,6 +307,7 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 	}
 
 	isOnGround := false
+	died := false
 
 	// Check for collisions with other objects
 	for _, obj := range roomObjects {
@@ -333,10 +334,16 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 				if count > 0 {
 					averageAngle := totalAngle / float64(count)
 					if math.Abs(math.Cos(averageAngle)) > 0.1 {
-						nextDx = 0.0
+						if nextDx != 0.0 {
+							stateChanged = true
+							nextDx = 0.0
+						}
 					}
 					if math.Abs(math.Sin(averageAngle)) > 0.1 {
-						nextDy = 0.0
+						if nextDy != 0.0 {
+							stateChanged = true
+							nextDy = 0.0
+						}
 						isOnGround = true
 					}
 					nextX, nextY, err = GetExtrapolatedPositionForDxDy(p, nextDx, nextDy)
@@ -369,6 +376,7 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 					}
 					// Handle regular arrow collision (damage)
 					p.handleDeath()
+					died = true
 					// Mark arrow as destroyed
 					obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
 					obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
@@ -403,11 +411,13 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 	}
 
 	// Update location state
-	p.SetState(constants.StateX, nextX)
-	p.SetState(constants.StateY, nextY)
-	p.SetState(constants.StateDx, nextDx)
-	p.SetState(constants.StateDy, nextDy)
-	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+	if !died {
+		p.SetState(constants.StateX, nextX)
+		p.SetState(constants.StateY, nextY)
+		p.SetState(constants.StateDx, nextDx)
+		p.SetState(constants.StateDy, nextDy)
+		p.SetState(constants.StateLastLocUpdateTime, time.Now())
+	}
 
 	return stateChanged, raisedEvents
 }
