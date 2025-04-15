@@ -66,8 +66,8 @@ func (p *PlayerGameObject) Handle(event *GameEvent, roomObjects map[string]GameO
 	stateChanged := false
 	var raisedEvents []*GameEvent = nil
 	switch event.EventType {
-	case EventPlayerKeyStatus:
-		stateChanged, raisedEvents = p.handlePlayerKeyStatus(event)
+	case EventPlayerKeyInput:
+		stateChanged, raisedEvents = p.handlePlayerKeyInput(event)
 	case EventPlayerClickInput:
 		stateChanged, raisedEvents = p.handlePlayerClickInput(event)
 	case EventPlayerDirection:
@@ -94,8 +94,8 @@ func (p *PlayerGameObject) GetState() map[string]interface{} {
 	return result
 }
 
-// handlePlayerKeyStatus processes player key status events
-func (p *PlayerGameObject) handlePlayerKeyStatus(event *GameEvent) (bool, []*GameEvent) {
+// handlePlayerKeyInput processes player key input events
+func (p *PlayerGameObject) handlePlayerKeyInput(event *GameEvent) (bool, []*GameEvent) {
 	// Check if this event is for this player
 	playerID, ok := event.Data["playerId"].(string)
 	if !ok || playerID != p.GetID() {
@@ -127,10 +127,10 @@ func (p *PlayerGameObject) handlePlayerKeyStatus(event *GameEvent) (bool, []*Gam
 
 	if isDown {
 		switch key {
-		case "W":
+		case "W": // Jump
 			// Only allow jumping if we haven't exceeded max jumps
 			jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
-			if !exists || jumpCount.(int) < constants.MaxJumps {
+			if !exists || jumpCount.(int) < constants.PlayerMaxJumps {
 				dy = -1.0 * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
 				if exists {
 					p.SetState(constants.StateJumpCount, jumpCount.(int)+1)
@@ -138,9 +138,20 @@ func (p *PlayerGameObject) handlePlayerKeyStatus(event *GameEvent) (bool, []*Gam
 					p.SetState(constants.StateJumpCount, 1)
 				}
 			}
-		case "A":
+		case "S": // Dive
+			// Only allow diving if we haven't exceeded max jumps
+			jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
+			if !exists || jumpCount.(int) < constants.PlayerMaxJumps {
+				dy = 1.0 * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
+				if exists {
+					p.SetState(constants.StateJumpCount, jumpCount.(int)+1)
+				} else {
+					p.SetState(constants.StateJumpCount, 1)
+				}
+			}
+		case "A": // Left
 			dx = -1.0 * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
-		case "D":
+		case "D": // Right
 			dx = 1.0 * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
 		}
 	} else {
@@ -405,7 +416,7 @@ func (p *PlayerGameObject) GetProperty(key GameObjectProperty) (interface{}, boo
 // GetEventTypes returns the event types this player is interested in
 func (p *PlayerGameObject) GetEventTypes() []EventType {
 	return []EventType{
-		EventPlayerKeyStatus,
+		EventPlayerKeyInput,
 		EventPlayerClickInput,
 		EventPlayerDirection,
 		EventGameTick,

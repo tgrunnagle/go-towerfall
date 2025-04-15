@@ -24,6 +24,7 @@ const (
 )
 
 // Object state keys
+// Note these are sent to the client, so short names are preferred
 const (
 	StateID                = "id"
 	StateName              = "name"
@@ -49,15 +50,15 @@ const (
 
 // Player constants
 const (
-	PlayerStartingX           = RoomSizePixelsX / 2.0
-	PlayerStartingY          = RoomSizePixelsY / 2.0
-	PlayerRadius             = 20.0
-	PlayerSpeedXMetersPerSec = 10.0
+	PlayerStartingX             = RoomSizePixelsX / 2.0
+	PlayerStartingY             = RoomSizePixelsY / 2.0
+	PlayerRadius                = 20.0
+	PlayerSpeedXMetersPerSec    = 10.0
 	PlayerJumpSpeedMetersPerSec = 10.0
-	PlayerStartingHealth     = 100
-	MaxJumps                 = 2
-	PlayerRespawnTimeSec     = 5.0
-	PlayerMassKg             = 50.0
+	PlayerStartingHealth        = 100
+	PlayerMaxJumps              = 2
+	PlayerRespawnTimeSec        = 5.0
+	PlayerMassKg                = 50.0
 )
 
 const (

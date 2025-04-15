@@ -248,7 +248,7 @@ func (s *Server) handleKeyStatus(conn *Connection, req types.KeyStatusRequest) {
 
 	event := game_objects.NewGameEvent(
 		conn.RoomID,
-		game_objects.EventPlayerKeyStatus,
+		game_objects.EventPlayerKeyInput,
 		eventData,
 		1,   // Priority TODO centralize priority settings
 		nil, // No source object for user input
