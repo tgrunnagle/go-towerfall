@@ -2,18 +2,30 @@ package constants
 
 // Physics constants
 const (
-	AccelerationDueToGravity = 12.0 // 9.81
-	MaxVelocityMetersPerSec  = 20.0
-	PxPerMeter               = 20.0
+	AccelerationDueToGravityMetersPerSec2 = 14.0 // 9.81
+	MaxVelocityMetersPerSec               = 20.0
+	PxPerMeter                            = 20.0
 )
 
 // Room constants
 const (
-	RoomSizeMetersX = 40.0
-	RoomSizeMetersY = 40.0
-	RoomSizePixelsX = RoomSizeMetersX * PxPerMeter
-	RoomSizePixelsY = RoomSizeMetersY * PxPerMeter
+	RoomSizeMetersX        = 40.0
+	RoomSizeMetersY        = 40.0
+	RoomSizePixelsX        = RoomSizeMetersX * PxPerMeter
+	RoomSizePixelsY        = RoomSizeMetersY * PxPerMeter
+	RoomWrapDistanceMeters = 2.0
+	RoomWrapDistancePx     = RoomWrapDistanceMeters * PxPerMeter
 )
+
+var RespawnLocationsPx = []struct {
+	X float64
+	Y float64
+}{
+	{X: 200, Y: 100},
+	{X: 200, Y: 600},
+	{X: 600, Y: 100},
+	{X: 600, Y: 600},
+}
 
 // Object types
 const (
@@ -51,8 +63,6 @@ const (
 
 // Player constants
 const (
-	PlayerStartingX             = RoomSizePixelsX / 2.0
-	PlayerStartingY             = RoomSizePixelsY / 2.0
 	PlayerRadius                = 20.0
 	PlayerSpeedXMetersPerSec    = 15.0
 	PlayerJumpSpeedMetersPerSec = 20.0
@@ -61,7 +71,7 @@ const (
 	PlayerRespawnTimeSec        = 5.0
 	PlayerMassKg                = 50.0
 	PlayerStartingArrows        = 4
-	PlayerMaxArrows            = 4
+	PlayerMaxArrows             = 4
 )
 
 const (

@@ -28,12 +28,53 @@ func CreateMap(mapType MapType) []game_objects.GameObject {
 }
 
 func createMapWithBlocks() []game_objects.GameObject {
-	floor := game_objects.NewBlockGameObject(
+	// bottom left floor
+	bottomLeft := game_objects.NewBlockGameObject(
 		uuid.New().String(),
 		0,
 		constants.RoomSizePixelsY-game_objects.BlockSizeUnitPixels*3,
-		constants.RoomSizePixelsX,
+		constants.RoomSizePixelsX/2.0-100.,
 		game_objects.BlockSizeUnitPixels*3,
 	)
-	return []game_objects.GameObject{floor}
+	// bottom right floor
+	bottomRight := game_objects.NewBlockGameObject(
+		uuid.New().String(),
+		constants.RoomSizePixelsX/2.0+100.,
+		constants.RoomSizePixelsY-game_objects.BlockSizeUnitPixels*3,
+		constants.RoomSizePixelsX/2.0-100.,
+		game_objects.BlockSizeUnitPixels*3,
+	)
+	// middle floor
+	middleFloor := game_objects.NewBlockGameObject(
+		uuid.New().String(),
+		constants.RoomSizePixelsX/2.0-100.,
+		constants.RoomSizePixelsY/2.0,
+		200.,
+		game_objects.BlockSizeUnitPixels,
+	)
+	// middle wall
+	middleWall := game_objects.NewBlockGameObject(
+		uuid.New().String(),
+		constants.RoomSizePixelsX/2.0-game_objects.BlockSizeUnitPixels/2,
+		constants.RoomSizePixelsY/2.0-200.,
+		game_objects.BlockSizeUnitPixels,
+		400.,
+	)
+	// top left floor
+	topLeft := game_objects.NewBlockGameObject(
+		uuid.New().String(),
+		0,
+		200.,
+		200.,
+		game_objects.BlockSizeUnitPixels,
+	)
+	// top right floor
+	topRight := game_objects.NewBlockGameObject(
+		uuid.New().String(),
+		constants.RoomSizePixelsX-200.,
+		200.,
+		200.,
+		game_objects.BlockSizeUnitPixels,
+	)
+	return []game_objects.GameObject{bottomLeft, bottomRight, middleFloor, middleWall, topLeft, topRight}
 }

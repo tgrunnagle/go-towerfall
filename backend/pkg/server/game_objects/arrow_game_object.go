@@ -172,6 +172,8 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 		nextDy = 0.0
 	}
 
+	nextX, nextY = WrapPosition(nextX, nextY)
+
 	a.SetState(constants.StateDx, nextDx)
 	a.SetState(constants.StateDy, nextDy)
 	a.SetState(constants.StateX, nextX)
