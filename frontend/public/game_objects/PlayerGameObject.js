@@ -56,6 +56,18 @@ export class PlayerGameObject extends GameObjectWithPosition {
         canvasCtx.textAlign = 'center';
         canvasCtx.fillText(this.serverState.name, predictedX, predictedY - playerRadius - 5);
 
+        // Draw arrow count
+        const arrowCount = this.serverState.ac || 0;
+        const arrowSpacing = 8;
+        for (let i = 0; i < arrowCount; i++) {
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(predictedX - playerRadius + i * arrowSpacing, predictedY - playerRadius - 15);
+            canvasCtx.lineTo(predictedX - playerRadius + i * arrowSpacing + 4, predictedY - playerRadius - 20);
+            canvasCtx.strokeStyle = '#000';
+            canvasCtx.lineWidth = 2;
+            canvasCtx.stroke();
+        }
+
         // Draw velocity indicator
         if (this.serverState.dx !== 0 || this.serverState.dy !== 0) {
             canvasCtx.beginPath();

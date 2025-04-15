@@ -46,6 +46,7 @@ const (
 	StateShooting          = "sht"  // shooting state (boolean)
 	StateShootingStartTime = "shts" // shooting start time (float64)
 	StateJumpCount         = "jc"   // jumping count (int)
+	StateArrowCount        = "ac"   // arrow count (int)
 )
 
 // Player constants
@@ -59,6 +60,8 @@ const (
 	PlayerMaxJumps              = 2
 	PlayerRespawnTimeSec        = 5.0
 	PlayerMassKg                = 50.0
+	PlayerStartingArrows        = 4
+	PlayerMaxArrows            = 4
 )
 
 const (

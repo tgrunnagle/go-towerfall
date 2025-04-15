@@ -44,6 +44,7 @@ func NewPlayerGameObject(id string, name string, token string) *PlayerGameObject
 	player.SetState(constants.StateDead, false)                            // Player is not dead
 	player.SetState(constants.StateShooting, false)                        // Player is not shooting
 	player.SetState(constants.StateJumpCount, 0)
+	player.SetState(constants.StateArrowCount, constants.PlayerStartingArrows) // Starting arrows
 
 	player.respawning = false
 	return player
@@ -131,29 +132,23 @@ func (p *PlayerGameObject) handlePlayerKeyInput(event *GameEvent) (bool, []*Game
 			// Only allow jumping if we haven't exceeded max jumps
 			jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
 			if !exists || jumpCount.(int) < constants.PlayerMaxJumps {
-				log.Printf("Player %s jumped", p.GetID())
 				dy = -1.0 * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
 				if exists {
 					p.SetState(constants.StateJumpCount, jumpCount.(int)+1)
 				} else {
 					p.SetState(constants.StateJumpCount, 1)
 				}
-			} else {
-				log.Printf("Player %s cannot jump - max jumps reached", p.GetID())
 			}
 		case "S": // Dive
 			// Only allow diving if we haven't exceeded max jumps
 			jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
 			if !exists || jumpCount.(int) < constants.PlayerMaxJumps {
-				log.Printf("Player %s dived", p.GetID())
 				dy = 1.0 * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
 				if exists {
 					p.SetState(constants.StateJumpCount, jumpCount.(int)+1)
 				} else {
 					p.SetState(constants.StateJumpCount, 1)
 				}
-			} else {
-				log.Printf("Player %s cannot dive - max jumps reached", p.GetID())
 			}
 		case "A": // Left
 			dx = -1.0 * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
@@ -192,12 +187,26 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 
 	// left click
 	if event.Data["isDown"].(bool) && event.Data["button"].(int) == 0 {
+		// Check if already shooting
+		shooting, exists := p.GetStateValue(constants.StateShooting)
+		if exists && shooting.(bool) {
+			return false, nil
+		}
+
+		// Check if we have arrows
+		arrowCount, exists := p.GetStateValue(constants.StateArrowCount)
+		if !exists || arrowCount.(int) <= 0 {
+			return false, nil
+		}
+
 		// if the x is within the room bounds, start shooting
 		x := event.Data["x"].(float64)
 		y := event.Data["y"].(float64)
 		if x < 0 || x > constants.RoomSizePixelsX || y < 0 || y > constants.RoomSizePixelsY {
 			return false, nil
 		}
+
+		// Start shooting
 		p.SetState(constants.StateShooting, true)
 		p.SetState(constants.StateShootingStartTime, time.Now())
 		return true, nil
@@ -207,9 +216,19 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 	if !event.Data["isDown"].(bool) && event.Data["button"].(int) == 0 {
 		// if shooting, fire an arrow
 		if shooting, exists := p.GetStateValue(constants.StateShooting); exists && shooting.(bool) {
-
 			// stop shooting
 			p.SetState(constants.StateShooting, false)
+			// Double heck if we have arrows
+			arrowCount, exists := p.GetStateValue(constants.StateArrowCount)
+			if !exists {
+				log.Printf("Player %s has no arrow count state", p.GetID())
+				return false, nil
+			}
+			if arrowCount.(int) <= 0 {
+				return false, nil
+			}
+
+			p.SetState(constants.StateArrowCount, arrowCount.(int)-1) // Decrement arrow count
 
 			// create an arrow
 			startTime, _ := p.GetStateValue(constants.StateShootingStartTime)
@@ -243,25 +262,6 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 	return false, nil
 }
 
-func (p *PlayerGameObject) GetBoundingShape() geo.Shape {
-	x, exists := p.GetStateValue(constants.StateX)
-	if !exists {
-		log.Printf("Player %s has no x state", p.GetID())
-		return nil
-	}
-	y, exists := p.GetStateValue(constants.StateY)
-	if !exists {
-		log.Printf("Player %s has no y state", p.GetID())
-		return nil
-	}
-	return p.getBoundingShapeFor(x.(float64), y.(float64))
-}
-
-func (p *PlayerGameObject) getBoundingShapeFor(x float64, y float64) geo.Shape {
-	point := geo.NewPoint(x, y)
-	return geo.NewCircle(point, constants.PlayerRadius)
-}
-
 func (p *PlayerGameObject) handlePlayerDirection(event *GameEvent) (bool, []*GameEvent) {
 	// Check if this event is for this player
 	playerID, ok := event.Data["playerId"].(string)
@@ -280,39 +280,50 @@ func (p *PlayerGameObject) handlePlayerDirection(event *GameEvent) (bool, []*Gam
 }
 
 func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[string]GameObject) (bool, []*GameEvent) {
-	// Check collisions with next location
+	stateChanged := false
+	var raisedEvents []*GameEvent
+
 	nextX, nextY, nextDx, nextDy, err := GetExtrapolatedPosition(p)
 	if err != nil {
 		log.Printf("Failed to extrapolate player position: %v", err)
 		return false, nil
 	}
-	shape := p.getBoundingShapeFor(nextX, nextY)
 
-	events := []*GameEvent{}
+	playerShape := p.getBoundingShapeFor(nextX, nextY)
+	if playerShape == nil {
+		log.Printf("Player %s has no bounding shape", p.GetID())
+		return false, nil
+	}
+
+	x, exists := p.GetStateValue(constants.StateX)
+	if !exists {
+		log.Printf("Player %s has no x state", p.GetID())
+		return false, nil
+	}
+	y, exists := p.GetStateValue(constants.StateY)
+	if !exists {
+		log.Printf("Player %s has no y state", p.GetID())
+		return false, nil
+	}
+
 	isOnGround := false
+	died := false
 
-	// Check for collisions with solid objects and enemy bullets
-	for _, object := range roomObjects {
-		if object == p {
-			continue
-		}
-		iIsSolid, exists := object.GetProperty(GameObjectPropertyIsSolid)
-		isSolid := exists && iIsSolid.(bool)
-		isEnemyBullet := object.GetObjectType() == constants.ObjectTypeBullet && object.(*BulletGameObject).SourcePlayer != p
-		if !isSolid && !isEnemyBullet {
+	// Check for collisions with other objects
+	for _, obj := range roomObjects {
+		if obj.GetID() == p.GetID() {
 			continue
 		}
 
-		otherShape := object.GetBoundingShape()
+		otherShape := obj.GetBoundingShape()
 		if otherShape == nil {
 			continue
 		}
-		collides, collisionPoints := shape.CollidesWith(otherShape)
-		if collides {
-			if isSolid {
-				// Collision detected, stop moving
-				// TODO only stop moving in the direction of the collision
-				// Get the average of the angle of the collision point to the player x, y (center of the bounding shape)
+
+		if collides, collisionPoints := otherShape.CollidesWith(playerShape); collides {
+
+			// Handle collisions with solid objects
+			if isSolid, exists := obj.GetProperty(GameObjectPropertyIsSolid); exists && isSolid.(bool) {
 				var totalAngle float64
 				var count int
 				for _, point := range collisionPoints {
@@ -323,67 +334,109 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 				if count > 0 {
 					averageAngle := totalAngle / float64(count)
 					if math.Abs(math.Cos(averageAngle)) > 0.1 {
-						nextDx = 0.0
+						if nextDx != 0.0 {
+							stateChanged = true
+							nextDx = 0.0
+						}
 					}
 					if math.Abs(math.Sin(averageAngle)) > 0.1 {
-						nextDy = 0.0
+						if nextDy != 0.0 {
+							stateChanged = true
+							nextDy = 0.0
+						}
 						isOnGround = true
 					}
-					nextX, nextY, _ = GetExtrapolatedPositionForDxDy(p, nextDx, nextDy)
+					nextX, nextY, err = GetExtrapolatedPositionForDxDy(p, nextDx, nextDy)
+					if err != nil {
+						log.Printf("Failed to extrapolate player position: %v", err)
+						return false, nil
+					}
 				}
 			}
-			if isEnemyBullet {
-				// Report collision to bullet
-				if len(collisionPoints) > 0 {
-					x := collisionPoints[0].X
-					y := collisionPoints[0].Y
-					object.(*BulletGameObject).ReportCollision(p, x, y)
+
+			// Handle collisions with arrows
+			objType := obj.GetObjectType()
+			switch objType {
+			case constants.ObjectTypeArrow:
+				// Check if arrow is grounded
+				if grounded, exists := obj.GetStateValue(constants.StateArrowGrounded); exists && grounded.(bool) {
+					// Pick up arrow if we have room
+					if arrowCount, exists := p.GetStateValue(constants.StateArrowCount); exists && arrowCount.(int) < constants.PlayerMaxArrows {
+						p.SetState(constants.StateArrowCount, arrowCount.(int)+1)
+						// Mark arrow as destroyed
+						obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
+						obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
+						obj.SetState(constants.StateDestroyed, true)
+						stateChanged = true
+					}
 				} else {
-					log.Printf("Player %s collided with bullet %s but no collision point found", p.GetID(), object.GetID())
-				}
-
-				currentHealth, exists := p.GetStateValue(constants.StateHealth)
-				if !exists {
-					log.Printf("Player %s has no health state", p.GetID())
-					return false, nil
-				}
-				newHealth := currentHealth.(float64) - 10.0
-				p.SetState(constants.StateHealth, newHealth)
-
-				if newHealth <= 0.0 {
+					// Check if the arrow was shot by this player
+					if obj.(*ArrowGameObject).SourcePlayer == p {
+						continue
+					}
+					// Handle regular arrow collision (damage)
 					p.handleDeath()
+					died = true
 
-					events = append(events, NewGameEvent(
+					// Create a grounded arrow if the player has any
+					if arrowCount, exists := p.GetStateValue(constants.StateArrowCount); exists && arrowCount.(int) > 0 {
+						arrow := NewArrowGameObject(uuid.New().String(), p, playerShape.GetCenter().X, playerShape.GetCenter().Y+(playerShape.(*geo.Circle).R), 0.0)
+						arrow.SetState(constants.StateArrowGrounded, true)
+						raisedEvents = append(raisedEvents, NewGameEvent(
+							event.RoomID,
+							EventObjectCreated,
+							map[string]interface{}{
+								"type":   constants.ObjectTypeArrow,
+								"object": arrow,
+							},
+							1,
+							p,
+						))
+					}
+
+					// Mark arrow as destroyed
+					obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
+					obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
+					obj.SetState(constants.StateDestroyed, true)
+
+					raisedEvents = append(raisedEvents, NewGameEvent(
 						event.RoomID,
 						EventPlayerDied,
 						map[string]interface{}{
 							"objectID": p.GetID(),
-							"x":        shape.GetCenter().X,
-							"y":        shape.GetCenter().Y,
+							"x":        playerShape.GetCenter().X,
+							"y":        playerShape.GetCenter().Y,
 						},
 						10,
 						p,
 					))
-
-					// Stop processing further collisions if the player dies
-					return true, events
+					stateChanged = true
 				}
 			}
 		}
 	}
 
-	// Reset jump count when on ground
+	if x.(float64)-nextX != 0 || y.(float64)-nextY != 0 || nextDx != 0 || nextDy != 0 {
+		// TODO user appears to be slowly falling into the floor on the client, even though it's not
+		// moving on the server (periodic server updates confirm players are moved to the right position)
+		// This might be a client-side issue due to interpolation
+		stateChanged = true
+	}
+
 	if isOnGround {
 		p.SetState(constants.StateJumpCount, 0)
 	}
 
-	p.SetState(constants.StateX, nextX)
-	p.SetState(constants.StateY, nextY)
-	p.SetState(constants.StateDx, nextDx)
-	p.SetState(constants.StateDy, nextDy)
-	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+	// Update location state
+	if !died {
+		p.SetState(constants.StateX, nextX)
+		p.SetState(constants.StateY, nextY)
+		p.SetState(constants.StateDx, nextDx)
+		p.SetState(constants.StateDy, nextDy)
+		p.SetState(constants.StateLastLocUpdateTime, time.Now())
+	}
 
-	return true, events
+	return stateChanged, raisedEvents
 }
 
 func (p *PlayerGameObject) handleDeath() {
@@ -401,7 +454,6 @@ func (p *PlayerGameObject) handleDeath() {
 		p.SetState(constants.StateDir, math.Pi*3/2)
 		p.SetState(constants.StateLastLocUpdateTime, time.Now())
 		p.respawnTimer = nil
-		log.Printf("Player %s respawned", p.GetID())
 		p.respawning = true
 	})
 }
@@ -424,4 +476,23 @@ func (p *PlayerGameObject) GetEventTypes() []EventType {
 		EventPlayerDirection,
 		EventGameTick,
 	}
+}
+
+func (p *PlayerGameObject) GetBoundingShape() geo.Shape {
+	x, exists := p.GetStateValue(constants.StateX)
+	if !exists {
+		log.Printf("Player %s has no x state", p.GetID())
+		return nil
+	}
+	y, exists := p.GetStateValue(constants.StateY)
+	if !exists {
+		log.Printf("Player %s has no y state", p.GetID())
+		return nil
+	}
+	return p.getBoundingShapeFor(x.(float64), y.(float64))
+}
+
+func (p *PlayerGameObject) getBoundingShapeFor(x float64, y float64) geo.Shape {
+	point := geo.NewPoint(x, y)
+	return geo.NewCircle(point, constants.PlayerRadius)
 }
