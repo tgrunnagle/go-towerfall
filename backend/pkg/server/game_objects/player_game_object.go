@@ -33,11 +33,12 @@ func NewPlayerGameObject(id string, name string, token string) *PlayerGameObject
 	// Initialize player state
 	player.SetState(constants.StateID, id)
 	player.SetState(constants.StateName, name)
-	player.SetState(constants.StateX, constants.PlayerStartingX) // Starting X position
-	player.SetState(constants.StateY, constants.PlayerStartingY) // Starting Y position
-	player.SetState(constants.StateDx, 0.0)                      // X velocity
-	player.SetState(constants.StateDy, 0.0)                      // Y velocity
-	player.SetState(constants.StateDir, math.Pi*3/2)             // Point downward
+	respawnX, respawnY := GetRespawnLocation()
+	player.SetState(constants.StateX, respawnX)      // Starting X position
+	player.SetState(constants.StateY, respawnY)      // Starting Y position
+	player.SetState(constants.StateDx, 0.0)          // X velocity
+	player.SetState(constants.StateDy, 0.0)          // Y velocity
+	player.SetState(constants.StateDir, math.Pi*3/2) // Point downward
 	player.SetState(constants.StateLastLocUpdateTime, time.Now())
 	player.SetState(constants.StateRadius, constants.PlayerRadius)         // Player radius
 	player.SetState(constants.StateHealth, constants.PlayerStartingHealth) // Player health
@@ -429,6 +430,8 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 
 	// Update location state
 	if !died {
+		nextX, nextY = WrapPosition(nextX, nextY)
+
 		p.SetState(constants.StateX, nextX)
 		p.SetState(constants.StateY, nextY)
 		p.SetState(constants.StateDx, nextDx)
@@ -447,8 +450,9 @@ func (p *PlayerGameObject) handleDeath() {
 	p.respawnTimer = time.AfterFunc(constants.PlayerRespawnTimeSec*time.Second, func() {
 		p.SetState(constants.StateDead, false)
 		p.SetState(constants.StateHealth, constants.PlayerStartingHealth)
-		p.SetState(constants.StateX, constants.PlayerStartingX)
-		p.SetState(constants.StateY, constants.PlayerStartingY)
+		respawnX, respawnY := GetRespawnLocation()
+		p.SetState(constants.StateX, respawnX)
+		p.SetState(constants.StateY, respawnY)
 		p.SetState(constants.StateDx, 0.0)
 		p.SetState(constants.StateDy, 0.0)
 		p.SetState(constants.StateDir, math.Pi*3/2)
