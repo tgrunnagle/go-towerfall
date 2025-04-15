@@ -377,6 +377,23 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 					// Handle regular arrow collision (damage)
 					p.handleDeath()
 					died = true
+
+					// Create a grounded arrow if the player has any
+					if arrowCount, exists := p.GetStateValue(constants.StateArrowCount); exists && arrowCount.(int) > 0 {
+						arrow := NewArrowGameObject(uuid.New().String(), p, playerShape.GetCenter().X, playerShape.GetCenter().Y+(constants.PlayerRadius/2.0), 0.0)
+						arrow.SetState(constants.StateArrowGrounded, true)
+						raisedEvents = append(raisedEvents, NewGameEvent(
+							event.RoomID,
+							EventObjectCreated,
+							map[string]interface{}{
+								"type":   constants.ObjectTypeArrow,
+								"object": arrow,
+							},
+							1,
+							p,
+						))
+					}
+
 					// Mark arrow as destroyed
 					obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
 					obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
