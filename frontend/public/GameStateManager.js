@@ -149,10 +149,10 @@ export class GameStateManager {
         }
 
         // Draw horizontal grid lines
-        for (let y = 0; y <= this.canvasSizeX; y += 64) {
+        for (let y = 0; y <= this.canvasSizeY; y += 64) {
             canvasCtx.beginPath();
             canvasCtx.moveTo(0, y);
-            canvasCtx.lineTo(this.canvasSizeX, y);
+            canvasCtx.lineTo(this.canvasSizeY, y);
             canvasCtx.stroke();
         }
 

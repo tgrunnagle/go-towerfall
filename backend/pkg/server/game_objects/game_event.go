@@ -5,7 +5,7 @@ type EventType string
 
 // Event type constants
 const (
-	EventPlayerKeyStatus  EventType = "player_key_status"
+	EventPlayerKeyInput   EventType = "player_key_input"
 	EventPlayerClickInput EventType = "player_click_input"
 	EventPlayerDirection  EventType = "player_direction"
 	EventPlayerDied       EventType = "player_died"

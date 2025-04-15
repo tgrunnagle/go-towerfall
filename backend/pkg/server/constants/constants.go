@@ -10,7 +10,7 @@ const (
 // Room constants
 const (
 	RoomSizeMetersX = 40.0
-	RoomSizeMetersY = 30.0
+	RoomSizeMetersY = 40.0
 	RoomSizePixelsX = RoomSizeMetersX * PxPerMeter
 	RoomSizePixelsY = RoomSizeMetersY * PxPerMeter
 )
@@ -24,6 +24,7 @@ const (
 )
 
 // Object state keys
+// Note these are sent to the client, so short names are preferred
 const (
 	StateID                = "id"
 	StateName              = "name"
@@ -44,17 +45,19 @@ const (
 	StateArrowGrounded     = "ag"   // arrow grounded state (boolean)
 	StateShooting          = "sht"  // shooting state (boolean)
 	StateShootingStartTime = "shts" // shooting start time (float64)
+	StateJumpCount         = "jc"   // jumping count (int)
 )
 
-// Object constants
+// Player constants
 const (
-	PlayerRadius                = 16.0
+	PlayerStartingX             = RoomSizePixelsX / 2.0
+	PlayerStartingY             = RoomSizePixelsY / 2.0
+	PlayerRadius                = 20.0
+	PlayerSpeedXMetersPerSec    = 15.0
+	PlayerJumpSpeedMetersPerSec = 20.0
+	PlayerStartingHealth        = 100
+	PlayerMaxJumps              = 2
 	PlayerRespawnTimeSec        = 5.0
-	PlayerSpeedXMetersPerSec    = 10.0
-	PlayerJumpSpeedMetersPerSec = 12.0
-	PlayerStartingX             = 100.0
-	PlayerStartingY             = 100.0
-	PlayerStartingHealth        = 100.0
 	PlayerMassKg                = 50.0
 )
 

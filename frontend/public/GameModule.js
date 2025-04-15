@@ -72,7 +72,6 @@ class Game {
     this.handleCanvasMouseDown = this.handleCanvasMouseDown.bind(this);
     this.handleCanvasMouseUp = this.handleCanvasMouseUp.bind(this);
     this.animate = this.animate.bind(this);
-    this.setClientStateUpdateInterval = this.setClientStateUpdateInterval.bind(this);
   }
 
   initConnection() {
@@ -139,8 +138,6 @@ class Game {
       }
     });
 
-    this.setClientStateUpdateInterval();
-
     return this; // For chaining
   }
 
@@ -205,14 +202,6 @@ class Game {
 
     // Poll for ready state
     readyCheck = setInterval(func, 100);
-  }
-
-  setClientStateUpdateInterval() {
-    this.clientStateUpdateInterval = setInterval(() => {
-      const clientState = this.gameStateManager.getCurrentPlayerClientState();
-      if (!clientState) return;
-      this.sendMessage('ClientState', clientState);
-    }, this.options.clientStateUpdateInterval);
   }
 
   // WebSocket connection management
@@ -477,14 +466,20 @@ class Game {
   handleKeyDown(e) {
     if (['W', 'A', 'S', 'D'].includes(e.key.toUpperCase()) && !e.repeat) {
       this.keysPressed.add(e.key.toUpperCase());
-      this.sendKeyStatus();
+      this.sendMessage('Key', {
+        key: e.key.toUpperCase(),
+        isDown: true
+      });
     }
   }
 
   handleKeyUp(e) {
     if (['W', 'A', 'S', 'D'].includes(e.key.toUpperCase())) {
       this.keysPressed.delete(e.key.toUpperCase());
-      this.sendKeyStatus();
+      this.sendMessage('Key', {
+        key: e.key.toUpperCase(),
+        isDown: false
+      });
     }
   }
 
