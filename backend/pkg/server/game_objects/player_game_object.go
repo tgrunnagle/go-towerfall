@@ -132,29 +132,23 @@ func (p *PlayerGameObject) handlePlayerKeyInput(event *GameEvent) (bool, []*Game
 			// Only allow jumping if we haven't exceeded max jumps
 			jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
 			if !exists || jumpCount.(int) < constants.PlayerMaxJumps {
-				log.Printf("Player %s jumped", p.GetID())
 				dy = -1.0 * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
 				if exists {
 					p.SetState(constants.StateJumpCount, jumpCount.(int)+1)
 				} else {
 					p.SetState(constants.StateJumpCount, 1)
 				}
-			} else {
-				log.Printf("Player %s cannot jump - max jumps reached", p.GetID())
 			}
 		case "S": // Dive
 			// Only allow diving if we haven't exceeded max jumps
 			jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
 			if !exists || jumpCount.(int) < constants.PlayerMaxJumps {
-				log.Printf("Player %s dived", p.GetID())
 				dy = 1.0 * constants.PlayerJumpSpeedMetersPerSec * constants.PxPerMeter
 				if exists {
 					p.SetState(constants.StateJumpCount, jumpCount.(int)+1)
 				} else {
 					p.SetState(constants.StateJumpCount, 1)
 				}
-			} else {
-				log.Printf("Player %s cannot dive - max jumps reached", p.GetID())
 			}
 		case "A": // Left
 			dx = -1.0 * constants.PlayerSpeedXMetersPerSec * constants.PxPerMeter
@@ -320,11 +314,12 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 			continue
 		}
 
-		if obj.GetBoundingShape() == nil {
+		otherShape := obj.GetBoundingShape()
+		if otherShape == nil {
 			continue
 		}
 
-		if collides, collisionPoints := obj.GetBoundingShape().CollidesWith(playerShape); collides {
+		if collides, collisionPoints := otherShape.CollidesWith(playerShape); collides {
 
 			// Handle collisions with solid objects
 			if isSolid, exists := obj.GetProperty(GameObjectPropertyIsSolid); exists && isSolid.(bool) {
@@ -368,6 +363,10 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 						stateChanged = true
 					}
 				} else {
+					// Check if the arrow was shot by this player
+					if obj.(*ArrowGameObject).SourcePlayer == p {
+						continue
+					}
 					// Handle regular arrow collision (damage)
 					p.handleDeath()
 					// Mark arrow as destroyed
@@ -392,7 +391,10 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 		}
 	}
 
-	if x.(float64)-nextX != 0 || y.(float64)-nextY != 0 {
+	if x.(float64)-nextX != 0 || y.(float64)-nextY != 0 || nextDx != 0 || nextDy != 0 {
+		// TODO user appears to be slowly falling into the floor on the client, even though it's not
+		// moving on the server (periodic server updates confirm players are moved to the right position)
+		// This might be a client-side issue due to interpolation
 		stateChanged = true
 	}
 
@@ -425,7 +427,6 @@ func (p *PlayerGameObject) handleDeath() {
 		p.SetState(constants.StateDir, math.Pi*3/2)
 		p.SetState(constants.StateLastLocUpdateTime, time.Now())
 		p.respawnTimer = nil
-		log.Printf("Player %s respawned", p.GetID())
 		p.respawning = true
 	})
 }
