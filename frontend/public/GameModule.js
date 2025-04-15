@@ -138,8 +138,6 @@ class Game {
       }
     });
 
-    this.setClientStateUpdateInterval();
-
     return this; // For chaining
   }
 
