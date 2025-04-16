@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../Api';
 import './LandingPage.css';
 
 const LandingPage = () => {
@@ -24,27 +25,19 @@ const LandingPage = () => {
     setError('');
     
     try {
-      const response = await fetch((window.APP_CONFIG?.BACKEND_API_URL || 'http://localhost:4000') + '/api/createGame', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await api.post('/api/createGame',
+        {
           playerName,
           roomName
-        })
-      });
+        }
+      );
       
-      const data = await response.json();
-      
-      if (!data.success) {
-        setError(data.error || 'Failed to create game');
-        setIsLoading(false);
-        return;
+      if (response.status !== 200) {
+        throw new Error('Failed to create game');
       }
       
       // Navigate to game page with game info as query parameters
-      navigate(`/game?roomId=${data.roomId}&playerId=${data.playerId}&playerToken=${data.playerToken}&roomCode=${data.roomCode}`);
+      navigate(`/game?roomId=${response.data.roomId}&playerId=${response.data.playerId}&playerToken=${response.data.playerToken}&roomCode=${response.data.roomCode}`);
     } catch (error) {
       console.error('Error creating game:', error);
       setError('Failed to connect to server');
@@ -63,28 +56,20 @@ const LandingPage = () => {
     setError('');
     
     try {
-      const response = await fetch((window.APP_CONFIG?.BACKEND_API_URL || 'http://localhost:4000') + '/api/joinGame', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await api.post('/api/joinGame',
+        {
           playerName,
           roomCode,
           roomPassword
-        })
-      });
+        }
+      );
       
-      const data = await response.json();
-      
-      if (!data.success) {
-        setError(data.error || 'Failed to join game');
-        setIsLoading(false);
-        return;
+      if (response.status !== 200) {
+        throw new Error('Failed to join game');
       }
       
       // Navigate to game page with game info as query parameters
-      navigate(`/game?roomId=${data.roomId}&playerId=${data.playerId}&playerToken=${data.playerToken}&roomCode=${data.roomCode}`);
+      navigate(`/game?roomId=${response.data.roomId}&playerId=${response.data.playerId}&playerToken=${response.data.playerToken}&roomCode=${response.data.roomCode}`);
     } catch (error) {
       console.error('Error joining game:', error);
       setError('Failed to connect to server');
