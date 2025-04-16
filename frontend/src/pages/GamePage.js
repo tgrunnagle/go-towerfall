@@ -64,6 +64,8 @@ const GamePage = () => {
       <div className="controls">
         <div className="instructions">
           <p>Use <strong>W, A, S, D</strong> keys to move your player</p>
+          <p>Click, hold, and release left mouse button to shoot arrows, right mouse button to cancel</p>
+          <p>Don't forget to pick up grounded arrows if you run out</p>
         </div>
       </div>
     </div>

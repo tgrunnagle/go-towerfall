@@ -12,8 +12,6 @@ services:
     build:
       context: ./frontend
     ports:
-      - "4001:80"
+      - "4001:4001"
     depends_on:
       - game-server
-    environment:
-      - REACT_APP_WS_URL=ws://localhost:4000/ws

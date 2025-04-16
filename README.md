@@ -14,7 +14,7 @@ A Go-based WebSocket server with a React frontend designed for multiplayer onlin
 - Position interpolation for smooth movement
 - React-based frontend with canvas rendering
 - Keyboard controls for player movement
-- Bullets!
+- Shoot arrows by holding left-click to power up and releasing (right click to cancel)
 
 ## Project Structure
 
@@ -69,6 +69,6 @@ npm test
 ## Game Controls
 
 - Use W, A, S, D keys to move your player
-- Use left mouse button to shoot bullets
+- Click, hold, and release left mouse button to shoot arrows, right mouse button to cancel
 - Create a new game room or join an existing one from the landing page
 - View room information and other players in the game view
