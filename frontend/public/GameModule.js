@@ -3,7 +3,7 @@ import { Constants } from './Constants.js';
 
 const defaultOptions = () => {
   return {
-    serverUrl: 'ws://localhost:4000/ws',
+    serverUrl: process.env.WS_SERVER_URL || 'abcd',
     interpolationSpeed: 0.2,
     onConnectionChange: null,
     onGameInfoChange: null,
