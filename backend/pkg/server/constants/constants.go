@@ -2,8 +2,8 @@ package constants
 
 // Physics constants
 const (
-	AccelerationDueToGravityMetersPerSec2 = 14.0 // 9.81
-	MaxVelocityMetersPerSec               = 20.0
+	AccelerationDueToGravityMetersPerSec2 = 20.0 // 9.81
+	MaxVelocityMetersPerSec               = 30.0
 	PxPerMeter                            = 20.0
 )
 

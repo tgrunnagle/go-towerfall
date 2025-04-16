@@ -11,8 +11,6 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        - WS_SERVER_URL=${WS_SERVER_URL}
     ports:
       - "4001:4001"
     depends_on:
