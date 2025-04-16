@@ -1,3 +1,4 @@
 window.APP_CONFIG = {
-  "WS_SERVER_URL": "ws://localhost:4000/ws"
+  "BACKEND_WS_URL": "ws://localhost:4000",
+  "BACKEND_API_URL": "http://localhost:4000"
 };
