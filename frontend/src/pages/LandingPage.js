@@ -24,7 +24,7 @@ const LandingPage = () => {
     setError('');
     
     try {
-      const response = await fetch('http://localhost:4000/api/createGame', {
+      const response = await fetch((window.APP_CONFIG?.BACKEND_API_URL || 'http://localhost:4000') + '/api/createGame', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ const LandingPage = () => {
     setError('');
     
     try {
-      const response = await fetch('http://localhost:4000/api/joinGame', {
+      const response = await fetch((window.APP_CONFIG?.BACKEND_API_URL || 'http://localhost:4000') + '/api/joinGame', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -6,7 +6,8 @@ const path = require('path');
 require('dotenv').config();
 
 const config = {
-    WS_SERVER_URL: process.env.WS_SERVER_URL
+    BACKEND_WS_URL: process.env.BACKEND_WS_URL,
+    BACKEND_API_URL: process.env.BACKEND_API_URL
 };
 
 const configScript = `window.APP_CONFIG = ${JSON.stringify(config, null, 2)};`;
