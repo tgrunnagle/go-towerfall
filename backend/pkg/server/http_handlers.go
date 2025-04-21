@@ -48,8 +48,9 @@ func (s *Server) HandleGetMaps(w http.ResponseWriter, r *http.Request) {
 	// Convert metadata to response format
 	maps := make([]MapInfo, 0, len(metadata))
 	for _, md := range metadata {
-		// Get map type from filename
-		mapType := strings.TrimSuffix(filepath.Base(md.LayoutFile), filepath.Ext(md.LayoutFile))
+		// Get map type from metadata
+		mapType := strings.TrimPrefix(string(md.MapType), "meta/")
+		mapType = strings.TrimSuffix(mapType, filepath.Ext(mapType))
 		canvasSizeX := int(float64(md.ViewSize.X) * float64(constants.BlockSizeUnitPixels))
 		canvasSizeY := int(float64(md.ViewSize.Y) * float64(constants.BlockSizeUnitPixels))
 
