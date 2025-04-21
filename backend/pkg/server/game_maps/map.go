@@ -10,8 +10,8 @@ type Coords struct {
 type Map interface {
 	// Returns the name of the map
 	GetName() string
-	// Returns a list of game objects that should be placed on the map
-	GetObjects() []game_objects.GameObject
+	// Returns a map of game objects that should be placed on the map, keyed by object ID
+	GetObjects() map[string]game_objects.GameObject
 	// Returns a list of respawn locations for players in pixels
 	GetRespawnLocations() []*Coords
 	// Returns the size of the canvas in pixels
@@ -22,7 +22,7 @@ type Map interface {
 
 type BaseMap struct {
 	Name              string
-	Objects           []game_objects.GameObject
+	Objects           map[string]game_objects.GameObject
 	RespawnLocations  []*Coords
 	CanvasSizeX       int32
 	CanvasSizeY       int32
@@ -30,9 +30,15 @@ type BaseMap struct {
 }
 
 func NewBaseMap(name string, objects []game_objects.GameObject, respawnLocations []*Coords, canvasSizeX int32, canvasSizeY int32, originCoordinates *Coords) *BaseMap {
+	// Convert slice of objects to map keyed by object ID
+	objectMap := make(map[string]game_objects.GameObject)
+	for _, obj := range objects {
+		objectMap[obj.GetID()] = obj
+	}
+
 	return &BaseMap{
 		Name:              name,
-		Objects:           objects,
+		Objects:           objectMap,
 		RespawnLocations:  respawnLocations,
 		CanvasSizeX:       canvasSizeX,
 		CanvasSizeY:       canvasSizeY,
@@ -44,7 +50,7 @@ func (m *BaseMap) GetName() string {
 	return m.Name
 }
 
-func (m *BaseMap) GetObjects() []game_objects.GameObject {
+func (m *BaseMap) GetObjects() map[string]game_objects.GameObject {
 	return m.Objects
 }
 

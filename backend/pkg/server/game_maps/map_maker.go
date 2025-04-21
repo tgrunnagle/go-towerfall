@@ -16,8 +16,7 @@ import (
 type MapType string
 
 const (
-	MapDefault    MapType = "meta/default.txt"
-	MapWithBlocks MapType = "meta/with_blocks.txt"
+	MapDefault MapType = "meta/default.txt"
 )
 
 func CreateMap(mapType MapType) (*BaseMap, error) {
@@ -93,99 +92,6 @@ func findBlockShape(grid [][]bool, visited [][]bool, startX, startY int) []Point
 	})
 
 	return points
-}
-
-// processLayout converts a map metadata into game objects
-func processLayout(metadata *MapMetadata) []game_objects.GameObject {
-	// Convert layout to game objects
-	objects := make([]game_objects.GameObject, 0)
-
-	// Split the layout string into rows
-	rows := strings.Split(strings.TrimSpace(metadata.Layout), "\n")
-
-	// Split the layout into a 2D grid
-	grid := make([][]bool, 0)
-	for _, row := range rows {
-		if len(strings.TrimSpace(row)) == 0 {
-			continue
-		}
-		gridRow := make([]bool, len(strings.TrimSpace(row)))
-		for x, char := range strings.TrimSpace(row) {
-			gridRow[x] = char == 'B'
-		}
-		grid = append(grid, gridRow)
-	}
-
-	// Process layout to create block objects using BFS
-	visited := make([][]bool, len(grid))
-	for i := range visited {
-		visited[i] = make([]bool, len(grid[0]))
-	}
-
-	// For each unvisited block cell, run BFS to find the shape
-	for y := range grid {
-		for x := range grid[y] {
-			if !grid[y][x] || visited[y][x] {
-				continue
-			}
-
-			// Found an unvisited block cell, run BFS to find the shape
-			shape := findBlockShape(grid, visited, x, y)
-
-			// Convert shape coordinates to game coordinates
-			points := make([]*geo.Point, len(shape))
-			for i, point := range shape {
-				gameX := float64(point.X)*float64(game_objects.BlockSizeUnitPixels) - float64(metadata.Origin.X)*float64(game_objects.BlockSizeUnitPixels)
-				gameY := float64(point.Y)*float64(game_objects.BlockSizeUnitPixels) - float64(metadata.Origin.Y)*float64(game_objects.BlockSizeUnitPixels)
-				points[i] = geo.NewPoint(gameX, gameY)
-			}
-
-			// Create a block object for this shape
-			block := game_objects.NewBlockGameObject(
-				uuid.New().String(),
-				points,
-			)
-			objects = append(objects, block)
-		}
-	}
-
-	return objects
-}
-
-func createMapWithBlocks() []game_objects.GameObject {
-	// Create a default map layout
-	layout := `
-		0000BB0000
-		0000BB0000
-		0000BB0000
-		0BBBBBBBB0
-		0000BB0000
-		0000BB0000
-		0000BB0000
-	`
-
-	// Create metadata for the default map
-	metadata := MapMetadata{
-		MapName: "default",
-		Layout:  layout,
-		Origin: Coordinate{
-			X: 5,
-			Y: 4,
-		},
-		SpawnLocations: []Coordinate{
-			{X: 0, Y: 0},
-			{X: 9, Y: 0},
-			{X: 0, Y: 6},
-			{X: 9, Y: 6},
-		},
-		ViewSize: ViewSize{
-			X: 10,
-			Y: 7,
-		},
-	}
-
-	// Process the layout and create block objects
-	return processLayout(&metadata)
 }
 
 // CreateMapFromFile loads a map from a JSON metadata file and returns a BaseMap

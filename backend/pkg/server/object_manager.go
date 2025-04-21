@@ -5,6 +5,7 @@ import (
 	"go-ws-server/pkg/server/game_maps"
 	"go-ws-server/pkg/server/game_objects"
 	"log"
+	"maps"
 	"sync"
 )
 
@@ -17,13 +18,14 @@ type GameObjectManagerHandleEventResult struct {
 type GameObjectManager struct {
 	Objects map[string]game_objects.GameObject
 	Mutex   sync.RWMutex
-	Map     *game_maps.BaseMap
+	Map     game_maps.Map
 }
 
 // NewGameObjectManager creates a new GameObjectManager
-func NewGameObjectManager() *GameObjectManager {
+func NewGameObjectManager(gameMap game_maps.Map) *GameObjectManager {
 	return &GameObjectManager{
 		Objects: make(map[string]game_objects.GameObject),
+		Map:     gameMap,
 	}
 }
 
@@ -49,8 +51,19 @@ func (m *GameObjectManager) GetObject(id string) (game_objects.GameObject, bool)
 	m.Mutex.RLock()
 	defer m.Mutex.RUnlock()
 
-	obj, exists := m.Objects[id]
-	return obj, exists
+	// Check dynamic objects first
+	if obj, exists := m.Objects[id]; exists {
+		return obj, true
+	}
+
+	// Check map objects
+	if m.Map != nil {
+		if obj, exists := m.Map.GetObjects()[id]; exists {
+			return obj, true
+		}
+	}
+
+	return nil, false
 }
 
 func (m *GameObjectManager) GetObjectIDs() []string {
@@ -58,33 +71,48 @@ func (m *GameObjectManager) GetObjectIDs() []string {
 	defer m.Mutex.RUnlock()
 
 	var ids []string
+	// Add dynamic objects
 	for id := range m.Objects {
 		ids = append(ids, id)
+	}
+	// Add map objects
+	if m.Map != nil {
+		for id := range m.Map.GetObjects() {
+			ids = append(ids, id)
+		}
 	}
 	return ids
 }
 
-// GetAllObjects returns all game objects
+// GetAllObjects returns all game objects including map objects
 func (m *GameObjectManager) GetAllObjects() map[string]game_objects.GameObject {
 	m.Mutex.RLock()
 	defer m.Mutex.RUnlock()
 	result := make(map[string]game_objects.GameObject)
+
+	// Add dynamic objects
 	for id, obj := range m.Objects {
 		if obj == nil {
 			continue
 		}
 		result[id] = obj
 	}
+
+	// Add map objects
+	if m.Map != nil {
+		maps.Copy(result, m.Map.GetObjects())
+	}
 	return result
 }
 
-// GetAllStates returns the state of all game objects
+// GetAllStates returns the state of all game objects including map objects
 func (m *GameObjectManager) GetAllStates() map[string]map[string]interface{} {
 	m.Mutex.RLock()
 	defer m.Mutex.RUnlock()
 
 	allStates := make(map[string]map[string]interface{})
 
+	// Add dynamic objects
 	for id, obj := range m.Objects {
 		if obj == nil {
 			continue
@@ -92,6 +120,12 @@ func (m *GameObjectManager) GetAllStates() map[string]map[string]interface{} {
 		allStates[id] = obj.GetState()
 	}
 
+	// Add map objects
+	if m.Map != nil {
+		for id, obj := range m.Map.GetObjects() {
+			allStates[id] = obj.GetState()
+		}
+	}
 	return allStates
 }
 
