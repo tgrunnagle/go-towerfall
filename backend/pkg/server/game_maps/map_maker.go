@@ -7,6 +7,8 @@ import (
 	"go-ws-server/pkg/server/game_objects"
 	"go-ws-server/pkg/server/geo"
 	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -16,11 +18,20 @@ import (
 type MapType string
 
 const (
-	MapDefault MapType = "meta/default.txt"
+	MapDefault MapType = "meta/default.json"
 )
 
 func CreateMap(mapType MapType) (*BaseMap, error) {
-	return CreateMapFromFile(string(mapType))
+	// Get the directory of this source file
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return nil, fmt.Errorf("failed to get current file path")
+	}
+	// Get the directory containing this file
+	dir := filepath.Dir(filename)
+	// Construct path relative to this file
+	mapPath := filepath.Join(dir, string(mapType))
+	return CreateMapFromFile(mapPath)
 }
 
 // Point represents a 2D point in grid coordinates
@@ -109,13 +120,20 @@ func CreateMapFromFile(filePath string) (*BaseMap, error) {
 	// Convert layout to game objects
 	objects := make([]game_objects.GameObject, 0)
 
+	// Read layout file
+	layoutData, err := os.ReadFile(filepath.Join(filepath.Dir(filePath), metadata.LayoutFile))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read layout file: %v", err)
+	}
+
 	// Split the layout string into rows
-	rows := strings.Split(strings.TrimSpace(metadata.Layout), "\n")
+	rows := strings.Split(strings.TrimSpace(string(layoutData)), "\n")
 
 	// Split the layout into a 2D grid
 	grid := make([][]bool, 0)
 	for _, row := range rows {
-		if len(strings.TrimSpace(row)) == 0 {
+		row = strings.TrimSpace(row)
+		if len(row) == 0 {
 			continue
 		}
 		gridRow := make([]bool, len(row))

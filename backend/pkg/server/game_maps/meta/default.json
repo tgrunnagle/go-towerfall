@@ -1,0 +1,16 @@
+{
+  "map_name": "default_room",
+  "layout_file": "default_layout.txt",
+  "origin_coordinates": {
+    "x": 0,
+    "y": 0
+  },
+  "spawn_coordinates": [
+    {"x": 5, "y": 28},
+    {"x": 35, "y": 28}
+  ],
+  "view_size": {
+    "x": 40,
+    "y": 30
+  }
+}

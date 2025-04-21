@@ -11,9 +11,9 @@ type ViewSize struct {
 }
 
 type MapMetadata struct {
-	MapName          string       `json:"map_name"`
-	Layout          string       `json:"layout"`
-	Origin          Coordinate   `json:"origin_coordinates"`
-	SpawnLocations  []Coordinate `json:"spawn_coordinates"`
-	ViewSize        ViewSize     `json:"view_size"`
+	MapName        string       `json:"map_name"`
+	LayoutFile     string       `json:"layout_file"`
+	Origin         Coordinate   `json:"origin_coordinates"`
+	SpawnLocations []Coordinate `json:"spawn_coordinates"`
+	ViewSize       ViewSize     `json:"view_size"`
 }
