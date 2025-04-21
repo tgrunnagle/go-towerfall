@@ -4,6 +4,8 @@ const GameWrapper = ({
   roomId,
   playerId,
   playerToken,
+  canvasSizeX,
+  canvasSizeY,
   setPlayerName,
   setRoomName,
   setRoomCode,
@@ -18,7 +20,7 @@ const GameWrapper = ({
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    if (!roomId || !playerId || !playerToken) {
+    if (!roomId || !playerId || !playerToken || !canvasSizeX || !canvasSizeY) {
       setError('Missing required parameters');
       return;
     }
@@ -52,6 +54,8 @@ const GameWrapper = ({
     // Clean up on unmount
     return () => { };
   }, [
+    canvasSizeX,
+    canvasSizeY,
     roomId,
     playerId,
     playerToken,
@@ -91,6 +95,12 @@ const GameWrapper = ({
       <canvas
         ref={canvasRef}
         className="game-canvas"
+        width={canvasSizeX}
+        height={canvasSizeY}
+        style={{
+          width: `${canvasSizeX}px`,
+          height: `${canvasSizeY}px`,
+        }}
       />
 
       <div className="game-controls">

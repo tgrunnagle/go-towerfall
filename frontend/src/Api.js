@@ -7,3 +7,25 @@ export const api = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+export const getMaps = async () => {
+  const response = await api.get('/api/maps');
+  return response.data.maps;
+};
+
+export const createGame = async ({ playerName, roomName, mapType }) => {
+  const response = await api.post('/api/createGame', {
+    playerName,
+    roomName,
+    mapType
+  });
+  return response.data;
+};
+
+export const joinGame = async ({ playerName, roomCode }) => {
+  const response = await api.post('/api/joinGame', {
+    playerName,
+    roomCode
+  });
+  return response.data;
+};

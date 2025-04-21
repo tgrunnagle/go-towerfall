@@ -15,13 +15,15 @@ const GamePage = () => {
   const queryRoomId = queryParams.get('roomId');
   const queryPlayerId = queryParams.get('playerId');
   const queryPlayerToken = queryParams.get('playerToken');
+  const queryCanvasSizeX = parseInt(queryParams.get('canvasSizeX'), 10);
+  const queryCanvasSizeY = parseInt(queryParams.get('canvasSizeY'), 10);
   
   // Redirect to home if missing required parameters
   useEffect(() => {
-    if (!queryRoomId || !queryPlayerId || !queryPlayerToken) {
+    if (!queryRoomId || !queryPlayerId || !queryPlayerToken || !queryCanvasSizeX || !queryCanvasSizeY) {
       navigate('/');
     }
-  }, [queryRoomId, queryPlayerId, queryPlayerToken, navigate]);
+  }, [queryRoomId, queryPlayerId, queryPlayerToken, queryCanvasSizeX, queryCanvasSizeY, navigate]);
   
   // Handle exit game
   const handleExitGame = useCallback(() => {
@@ -54,6 +56,8 @@ const GamePage = () => {
         roomId={queryRoomId}
         playerId={queryPlayerId}
         playerToken={queryPlayerToken}
+        canvasSizeX={queryCanvasSizeX}
+        canvasSizeY={queryCanvasSizeY}
         setPlayerName={setPlayerName}
         setRoomName={setRoomName}
         setRoomCode={setRoomCode}

@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../Api';
+import { getMaps, createGame, joinGame } from '../Api';
 import './LandingPage.css';
 
 const LandingPage = () => {
@@ -13,10 +13,29 @@ const LandingPage = () => {
   const [roomPassword, setRoomPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [maps, setMaps] = useState([]);
+  const [selectedMap, setSelectedMap] = useState('');
+
+  useEffect(() => {
+    const loadMaps = async () => {
+      try {
+        const maps = await getMaps();
+        setMaps(maps);
+        if (maps.length > 0) {
+          setSelectedMap(maps[0].type);
+        }
+      } catch (error) {
+        console.error('Error loading maps:', error);
+        setError('Failed to load maps');
+      }
+    };
+
+    loadMaps();
+  }, []);
 
   const handleCreateGame = useCallback(async (e) => {
     e.preventDefault();
-    if (!roomName || !playerName) {
+    if (!roomName || !playerName || !selectedMap) {
       setError('Please fill in all fields');
       return;
     }
@@ -25,25 +44,20 @@ const LandingPage = () => {
     setError('');
     
     try {
-      const response = await api.post('/api/createGame',
-        {
-          playerName,
-          roomName
-        }
-      );
-      
-      if (response.status !== 200) {
-        throw new Error('Failed to create game');
-      }
+      const response = await createGame({
+        playerName,
+        roomName,
+        mapType: selectedMap
+      });
       
       // Navigate to game page with game info as query parameters
-      navigate(`/game?roomId=${response.data.roomId}&playerId=${response.data.playerId}&playerToken=${response.data.playerToken}&roomCode=${response.data.roomCode}`);
+      navigate(`/game?roomId=${response.roomId}&playerId=${response.playerId}&playerToken=${response.playerToken}&roomCode=${response.roomCode}&canvasSizeX=${response.canvasSizeX}&canvasSizeY=${response.canvasSizeY}`);
     } catch (error) {
       console.error('Error creating game:', error);
       setError('Failed to connect to server');
       setIsLoading(false);
     }
-  }, [navigate, playerName, roomName]);
+  }, [navigate, playerName, roomName, selectedMap]);
 
   const handleJoinGame = useCallback(async (e) => {
     e.preventDefault();
@@ -56,20 +70,13 @@ const LandingPage = () => {
     setError('');
     
     try {
-      const response = await api.post('/api/joinGame',
-        {
-          playerName,
-          roomCode,
-          roomPassword
-        }
-      );
-      
-      if (response.status !== 200) {
-        throw new Error('Failed to join game');
-      }
+      const response = await joinGame({
+        playerName,
+        roomCode
+      });
       
       // Navigate to game page with game info as query parameters
-      navigate(`/game?roomId=${response.data.roomId}&playerId=${response.data.playerId}&playerToken=${response.data.playerToken}&roomCode=${response.data.roomCode}`);
+      navigate(`/game?roomId=${response.roomId}&playerId=${response.playerId}&playerToken=${response.playerToken}&roomCode=${response.roomCode}&canvasSizeX=${response.canvasSizeX}&canvasSizeY=${response.canvasSizeY}`);
     } catch (error) {
       console.error('Error joining game:', error);
       setError('Failed to connect to server');
@@ -124,6 +131,23 @@ const LandingPage = () => {
                     required
                     disabled={isLoading}
                   />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="map-select">Select Map</label>
+                  <select
+                    id="map-select"
+                    value={selectedMap}
+                    onChange={(e) => setSelectedMap(e.target.value)}
+                    required
+                    disabled={isLoading}
+                  >
+                    {maps.map(map => (
+                      <option key={map.type} value={map.type}>
+                        {map.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 
                 {error && <div className="error">{error}</div>}
