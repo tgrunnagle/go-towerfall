@@ -5,11 +5,6 @@ import (
 	"go-ws-server/pkg/server/geo"
 )
 
-const (
-	BlockSizeUnitMeters float64 = 1.0
-	BlockSizeUnitPixels float64 = BlockSizeUnitMeters * constants.PxPerMeter
-)
-
 type BlockGameObject struct {
 	*BaseGameObject
 }

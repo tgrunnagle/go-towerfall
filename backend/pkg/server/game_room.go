@@ -168,7 +168,7 @@ func (r *GameRoom) GetNumberOfConnectedPlayers() int {
 	return len(r.Players)
 }
 
-func NewGameWithPlayer(roomName string, playerName string) (*GameRoom, *ConnectedPlayer, error) {
+func NewGameWithPlayer(roomName string, playerName string, mapType game_maps.MapType) (*GameRoom, *ConnectedPlayer, error) {
 	// Generate room ID, password, and room code
 	roomID := uuid.New().String()
 	password := util.GeneratePassword()
@@ -179,7 +179,7 @@ func NewGameWithPlayer(roomName string, playerName string) (*GameRoom, *Connecte
 	playerToken := uuid.New().String()
 
 	// Create room with default map
-	room, err := NewGameRoom(roomID, roomName, password, roomCode, game_maps.MapDefault)
+	room, err := NewGameRoom(roomID, roomName, password, roomCode, mapType)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create room: %v", err)
 	}

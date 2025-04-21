@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
+	"go-ws-server/pkg/server/constants"
 	"go-ws-server/pkg/server/game_objects"
 	"go-ws-server/pkg/server/geo"
 	"os"
@@ -162,8 +163,8 @@ func CreateMapFromFile(filePath string) (*BaseMap, error) {
 			// Convert shape coordinates to game coordinates
 			points := make([]*geo.Point, len(shape))
 			for i, point := range shape {
-				gameX := float64(point.X)*float64(game_objects.BlockSizeUnitPixels) - float64(metadata.Origin.X)*float64(game_objects.BlockSizeUnitPixels)
-				gameY := float64(point.Y)*float64(game_objects.BlockSizeUnitPixels) - float64(metadata.Origin.Y)*float64(game_objects.BlockSizeUnitPixels)
+				gameX := float64(point.X)*float64(constants.BlockSizeUnitPixels) - float64(metadata.Origin.X)*float64(constants.BlockSizeUnitPixels)
+				gameY := float64(point.Y)*float64(constants.BlockSizeUnitPixels) - float64(metadata.Origin.Y)*float64(constants.BlockSizeUnitPixels)
 				points[i] = geo.NewPoint(gameX, gameY)
 			}
 
@@ -180,23 +181,23 @@ func CreateMapFromFile(filePath string) (*BaseMap, error) {
 	spawnLocations := make([]*Coords, len(metadata.SpawnLocations))
 	for i, spawn := range metadata.SpawnLocations {
 		spawnLocations[i] = &Coords{
-			X: float64(spawn.X-metadata.Origin.X) * float64(game_objects.BlockSizeUnitPixels),
-			Y: float64(spawn.Y-metadata.Origin.Y) * float64(game_objects.BlockSizeUnitPixels),
+			X: float64(spawn.X-metadata.Origin.X) * float64(constants.BlockSizeUnitPixels),
+			Y: float64(spawn.Y-metadata.Origin.Y) * float64(constants.BlockSizeUnitPixels),
 		}
 	}
 
 	// Convert origin to pixel coordinates
 	originCoords := &Coords{
-		X: float64(metadata.Origin.X) * float64(game_objects.BlockSizeUnitPixels),
-		Y: float64(metadata.Origin.Y) * float64(game_objects.BlockSizeUnitPixels),
+		X: float64(metadata.Origin.X) * float64(constants.BlockSizeUnitPixels),
+		Y: float64(metadata.Origin.Y) * float64(constants.BlockSizeUnitPixels),
 	}
 
 	return NewBaseMap(
 		metadata.MapName,
 		objects,
 		spawnLocations,
-		int32(float64(metadata.ViewSize.X)*float64(game_objects.BlockSizeUnitPixels)),
-		int32(float64(metadata.ViewSize.Y)*float64(game_objects.BlockSizeUnitPixels)),
+		int32(float64(metadata.ViewSize.X)*float64(constants.BlockSizeUnitPixels)),
+		int32(float64(metadata.ViewSize.Y)*float64(constants.BlockSizeUnitPixels)),
 		originCoords,
 	), nil
 }
