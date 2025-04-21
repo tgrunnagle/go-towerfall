@@ -1,13 +1,13 @@
 {
-  "map_name": "default_room",
+  "map_name": "Ready player one",
   "layout_file": "default_layout.txt",
-  "origin_coordinates": {
+  "origin_index": {
     "x": 0,
     "y": 0
   },
-  "spawn_coordinates": [
-    {"x": 5, "y": 28},
-    {"x": 35, "y": 28}
+  "spawn_indices": [
+    {"x": 5, "y": 15},
+    {"x": 35, "y": 15}
   ],
   "view_size": {
     "x": 40,

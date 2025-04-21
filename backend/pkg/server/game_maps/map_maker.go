@@ -1,7 +1,6 @@
 package game_maps
 
 import (
-	"container/list"
 	"encoding/json"
 	"fmt"
 	"go-ws-server/pkg/server/constants"
@@ -10,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -35,75 +33,20 @@ func CreateMap(mapType MapType) (*BaseMap, error) {
 	return CreateMapFromFile(mapPath)
 }
 
-// Point represents a 2D point in grid coordinates
-type Point struct {
-	X, Y int
-}
+// gets the corner points for a block at layout index (x, y)
+func findBlockCorners(xIndex int, yIndex int) []*geo.Point {
+	// Convert grid coordinates to pixel coordinates
+	blockSize := constants.BlockSizeUnitPixels
+	x := float64(xIndex) * blockSize
+	y := float64(yIndex) * blockSize
 
-// findBlockShape uses BFS to find all connected block cells and returns their outline points
-func findBlockShape(grid [][]bool, visited [][]bool, startX, startY int) []Point {
-	// Directions for BFS: right, down, left, up
-	directions := []Point{
-		{X: 1, Y: 0},
-		{X: 0, Y: 1},
-		{X: -1, Y: 0},
-		{X: 0, Y: -1},
+	// Create a rectangle for this single block
+	return []*geo.Point{
+		{X: x, Y: y},                         // Top-left
+		{X: x + blockSize, Y: y},             // Top-right
+		{X: x + blockSize, Y: y + blockSize}, // Bottom-right
+		{X: x, Y: y + blockSize},             // Bottom-left
 	}
-
-	// Use BFS to find all connected blocks
-	queue := list.New()
-	queue.PushBack(Point{X: startX, Y: startY})
-	visited[startY][startX] = true
-
-	// Keep track of outline points
-	outline := make(map[Point]bool)
-
-	// Process each point in the queue
-	for queue.Len() > 0 {
-		current := queue.Remove(queue.Front()).(Point)
-
-		// Check if this is an outline point by looking at its neighbors
-		isOutline := false
-		for _, dir := range directions {
-			nextX := current.X + dir.X
-			nextY := current.Y + dir.Y
-
-			// Check if the neighbor is within bounds
-			if nextX >= 0 && nextX < len(grid[0]) && nextY >= 0 && nextY < len(grid) {
-				// If the neighbor is empty, this is an outline point
-				if !grid[nextY][nextX] {
-					isOutline = true
-				} else if !visited[nextY][nextX] {
-					// If the neighbor is a block and unvisited, add it to the queue
-					queue.PushBack(Point{X: nextX, Y: nextY})
-					visited[nextY][nextX] = true
-				}
-			} else {
-				// Points at the grid boundary are outline points
-				isOutline = true
-			}
-		}
-
-		if isOutline {
-			outline[current] = true
-		}
-	}
-
-	// Convert outline points to a slice and sort them
-	points := make([]Point, 0, len(outline))
-	for point := range outline {
-		points = append(points, point)
-	}
-
-	// Sort points to ensure a consistent order (clockwise around the shape)
-	sort.Slice(points, func(i, j int) bool {
-		if points[i].Y != points[j].Y {
-			return points[i].Y < points[j].Y
-		}
-		return points[i].X < points[j].X
-	})
-
-	return points
 }
 
 // CreateMapFromFile loads a map from a JSON metadata file and returns a BaseMap
@@ -144,31 +87,17 @@ func CreateMapFromFile(filePath string) (*BaseMap, error) {
 		grid = append(grid, gridRow)
 	}
 
-	// Process layout to create block objects using BFS
-	visited := make([][]bool, len(grid))
-	for i := range visited {
-		visited[i] = make([]bool, len(grid[0]))
-	}
-
-	// For each unvisited block cell, run BFS to find the shape
+	// Create blocks for each 'B' in the layout
 	for y := range grid {
 		for x := range grid[y] {
-			if !grid[y][x] || visited[y][x] {
+			if !grid[y][x] {
 				continue
 			}
 
-			// Found an unvisited block cell, run BFS to find the shape
-			shape := findBlockShape(grid, visited, x, y)
+			// Get the corner points for this block
+			points := findBlockCorners(x, y)
 
-			// Convert shape coordinates to game coordinates
-			points := make([]*geo.Point, len(shape))
-			for i, point := range shape {
-				gameX := float64(point.X)*float64(constants.BlockSizeUnitPixels) - float64(metadata.Origin.X)*float64(constants.BlockSizeUnitPixels)
-				gameY := float64(point.Y)*float64(constants.BlockSizeUnitPixels) - float64(metadata.Origin.Y)*float64(constants.BlockSizeUnitPixels)
-				points[i] = geo.NewPoint(gameX, gameY)
-			}
-
-			// Create a block object for this shape
+			// Create a block object
 			block := game_objects.NewBlockGameObject(
 				uuid.New().String(),
 				points,

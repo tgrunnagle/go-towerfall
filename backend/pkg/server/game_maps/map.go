@@ -1,6 +1,9 @@
 package game_maps
 
-import "go-ws-server/pkg/server/game_objects"
+import (
+	"go-ws-server/pkg/server/game_objects"
+	"math/rand"
+)
 
 type Coords struct {
 	X float64
@@ -12,8 +15,8 @@ type Map interface {
 	GetName() string
 	// Returns a map of game objects that should be placed on the map, keyed by object ID
 	GetObjects() map[string]game_objects.GameObject
-	// Returns a list of respawn locations for players in pixels
-	GetRespawnLocations() []*Coords
+	// Returns a random respawn location for a player
+	GetRespawnLocation() (float64, float64)
 	// Returns the size of the canvas in pixels
 	GetCanvasSize() (int, int)
 	// Returns the origin coordinates of the map in pixels
@@ -54,8 +57,9 @@ func (m *BaseMap) GetObjects() map[string]game_objects.GameObject {
 	return m.Objects
 }
 
-func (m *BaseMap) GetRespawnLocations() []*Coords {
-	return m.RespawnLocations
+func (m *BaseMap) GetRespawnLocation() (float64, float64) {
+	index := rand.Intn(len(m.RespawnLocations))
+	return m.RespawnLocations[index].X, m.RespawnLocations[index].Y
 }
 
 func (m *BaseMap) GetCanvasSize() (int, int) {

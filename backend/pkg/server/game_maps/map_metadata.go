@@ -8,23 +8,25 @@ import (
 	"runtime"
 )
 
-type Coordinate struct {
+// index in the layout
+type LayoutIndex struct {
 	X int `json:"x"`
 	Y int `json:"y"`
 }
 
+// size of the map in blocks
 type ViewSize struct {
 	X int `json:"x"`
 	Y int `json:"y"`
 }
 
 type MapMetadata struct {
-	MapName        string       `json:"map_name"`
-	LayoutFile     string       `json:"layout_file"`
-	Origin         Coordinate   `json:"origin_coordinates"`
-	SpawnLocations []Coordinate `json:"spawn_coordinates"`
-	ViewSize       ViewSize     `json:"view_size"`
-	MapType        MapType      `json:"-"` // Not read from JSON, populated after reading the file
+	MapName        string        `json:"map_name"`
+	LayoutFile     string        `json:"layout_file"`
+	Origin         LayoutIndex   `json:"origin_index"`
+	SpawnLocations []LayoutIndex `json:"spawn_indices"`
+	ViewSize       ViewSize      `json:"view_size"`
+	MapType        MapType       `json:"-"` // Not read from JSON, populated after reading the file
 }
 
 // GetAllMapsMetadata returns all map metadata found in the meta directory

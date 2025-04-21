@@ -4,7 +4,6 @@ import (
 	"errors"
 	"go-ws-server/pkg/server/constants"
 	"math"
-	"math/rand"
 	"time"
 )
 
@@ -80,10 +79,4 @@ func WrapPosition(x float64, y float64) (float64, float64) {
 		y = -1.0 * constants.RoomWrapDistancePx
 	}
 	return x, y
-}
-
-// TODO: move this to map maker
-func GetRespawnLocation() (float64, float64) {
-	index := rand.Intn(len(constants.RespawnLocationsPx))
-	return constants.RespawnLocationsPx[index].X, constants.RespawnLocationsPx[index].Y
 }
