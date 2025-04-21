@@ -49,6 +49,7 @@ const (
 	StateLastLocUpdateTime = "llut"
 	StateDir               = "dir"  // direction in radians, 0 is right
 	StateRadius            = "rad"  // radius of the object bounding circle
+	StatePoints            = "pts"  // array of points for polygon objects
 	StateHealth            = "h"    // health of the object
 	StateDestroyed         = "d"    // destroyed state (boolean)
 	StateDestroyedAtX      = "dAtX" // x position when destroyed
