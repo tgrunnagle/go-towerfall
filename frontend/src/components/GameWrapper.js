@@ -35,6 +35,8 @@ const GameWrapper = ({
       roomId,
       playerId,
       playerToken,
+      canvasSizeX,
+      canvasSizeY,
       {
         onConnectionChange: (isConnected) => {
           setConnected(isConnected);
@@ -97,10 +99,6 @@ const GameWrapper = ({
         className="game-canvas"
         width={canvasSizeX}
         height={canvasSizeY}
-        style={{
-          width: `${canvasSizeX}px`,
-          height: `${canvasSizeY}px`,
-        }}
       />
 
       <div className="game-controls">

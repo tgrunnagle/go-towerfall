@@ -85,6 +85,8 @@ class Game {
     roomId,
     playerId,
     playerToken,
+    canvasSizeX,
+    canvasSizeY,
     callbacks = {}
   ) {
     // Update canvas reference
@@ -92,8 +94,9 @@ class Game {
     this.ctx = this.canvas.getContext('2d');
 
     // Set up canvas
-    this.canvas.width = Constants.CANVAS_SIZE_X;
-    this.canvas.height = Constants.CANVAS_SIZE_Y;
+    this.canvas.width = canvasSizeX;
+    this.canvas.height = canvasSizeY;
+    this.gameStateManager.setCanvasSize(canvasSizeX, canvasSizeY);
 
     // Prevent context menu on right click
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
