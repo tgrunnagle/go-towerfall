@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"go-ws-server/pkg/server/game_maps"
 	"go-ws-server/pkg/server/game_objects"
 	"log"
 	"sync"
@@ -16,6 +17,7 @@ type GameObjectManagerHandleEventResult struct {
 type GameObjectManager struct {
 	Objects map[string]game_objects.GameObject
 	Mutex   sync.RWMutex
+	Map     *game_maps.BaseMap
 }
 
 // NewGameObjectManager creates a new GameObjectManager

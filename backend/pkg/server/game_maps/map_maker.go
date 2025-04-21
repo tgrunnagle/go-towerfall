@@ -4,10 +4,8 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
-	"go-ws-server/pkg/server/constants"
 	"go-ws-server/pkg/server/game_objects"
 	"go-ws-server/pkg/server/geo"
-	"log"
 	"os"
 	"sort"
 	"strings"
@@ -18,20 +16,12 @@ import (
 type MapType string
 
 const (
-	MapDefault    MapType = "default"
-	MapWithBlocks MapType = "with_blocks"
+	MapDefault    MapType = "meta/default.txt"
+	MapWithBlocks MapType = "meta/with_blocks.txt"
 )
 
-func CreateMap(mapType MapType) []game_objects.GameObject {
-	switch mapType {
-	case MapDefault:
-		return nil
-	case MapWithBlocks:
-		return createMapWithBlocks()
-	default:
-		log.Printf("Unknown map type: %s", mapType)
-		return nil
-	}
+func CreateMap(mapType MapType) (*BaseMap, error) {
+	return CreateMapFromFile(string(mapType))
 }
 
 // Point represents a 2D point in grid coordinates
@@ -53,7 +43,7 @@ func findBlockShape(grid [][]bool, visited [][]bool, startX, startY int) []Point
 	queue := list.New()
 	queue.PushBack(Point{X: startX, Y: startY})
 	visited[startY][startX] = true
-	
+
 	// Keep track of outline points
 	outline := make(map[Point]bool)
 
@@ -112,7 +102,7 @@ func processLayout(metadata *MapMetadata) []game_objects.GameObject {
 
 	// Split the layout string into rows
 	rows := strings.Split(strings.TrimSpace(metadata.Layout), "\n")
-	
+
 	// Split the layout into a 2D grid
 	grid := make([][]bool, 0)
 	for _, row := range rows {
@@ -141,7 +131,7 @@ func processLayout(metadata *MapMetadata) []game_objects.GameObject {
 
 			// Found an unvisited block cell, run BFS to find the shape
 			shape := findBlockShape(grid, visited, x, y)
-			
+
 			// Convert shape coordinates to game coordinates
 			points := make([]*geo.Point, len(shape))
 			for i, point := range shape {
@@ -212,10 +202,10 @@ func CreateMapFromFile(filePath string) (*BaseMap, error) {
 
 	// Convert layout to game objects
 	objects := make([]game_objects.GameObject, 0)
-	
+
 	// Split the layout string into rows
 	rows := strings.Split(strings.TrimSpace(metadata.Layout), "\n")
-	
+
 	// Split the layout into a 2D grid
 	grid := make([][]bool, 0)
 	for _, row := range rows {
@@ -244,7 +234,7 @@ func CreateMapFromFile(filePath string) (*BaseMap, error) {
 
 			// Found an unvisited block cell, run BFS to find the shape
 			shape := findBlockShape(grid, visited, x, y)
-			
+
 			// Convert shape coordinates to game coordinates
 			points := make([]*geo.Point, len(shape))
 			for i, point := range shape {
@@ -281,8 +271,8 @@ func CreateMapFromFile(filePath string) (*BaseMap, error) {
 		metadata.MapName,
 		objects,
 		spawnLocations,
-		int32(float64(metadata.ViewSize.X) * float64(game_objects.BlockSizeUnitPixels)),
-		int32(float64(metadata.ViewSize.Y) * float64(game_objects.BlockSizeUnitPixels)),
+		int32(float64(metadata.ViewSize.X)*float64(game_objects.BlockSizeUnitPixels)),
+		int32(float64(metadata.ViewSize.Y)*float64(game_objects.BlockSizeUnitPixels)),
 		originCoords,
 	), nil
 }

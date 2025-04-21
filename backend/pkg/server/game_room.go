@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"go-ws-server/pkg/server/game_maps"
 	"go-ws-server/pkg/server/game_objects"
 	"go-ws-server/pkg/util"
@@ -54,11 +55,20 @@ func NewGameRoom(id string, name string, password string, roomCode string) *Game
 	}
 }
 
-func (r *GameRoom) InitializeMap(mapType game_maps.MapType) {
-	objects := game_maps.CreateMap(mapType)
-	for _, object := range objects {
+func (r *GameRoom) InitializeMap(mapType game_maps.MapType) error {
+	baseMap, err := game_maps.CreateMap(mapType)
+	if err != nil {
+		return fmt.Errorf("failed to create map: %v", err)
+	}
+
+	// Store the map in the object manager
+	r.ObjectManager.Map = baseMap
+
+	// Add all map objects to the object manager
+	for _, object := range baseMap.Objects {
 		r.addObject(object)
 	}
+	return nil
 }
 
 // AddPlayer adds a connected player to the game room
