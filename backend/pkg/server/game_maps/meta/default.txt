@@ -1,0 +1,21 @@
+{
+  "map_name": "test_map",
+  "layout": "
+    0BB0
+    0000
+    BB00
+    00BB
+  ",
+  "origin_coordinates": {
+    "x": 2,
+    "y": 2
+  },
+  "spawn_coordinates": [
+    {"x": 0, "y": 0},
+    {"x": 3, "y": 3}
+  ],
+  "view_size": {
+    "x": 4,
+    "y": 4
+  }
+}
