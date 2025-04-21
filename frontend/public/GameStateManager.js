@@ -17,8 +17,13 @@ export class GameStateManager {
         this.animationManager = new AnimationsManager();
         this.reset = this.reset.bind(this);
 
-        this.canvasSizeX = Constants.CANVAS_SIZE_X;
-        this.canvasSizeY = Constants.CANVAS_SIZE_Y;
+        this.canvasSizeX = 0;
+        this.canvasSizeY = 0;
+    }
+
+    setCanvasSize(canvasSizeX, canvasSizeY) {
+        this.canvasSizeX = canvasSizeX;
+        this.canvasSizeY = canvasSizeY;
     }
 
     reset() {
@@ -144,7 +149,7 @@ export class GameStateManager {
         for (let x = 0; x <= this.canvasSizeX; x += 64) {
             canvasCtx.beginPath();
             canvasCtx.moveTo(x, 0);
-            canvasCtx.lineTo(x, this.canvasSizeX);
+            canvasCtx.lineTo(x, this.canvasSizeY);
             canvasCtx.stroke();
         }
 
@@ -152,7 +157,7 @@ export class GameStateManager {
         for (let y = 0; y <= this.canvasSizeY; y += 64) {
             canvasCtx.beginPath();
             canvasCtx.moveTo(0, y);
-            canvasCtx.lineTo(this.canvasSizeY, y);
+            canvasCtx.lineTo(this.canvasSizeX, y);
             canvasCtx.stroke();
         }
 

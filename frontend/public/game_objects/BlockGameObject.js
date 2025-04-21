@@ -7,9 +7,16 @@ export class BlockGameObject extends GameObjectWithPosition {
     }
 
     render(canvasCtx, _timestamp) {
-        canvasCtx.beginPath();
-        canvasCtx.rect(this.serverState.x, this.serverState.y, this.serverState.w, this.serverState.h);
+        if (!this.serverState.pts || this.serverState.pts.length < 2) {
+            return;
+        }
         canvasCtx.fillStyle = '#009900';
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(this.serverState.pts[0].X, this.serverState.pts[0].Y);
+        for (let i = 1; i < this.serverState.pts.length; i++) {
+            canvasCtx.lineTo(this.serverState.pts[i].X, this.serverState.pts[i].Y);
+        }
+        canvasCtx.closePath();
         canvasCtx.fill();
     }
 }

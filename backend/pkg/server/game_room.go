@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"go-ws-server/pkg/server/game_maps"
 	"go-ws-server/pkg/server/game_objects"
 	"go-ws-server/pkg/util"
@@ -38,27 +39,36 @@ type GameRoom struct {
 	LastUpdateTime time.Time
 	// Map of player ID -> player
 	Players map[string]*ConnectedPlayer
+	Map     game_maps.Map
 }
 
 // NewGameRoom creates a new game room
-func NewGameRoom(id string, name string, password string, roomCode string) *GameRoom {
-	return &GameRoom{
+func NewGameRoom(id string, name string, password string, roomCode string, mapType game_maps.MapType) (*GameRoom, error) {
+	// Create and initialize the map
+	baseMap, err := game_maps.CreateMap(mapType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create map: %v", err)
+	}
+
+	// Create the room
+	room := &GameRoom{
 		ID:             id,
 		Name:           name,
 		Password:       password,
 		RoomCode:       roomCode,
 		EventManager:   NewGameEventManager(),
-		ObjectManager:  NewGameObjectManager(),
+		ObjectManager:  NewGameObjectManager(baseMap),
 		LastUpdateTime: time.Now(),
 		Players:        make(map[string]*ConnectedPlayer),
+		Map:            baseMap,
 	}
-}
 
-func (r *GameRoom) InitializeMap(mapType game_maps.MapType) {
-	objects := game_maps.CreateMap(mapType)
-	for _, object := range objects {
-		r.addObject(object)
+	// Initialize map objects
+	for _, object := range baseMap.GetObjects() {
+		room.EventManager.SubscribeToAll(object)
 	}
+
+	return room, nil
 }
 
 // AddPlayer adds a connected player to the game room
@@ -74,7 +84,7 @@ func (r *GameRoom) AddPlayer(playerID string, player *ConnectedPlayer) bool {
 	// Add player to the room
 	r.Players[playerID] = player
 
-	gameObject := game_objects.NewPlayerGameObject(player.ID, player.Name, player.Token)
+	gameObject := game_objects.NewPlayerGameObject(player.ID, player.Name, player.Token, r.Map.GetRespawnLocation)
 
 	// Add player's GameObject to the object manager if it exists
 	r.addObject(gameObject)
@@ -160,7 +170,7 @@ func (r *GameRoom) GetNumberOfConnectedPlayers() int {
 	return len(r.Players)
 }
 
-func NewGameWithPlayer(roomName string, playerName string) (*GameRoom, *ConnectedPlayer, error) {
+func NewGameWithPlayer(roomName string, playerName string, mapType game_maps.MapType) (*GameRoom, *ConnectedPlayer, error) {
 	// Generate room ID, password, and room code
 	roomID := uuid.New().String()
 	password := util.GeneratePassword()
@@ -170,10 +180,11 @@ func NewGameWithPlayer(roomName string, playerName string) (*GameRoom, *Connecte
 	playerID := uuid.New().String()
 	playerToken := uuid.New().String()
 
-	room := NewGameRoom(roomID, roomName, password, roomCode)
-
-	// TODO accept map type as parameter
-	room.InitializeMap(game_maps.MapWithBlocks)
+	// Create room with default map
+	room, err := NewGameRoom(roomID, roomName, password, roomCode, mapType)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create room: %v", err)
+	}
 
 	// Create player
 	player := &ConnectedPlayer{

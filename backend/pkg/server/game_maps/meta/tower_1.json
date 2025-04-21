@@ -1,0 +1,18 @@
+{
+  "map_name": "Tower 1",
+  "layout_file": "tower_1_layout.txt",
+  "origin_index": {
+    "x": 0,
+    "y": 0
+  },
+  "spawn_indices": [
+    {"x": 5, "y": 5},
+    {"x": 35, "y": 5},
+    {"x": 5, "y": 20},
+    {"x": 35, "y": 20}
+  ],
+  "view_size": {
+    "x": 40,
+    "y": 30
+  }
+}

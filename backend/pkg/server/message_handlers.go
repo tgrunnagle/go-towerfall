@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"go-ws-server/pkg/server/game_objects"
+	"go-ws-server/pkg/server/game_maps"
 	"go-ws-server/pkg/server/types"
 	"go-ws-server/pkg/util"
 	"log"
@@ -11,7 +12,7 @@ import (
 
 // handleCreateGame creates a new game room
 func (s *Server) handleCreateGame(conn *Connection, req types.CreateGameRequest) {
-	room, player, err := NewGameWithPlayer(req.RoomName, req.PlayerName)
+	room, player, err := NewGameWithPlayer(req.RoomName, req.PlayerName, game_maps.MapDefault)
 	if err != nil {
 		// Send error response
 		response := types.CreateGameResponse{

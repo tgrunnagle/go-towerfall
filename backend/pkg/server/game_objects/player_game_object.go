@@ -14,26 +14,26 @@ import (
 // PlayerGameObject represents a player in the game
 type PlayerGameObject struct {
 	*BaseGameObject
-	Name         string
-	Token        string
-	respawnTimer *time.Timer
-	respawning   bool
+	Name               string
+	Token              string
+	respawnTimer       *time.Timer
+	respawning         bool
+	getRespawnLocation func() (float64, float64)
 }
 
 // NewPlayerGameObject creates a new PlayerGameObject
-func NewPlayerGameObject(id string, name string, token string) *PlayerGameObject {
+func NewPlayerGameObject(id string, name string, token string, getRespawnLocation func() (float64, float64)) *PlayerGameObject {
 	base := NewBaseGameObject(id, constants.ObjectTypePlayer)
 	player := &PlayerGameObject{
-		BaseGameObject: base,
-		Name:           name,
-		Token:          token,
-		respawnTimer:   nil,
+		BaseGameObject:     base,
+		Name:               name,
+		Token:              token,
+		respawnTimer:       nil,
+		getRespawnLocation: getRespawnLocation,
 	}
-
-	// Initialize player state
 	player.SetState(constants.StateID, id)
 	player.SetState(constants.StateName, name)
-	respawnX, respawnY := GetRespawnLocation()
+	respawnX, respawnY := getRespawnLocation()
 	player.SetState(constants.StateX, respawnX)      // Starting X position
 	player.SetState(constants.StateY, respawnY)      // Starting Y position
 	player.SetState(constants.StateDx, 0.0)          // X velocity
@@ -450,7 +450,7 @@ func (p *PlayerGameObject) handleDeath() {
 	p.respawnTimer = time.AfterFunc(constants.PlayerRespawnTimeSec*time.Second, func() {
 		p.SetState(constants.StateDead, false)
 		p.SetState(constants.StateHealth, constants.PlayerStartingHealth)
-		respawnX, respawnY := GetRespawnLocation()
+		respawnX, respawnY := p.getRespawnLocation()
 		p.SetState(constants.StateX, respawnX)
 		p.SetState(constants.StateY, respawnY)
 		p.SetState(constants.StateDx, 0.0)

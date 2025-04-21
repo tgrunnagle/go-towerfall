@@ -49,6 +49,7 @@ const (
 	StateLastLocUpdateTime = "llut"
 	StateDir               = "dir"  // direction in radians, 0 is right
 	StateRadius            = "rad"  // radius of the object bounding circle
+	StatePoints            = "pts"  // array of points for polygon objects
 	StateHealth            = "h"    // health of the object
 	StateDestroyed         = "d"    // destroyed state (boolean)
 	StateDestroyedAtX      = "dAtX" // x position when destroyed
@@ -74,11 +75,13 @@ const (
 	PlayerMaxArrows             = 4
 )
 
+// Bullet constants
 const (
 	BulletDistance    = 1024.0 // Distance in pixels
 	BulletLifetimeSec = 0.1
 )
 
+// Arrow constants
 const (
 	ArrowMaxPowerNewton        = 100.0
 	ArrowMaxPowerTimeSec       = 2.0
@@ -89,4 +92,10 @@ const (
 	ArrowDestroyDistancePx     = ArrowDestroyDistanceMeters * PxPerMeter
 	ArrowGroundedRadiusMeters  = 0.5
 	ArrowGroundedRadiusPx      = ArrowGroundedRadiusMeters * PxPerMeter
+)
+
+// Block constants
+const (
+	BlockSizeUnitMeters float64 = 1.0
+	BlockSizeUnitPixels float64 = BlockSizeUnitMeters * PxPerMeter
 )
