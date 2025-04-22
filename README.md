@@ -29,7 +29,7 @@ A Go-based WebSocket server with a React frontend designed for multiplayer onlin
 This will start both the backend server and frontend application:
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
 The backend server will be available at `ws://localhost:4000/ws`
@@ -64,6 +64,28 @@ The test helper is a Selenium script that can be used to manually test the appli
 cd test/selenium
 npm install
 npm test
+```
+
+### Bot
+
+The bot is a ML model that can play the game. It runs in python and is located in the `bot` directory. Initialize the virtual environment with:
+
+```bash
+cd bot
+# on macOS
+python3.11 -m venv env
+source env/bin/activate
+# on windows (in powershell, Set-ExecutionPolicy RemoteSigned)
+py -3.11 -m venv env
+.\env\Scripts\activate
+# exit venv
+deactivate
+```
+
+Run the bot with:
+
+```bash
+// TODO
 ```
 
 ## Game Controls
