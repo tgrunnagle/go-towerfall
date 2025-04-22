@@ -79,10 +79,11 @@ class GameClient:
             return
 
         message = {
-            "type": "player_input",
-            "inputType": InputType.KEYBOARD.value,
-            "key": key,
-            "pressed": pressed
+            "type": "Key",
+            "payload": {
+                "key": key,
+                "isDown": pressed
+            }
         }
         await self.websocket.send(json.dumps(message))
 
@@ -92,36 +93,33 @@ class GameClient:
             return
 
         message = {
-            "type": "player_input",
-            "inputType": InputType.MOUSE.value,
-            "button": button,
-            "pressed": pressed,
-            "x": x,
-            "y": y
+            "type": "Click",
+            "payload": {
+                "x": x,
+                "y": y,
+                "button": button,
+                "isDown": pressed,
+            }
         }
         await self.websocket.send(json.dumps(message))
 
-    async def send_direction(self, x: float, y: float) -> None:
-        """Send player direction"""
-        if not self.websocket:
-            return
-
-        message = {
-            "type": "player_input",
-            "inputType": InputType.DIRECTION.value,
-            "x": x,
-            "y": y
-        }
-        await self.websocket.send(json.dumps(message))
-
-    async def register_message_handler(self, handler) -> None:
+    def register_message_handler(self, handler) -> None:
         self._message_handlers.append(handler)
 
+    async def exit_game(self) -> None:
+        if not self.websocket:
+            return
+        message = {
+            "type": "ExitGame",
+            "payload": {}
+        }
+        await self.websocket.send(json.dumps(message))
+        await self.close()
+    
     async def _handle_message(self, message: str) -> None:
         """Handle incoming websocket messages"""
         try:
             data = json.loads(message)
-            self._logger.info(f"Received message: {data}")
             for handler in self._message_handlers:
                 try:
                     await handler(data)
@@ -140,7 +138,7 @@ class GameClient:
                 self._logger.error("Connection to server closed")
                 break
             except Exception as e:
-                self._logger.error(f"Error in message listener: {e}")
+                self._logger.exception(f"Error in message listener", e)
                 break
 
     async def close(self) -> None:
