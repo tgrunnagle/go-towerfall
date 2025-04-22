@@ -7,14 +7,13 @@ class ExampleBot:
     def __init__(self, client: GameClient):
         self.client = client
         self.running = False
+        self._logger = logging.getLogger(__name__)
+        self.client.register_message_handler(self._handle_message)
 
     async def run(self):
         """Main bot loop"""
         self.running = True
-        try:
-            # Start listening for game state in the background
-            asyncio.create_task(self.client.listen_for_game_state())
-            
+        try:            
             while self.running:
                 # Your ML model inference would go here
                 # For now, we'll just implement a simple example that moves back and forth
@@ -32,12 +31,17 @@ class ExampleBot:
                 await asyncio.sleep(0.1)  # Don't spam the server
                 
         except Exception as e:
-            print(f"Bot error: {e}")
+            self._logger.exception("Bot error", e)
             self.running = False
 
     def stop(self):
         """Stop the bot"""
         self.running = False
+
+    async def _handle_message(self, message: dict) -> None:
+        """Handle incoming messages"""
+        # TODO: Handle messages
+        pass
 
 async def main(args):
     # Create a game client

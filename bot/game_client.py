@@ -1,9 +1,11 @@
 import json
 import asyncio
+import aiohttp
 import websockets
 from enum import Enum
 from typing import Dict, Optional
 import logging
+from urllib.parse import urljoin
 
 class InputType(Enum):
     KEYBOARD = "keyboard"
@@ -11,64 +13,59 @@ class InputType(Enum):
     DIRECTION = "direction"
 
 class GameClient:
-    def __init__(self, server_url: str = "ws://localhost:4000/ws"):
-        self.server_url = server_url
+    def __init__(self, ws_url: str = "ws://localhost:4000/ws", http_url: str = "http://localhost:4000"):
+        self.ws_url = ws_url
+        self.http_url = http_url
         self.websocket = None
         self.game_state = {}
         self.player_id = None
+        self.player_token = None
         self.room_id = None
         self._logger = logging.getLogger(__name__)
-
-    async def _handle_message(self, message: str) -> None:
-        """Handle incoming websocket messages"""
-        try:
-            data = json.loads(message)
-            self._logger.info(f"Received message: {data}")
-            
-            # TODO: Handle different message types
-            message_type = data.get('type')
-            if message_type == 'game_state':
-                self.game_state = data.get('state', {})
-            elif message_type == 'error':
-                self._logger.error(f"Server error: {data.get('error')}")
-        except json.JSONDecodeError:
-            self._logger.error(f"Failed to parse message: {message}")
-        except Exception as e:
-            self._logger.error(f"Error handling message: {e}")
-
-    async def _listen_for_messages(self) -> None:
-        """Listen for incoming websocket messages"""
-        while True:
-            try:
-                message = await self.websocket.recv()
-                await self._handle_message(message)
-            except websockets.exceptions.ConnectionClosed:
-                self._logger.error("Connection to server closed")
-                break
-            except Exception as e:
-                self._logger.error(f"Error in message listener: {e}")
-                break
+        self._message_handlers = []
 
     async def connect(self, room_code: str, player_name: str, room_password: Optional[str] = None) -> None:
         """Connect to a game room"""
         try:
-            self._logger.info(f"Connecting to websocket server at {self.server_url}")
-            self.websocket = await websockets.connect(self.server_url)
+            # First join via HTTP API
+            self._logger.info(f"Joining game via HTTP API {room_code} as player {player_name}")
+            join_data = {
+                "playerName": player_name,
+                "roomCode": room_code,
+                "roomPassword": room_password
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    urljoin(self.http_url, "api/joinGame"),
+                    json=join_data
+                ) as response:
+                    response.raise_for_status()
+                    data = await response.json()
+
+            self.player_id = data["playerId"]
+            self.player_token = data["playerToken"]
+            self.room_id = data["roomId"]
+
+            # Now connect to WebSocket
+            self._logger.info(f"Connecting to websocket server at {self.ws_url}")
+            self.websocket = await websockets.connect(self.ws_url)
 
             # Start listening for messages
             listener_task = asyncio.create_task(self._listen_for_messages())
 
-            # Join the game room
-            self._logger.info(f"Joining game room {room_code} as player {player_name}")
-            join_message = {
-                "type": "join_game",
-                "roomCode": room_code,
-                "playerName": player_name
+            # Rejoin the game room with our token
+            self._logger.info(f"Rejoining game room with token")
+            rejoin_message = {
+                "type": "RejoinGame",
+                "payload": {
+                    "playerId": self.player_id,
+                    "playerToken": self.player_token,
+                    "roomId": self.room_id
+                }
             }
-            if room_password:
-                join_message["roomPassword"] = room_password
 
-            await self.websocket.send(json.dumps(join_message))
+            await self.websocket.send(json.dumps(rejoin_message))
 
             # Keep the listener task running
             return listener_task
@@ -117,9 +114,34 @@ class GameClient:
         }
         await self.websocket.send(json.dumps(message))
 
-    async def _handle_game_state(self, state: Dict) -> None:
-        """Handle incoming game state. Override this method to implement custom state handling."""
-        pass
+    async def register_message_handler(self, handler) -> None:
+        self._message_handlers.append(handler)
+
+    async def _handle_message(self, message: str) -> None:
+        """Handle incoming websocket messages"""
+        try:
+            data = json.loads(message)
+            self._logger.info(f"Received message: {data}")
+            for handler in self._message_handlers:
+                try:
+                    await handler(data)
+                except Exception as e:
+                    self._logger.error(f"Error in message handler: {e}")
+        except json.JSONDecodeError:
+            self._logger.error(f"Failed to parse message: {message}")
+
+    async def _listen_for_messages(self) -> None:
+        """Listen for incoming websocket messages"""
+        while True:
+            try:
+                message = await self.websocket.recv()
+                await self._handle_message(message)
+            except websockets.exceptions.ConnectionClosed:
+                self._logger.error("Connection to server closed")
+                break
+            except Exception as e:
+                self._logger.error(f"Error in message listener: {e}")
+                break
 
     async def close(self) -> None:
         """Close the WebSocket connection"""
