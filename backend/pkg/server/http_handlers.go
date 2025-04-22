@@ -103,6 +103,8 @@ type JoinGameHTTPResponse struct {
 	PlayerToken string `json:"playerToken,omitempty"`
 	RoomID      string `json:"roomId,omitempty"`
 	RoomCode    string `json:"roomCode,omitempty"`
+	CanvasSizeX int    `json:"canvasSizeX,omitempty"`
+	CanvasSizeY int    `json:"canvasSizeY,omitempty"`
 	Error       string `json:"error,omitempty"`
 }
 
@@ -253,6 +255,9 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get canvas size
+	canvasSizeX, canvasSizeY := room.ObjectManager.Map.GetCanvasSize()
+
 	// update last activity for the room
 	s.serverLock.Lock()
 	s.lastActivity[room.ID] = time.Now()
@@ -266,6 +271,8 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 		PlayerToken: player.Token,
 		RoomID:      room.ID,
 		RoomCode:    room.RoomCode,
+		CanvasSizeX: canvasSizeX,
+		CanvasSizeY: canvasSizeY,
 	})
 
 	log.Printf("Player %s joined game room %s via HTTP API", player.ID, room.ID)

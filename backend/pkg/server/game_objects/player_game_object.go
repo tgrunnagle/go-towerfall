@@ -19,10 +19,17 @@ type PlayerGameObject struct {
 	respawnTimer       *time.Timer
 	respawning         bool
 	getRespawnLocation func() (float64, float64)
+	wrapPosition       func(float64, float64) (float64, float64)
 }
 
 // NewPlayerGameObject creates a new PlayerGameObject
-func NewPlayerGameObject(id string, name string, token string, getRespawnLocation func() (float64, float64)) *PlayerGameObject {
+func NewPlayerGameObject(
+	id string,
+	name string,
+	token string,
+	getRespawnLocation func() (float64, float64),
+	wrapPosition func(float64, float64) (float64, float64),
+) *PlayerGameObject {
 	base := NewBaseGameObject(id, constants.ObjectTypePlayer)
 	player := &PlayerGameObject{
 		BaseGameObject:     base,
@@ -30,6 +37,7 @@ func NewPlayerGameObject(id string, name string, token string, getRespawnLocatio
 		Token:              token,
 		respawnTimer:       nil,
 		getRespawnLocation: getRespawnLocation,
+		wrapPosition:       wrapPosition,
 	}
 	player.SetState(constants.StateID, id)
 	player.SetState(constants.StateName, name)
@@ -236,7 +244,7 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 			powerRatio := math.Min(time.Since(startTime.(time.Time)).Seconds()/constants.ArrowMaxPowerTimeSec, 1.0)
 			xClick := event.Data["x"].(float64)
 			yClick := event.Data["y"].(float64)
-			arrow := NewArrowGameObject(uuid.New().String(), p, xClick, yClick, powerRatio)
+			arrow := NewArrowGameObject(uuid.New().String(), p, xClick, yClick, powerRatio, p.wrapPosition)
 			return true, []*GameEvent{NewGameEvent(
 				"",
 				EventObjectCreated,
@@ -381,7 +389,7 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 
 					// Create a grounded arrow if the player has any
 					if arrowCount, exists := p.GetStateValue(constants.StateArrowCount); exists && arrowCount.(int) > 0 {
-						arrow := NewArrowGameObject(uuid.New().String(), p, playerShape.GetCenter().X, playerShape.GetCenter().Y+(playerShape.(*geo.Circle).R), 0.0)
+						arrow := NewArrowGameObject(uuid.New().String(), p, playerShape.GetCenter().X, playerShape.GetCenter().Y+(playerShape.(*geo.Circle).R), 0.0, p.wrapPosition)
 						arrow.SetState(constants.StateArrowGrounded, true)
 						raisedEvents = append(raisedEvents, NewGameEvent(
 							event.RoomID,
@@ -430,7 +438,7 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 
 	// Update location state
 	if !died {
-		nextX, nextY = WrapPosition(nextX, nextY)
+		nextX, nextY = p.wrapPosition(nextX, nextY)
 
 		p.SetState(constants.StateX, nextX)
 		p.SetState(constants.StateY, nextY)

@@ -65,18 +65,3 @@ func GetExtrapolatedPosition(p GameObject) (float64, float64, float64, float64, 
 	nextY := y.(float64) + float64(dy.(float64))*deltaTime
 	return nextX, nextY, float64(dx.(float64)), float64(dy.(float64)), nil
 }
-
-func WrapPosition(x float64, y float64) (float64, float64) {
-	if x < -1.0*constants.RoomWrapDistancePx {
-		x = constants.RoomSizePixelsX + constants.RoomWrapDistancePx
-	} else if x > constants.RoomSizePixelsX+constants.RoomWrapDistancePx {
-		x = -1.0 * constants.RoomWrapDistancePx
-	}
-
-	if y < -1.0*constants.RoomWrapDistancePx {
-		y = constants.RoomSizePixelsY + constants.RoomWrapDistancePx
-	} else if y > constants.RoomSizePixelsY+constants.RoomWrapDistancePx {
-		y = -1.0 * constants.RoomWrapDistancePx
-	}
-	return x, y
-}

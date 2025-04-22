@@ -14,9 +14,17 @@ type ArrowGameObject struct {
 	*BaseGameObject
 	SourcePlayer GameObject
 	CreatedAt    time.Time
+	wrapPosition func(float64, float64) (float64, float64)
 }
 
-func NewArrowGameObject(id string, source GameObject, toX float64, toY float64, powerRatio float64) *ArrowGameObject {
+func NewArrowGameObject(
+	id string,
+	source GameObject,
+	toX float64,
+	toY float64,
+	powerRatio float64,
+	wrapPosition func(float64, float64) (float64, float64),
+) *ArrowGameObject {
 	base := NewBaseGameObject(id, constants.ObjectTypeArrow)
 	x, exists := source.GetStateValue(constants.StateX)
 	if !exists {
@@ -50,6 +58,7 @@ func NewArrowGameObject(id string, source GameObject, toX float64, toY float64, 
 		BaseGameObject: base,
 		SourcePlayer:   source,
 		CreatedAt:      time.Now(),
+		wrapPosition:   wrapPosition,
 	}
 }
 
@@ -172,7 +181,7 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 		nextDy = 0.0
 	}
 
-	nextX, nextY = WrapPosition(nextX, nextY)
+	nextX, nextY = a.wrapPosition(nextX, nextY)
 
 	a.SetState(constants.StateDx, nextDx)
 	a.SetState(constants.StateDy, nextDy)

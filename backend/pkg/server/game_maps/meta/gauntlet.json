@@ -1,0 +1,18 @@
+{
+  "map_name": "The Gauntlet",
+  "layout_file": "gauntlet_layout.txt",
+  "origin_index": {
+    "x": 2,
+    "y": 2
+  },
+  "spawn_indices": [
+    {"x": 7, "y": 7},
+    {"x": 37, "y": 7},
+    {"x": 7, "y": 22},
+    {"x": 37, "y": 22}
+  ],
+  "view_size": {
+    "x": 40,
+    "y": 30
+  }
+}

@@ -254,16 +254,21 @@ func (s *Server) notifyRoom(update GameUpdateQueueItem) error {
 	s.serverLock.Unlock()
 
 	for _, conn := range connectionsToUpdate {
+		_, err := json.Marshal(updateMessage)
+		if err != nil {
+			log.Printf("notifyRoom:Error marshalling GameState: %v. %v", err, updateMessage)
+			continue
+		}
 		// Lock the connection before writing to prevent concurrent writes
 		conn.WriteMutex.Lock()
-		err := conn.connection.WriteJSON(types.Message{
+		err = conn.connection.WriteJSON(types.Message{
 			Type:    "GameState",
 			Payload: util.Must(json.Marshal(updateMessage)),
 		})
 		conn.WriteMutex.Unlock()
 
 		if err != nil {
-			log.Printf("notifyRoom:Error sending GameState to connection %s: %v", conn.ID, err)
+			log.Printf("notifyRoom:Error sending GameState to connection %s: %v. %v", conn.ID, err, updateMessage)
 		}
 	}
 

@@ -17,16 +17,6 @@ const (
 	RoomWrapDistancePx     = RoomWrapDistanceMeters * PxPerMeter
 )
 
-var RespawnLocationsPx = []struct {
-	X float64
-	Y float64
-}{
-	{X: 200, Y: 100},
-	{X: 200, Y: 600},
-	{X: 600, Y: 100},
-	{X: 600, Y: 600},
-}
-
 // Object types
 const (
 	ObjectTypePlayer = "player"

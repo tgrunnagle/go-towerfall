@@ -1,6 +1,7 @@
 package game_maps
 
 import (
+	"go-ws-server/pkg/server/constants"
 	"go-ws-server/pkg/server/game_objects"
 	"math/rand"
 )
@@ -21,6 +22,8 @@ type Map interface {
 	GetCanvasSize() (int, int)
 	// Returns the origin coordinates of the map in pixels
 	GetOriginCoordinates() *Coords
+	// Wraps a position to the map
+	WrapPosition(x float64, y float64) (float64, float64)
 }
 
 type BaseMap struct {
@@ -68,4 +71,19 @@ func (m *BaseMap) GetCanvasSize() (int, int) {
 
 func (m *BaseMap) GetOriginCoordinates() *Coords {
 	return m.OriginCoordinates
+}
+
+func (m *BaseMap) WrapPosition(x float64, y float64) (float64, float64) {
+	if x < -1.0*constants.RoomWrapDistancePx {
+		x = float64(m.CanvasSizeX + constants.RoomWrapDistancePx)
+	} else if x > float64(m.CanvasSizeX+constants.RoomWrapDistancePx) {
+		x = -1.0 * constants.RoomWrapDistancePx
+	}
+
+	if y < -1.0*constants.RoomWrapDistancePx {
+		y = float64(m.CanvasSizeY + constants.RoomWrapDistancePx)
+	} else if y > float64(m.CanvasSizeY+constants.RoomWrapDistancePx) {
+		y = -1.0 * constants.RoomWrapDistancePx
+	}
+	return x, y
 }
