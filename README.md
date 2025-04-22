@@ -80,6 +80,8 @@ py -3.11 -m venv env
 .\env\Scripts\activate
 # exit venv
 deactivate
+
+pip install -r requirements.txt
 ```
 
 Run the bot with:
