@@ -344,25 +344,22 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 			continue
 		}
 
-		for _, point := range collisionPoints {
-			raisedEvents = append(raisedEvents, NewGameEvent(
-				event.RoomID,
-				EventObjectCollision,
-				map[string]interface{}{
-					"x": point.X,
-					"y": point.Y,
-				},
-				1,
-				p,
-			))
-		}
-
 		// Handle collisions with solid objects
 		if isSolid, exists := obj.GetProperty(GameObjectPropertyIsSolid); exists && isSolid.(bool) {
 			// Adjust movement based on average angle of collision points
 			var avgAngle float64
 			for _, point := range collisionPoints {
 				avgAngle += math.Atan2(point.Y-nextY, point.X-nextX)
+				raisedEvents = append(raisedEvents, NewGameEvent(
+					event.RoomID,
+					EventObjectCollision,
+					map[string]interface{}{
+						"x": point.X,
+						"y": point.Y,
+					},
+					1,
+					p,
+				))
 			}
 			avgAngle /= float64(len(collisionPoints))
 

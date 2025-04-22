@@ -26,7 +26,7 @@ export class AnimationsManager {
 
             canvasCtx.fillStyle = '#cf4c19';
             canvasCtx.beginPath();
-            canvasCtx.arc(data.x, data.y, 5, 0, Math.PI * 2);
+            canvasCtx.arc(data.x, data.y, 2, 0, Math.PI * 2);
             canvasCtx.fill();
             // debugger;
 
