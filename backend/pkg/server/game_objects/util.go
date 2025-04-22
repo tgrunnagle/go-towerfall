@@ -45,12 +45,25 @@ func GetExtrapolatedPosition(p GameObject) (float64, float64, float64, float64, 
 	}
 
 	_, exists = p.GetProperty(GameObjectPropertyMassKg)
+	nextDy := dy.(float64)
 	if exists {
 		// Apply gravity
-		dy = dy.(float64) + deltaTime*constants.AccelerationDueToGravityMetersPerSec2*constants.PxPerMeter
+		nextDy += deltaTime * constants.AccelerationDueToGravityMetersPerSec2 * constants.PxPerMeter
 	}
 
-	dy = math.Min(dy.(float64), constants.MaxVelocityMetersPerSec*constants.PxPerMeter)
+	// Cap velocity
+	// TODO cap velocity vector magnitude, rather than each direction
+	if nextDy > 0 {
+		nextDy = math.Min(nextDy, constants.MaxVelocityMetersPerSec*constants.PxPerMeter)
+	} else if nextDy < 0 {
+		nextDy = math.Max(nextDy, -constants.MaxVelocityMetersPerSec*constants.PxPerMeter)
+	}
+	nextDx := dx.(float64)
+	if nextDx > 0 {
+		nextDx = math.Min(nextDx, constants.MaxVelocityMetersPerSec*constants.PxPerMeter)
+	} else if nextDx < 0 {
+		nextDx = math.Max(nextDx, -constants.MaxVelocityMetersPerSec*constants.PxPerMeter)
+	}
 
 	x, exists := p.GetStateValue(constants.StateX)
 	if !exists {
@@ -63,5 +76,5 @@ func GetExtrapolatedPosition(p GameObject) (float64, float64, float64, float64, 
 
 	nextX := x.(float64) + float64(dx.(float64))*deltaTime
 	nextY := y.(float64) + float64(dy.(float64))*deltaTime
-	return nextX, nextY, float64(dx.(float64)), float64(dy.(float64)), nil
+	return nextX, nextY, nextDx, nextDy, nil
 }

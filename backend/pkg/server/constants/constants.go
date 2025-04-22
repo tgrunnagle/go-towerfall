@@ -1,10 +1,13 @@
 package constants
 
+import "math"
+
 // Physics constants
 const (
 	AccelerationDueToGravityMetersPerSec2 = 20.0 // 9.81
 	MaxVelocityMetersPerSec               = 30.0
 	PxPerMeter                            = 20.0
+	CollisionAngleThreshold               = math.Pi * 0.2
 )
 
 // Room constants
