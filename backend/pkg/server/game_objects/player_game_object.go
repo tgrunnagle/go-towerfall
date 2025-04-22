@@ -344,53 +344,66 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 			continue
 		}
 
+		for _, point := range collisionPoints {
+			raisedEvents = append(raisedEvents, NewGameEvent(
+				event.RoomID,
+				EventObjectCollision,
+				map[string]interface{}{
+					"x": point.X,
+					"y": point.Y,
+				},
+				1,
+				p,
+			))
+		}
+
 		// Handle collisions with solid objects
 		if isSolid, exists := obj.GetProperty(GameObjectPropertyIsSolid); exists && isSolid.(bool) {
-			// Track if we've found any ground collision points
-			hasGroundCollision := false
-
+			// Adjust movement based on average angle of collision points
+			var avgAngle float64
 			for _, point := range collisionPoints {
-				angle := math.Atan2(point.Y-nextY, point.X-nextX)
+				avgAngle += math.Atan2(point.Y-nextY, point.X-nextX)
+			}
+			avgAngle /= float64(len(collisionPoints))
 
-				// Normalize angle to be between -π and π
-				normalizedAngle := math.Mod(angle+math.Pi, 2*math.Pi) - math.Pi
+			// Normalize angle to be between -π and π
+			normalizedAngle := math.Mod(avgAngle+math.Pi, 2*math.Pi) - math.Pi
 
-				// Check for horizontal collisions (left/right)
-				// Right collision (angle close to 0)
-				if math.Abs(normalizedAngle) < constants.CollisionAngleThreshold {
-					if dx.(float64) > 0 { // Only stop if moving right
-						nextDx = 0.0
-					}
+			// Check for horizontal collisions (left/right)
+			// Right collision (angle close to 0)
+			if math.Abs(normalizedAngle) < constants.CollisionAngleThreshold {
+				if dx.(float64) > 0 { // Only stop if moving right
+					stateChanged = true
+					nextX = x.(float64)
+					nextDx = 0.0
 				}
-				// Left collision (angle close to π or -π)
-				if math.Abs(normalizedAngle-math.Pi) < constants.CollisionAngleThreshold {
-					if dx.(float64) < 0 { // Only stop if moving left
-						nextDx = 0.0
-					}
-				}
-
-				// Check for vertical collisions (up/down)
-				// Up collision (angle close to π/2)
-				if math.Abs(normalizedAngle-math.Pi/2) < constants.CollisionAngleThreshold {
-					if dy.(float64) < 0 { // Only stop if moving up
-						nextDy = 0.0
-					}
-				}
-				// Down collision (angle close to -π/2)
-				if math.Abs(normalizedAngle+math.Pi/2) < constants.CollisionAngleThreshold {
-					hasGroundCollision = true
-					if dy.(float64) > 0 { // Only stop if moving down
-						nextDy = 0.0
-					}
+			}
+			// Left collision (angle close to π or -π)
+			if math.Abs(normalizedAngle-math.Pi) < constants.CollisionAngleThreshold {
+				if dx.(float64) < 0 { // Only stop if moving left
+					stateChanged = true
+					nextX = x.(float64)
+					nextDx = 0.0
 				}
 			}
 
-			// If we found any ground collision points, set isOnGround
-			if hasGroundCollision {
+			// Check for vertical collisions (up/down)
+			// Note: angle is reflected over 0 due to y axis being inverted
+			// Up collision (angle close to -π/2)
+			if math.Abs(normalizedAngle+math.Pi/2) < constants.CollisionAngleThreshold {
+				if dy.(float64) < 0 { // Only stop if moving up
+					stateChanged = true
+					nextY = y.(float64)
+					nextDy = 0.0
+				}
+			}
+			// Down collision (angle close to π/2)
+			if math.Abs(normalizedAngle-math.Pi/2) < constants.CollisionAngleThreshold {
 				isOnGround = true
-				// Ensure we're not sinking by applying a small upward force if needed
-				if math.Abs(dy.(float64)) < 0.1 {
-					nextDy = -0.1 // Small upward force to prevent sinking
+				if dy.(float64) > 0 { // Only stop if moving down
+					stateChanged = true
+					nextY = y.(float64)
+					nextDy = 0.0
 				}
 			}
 		}
@@ -455,18 +468,16 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 		}
 	}
 
-	nextX, nextY, err = GetExtrapolatedPositionForDxDy(p, nextDx, nextDy)
-	if err != nil {
-		log.Printf("Failed to extrapolate player position for dx: %v, dy: %v: %v", nextDx, nextDy, err)
-		return false, nil
-	}
-
 	if x.(float64)-nextX != 0 || y.(float64)-nextY != 0 || nextDx != 0 || nextDy != 0 {
 		stateChanged = true
 	}
 
 	if isOnGround {
-		p.SetState(constants.StateJumpCount, 0)
+		jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
+		if exists && jumpCount.(int) != 0 {
+			stateChanged = true
+			p.SetState(constants.StateJumpCount, 0)
+		}
 	}
 
 	// Update location state

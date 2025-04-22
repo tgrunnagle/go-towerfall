@@ -129,6 +129,9 @@ export class GameStateManager {
                         const deadPlayerId = event.data["objectID"];
                         this.animationManager.registerAnimation(this.gameObjects[deadPlayerId].onDiedAnimation?.(event.data));
                         break;
+                    case "collision":
+                        this.animationManager.registerAnimation(this.animationManager.createCollisionAnimation(event.data));
+                        break;
                     default:
                         console.error('Unknown event type: ' + event.type);
                         return;

@@ -16,6 +16,7 @@ const (
 	EventGameTick         EventType = "game_tick"
 	EventObjectCreated    EventType = "object_created"
 	EventObjectDestroyed  EventType = "object_destroyed"
+	EventObjectCollision  EventType = "collision"
 )
 
 // GameEvent represents an event in the game
