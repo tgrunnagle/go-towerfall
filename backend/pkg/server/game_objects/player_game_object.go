@@ -3,6 +3,7 @@ package game_objects
 import (
 	"log"
 	"math"
+	"strings"
 	"time"
 
 	"go-ws-server/pkg/server/constants"
@@ -135,6 +136,7 @@ func (p *PlayerGameObject) handlePlayerKeyInput(event *GameEvent) (bool, []*Game
 	dx := nextDx
 	dy := nextDy
 
+	key = strings.ToUpper(key)
 	if isDown {
 		switch key {
 		case "W": // Jump
