@@ -84,7 +84,7 @@ func (r *GameRoom) AddPlayer(playerID string, player *ConnectedPlayer) bool {
 	// Add player to the room
 	r.Players[playerID] = player
 
-	gameObject := game_objects.NewPlayerGameObject(player.ID, player.Name, player.Token, r.Map.GetRespawnLocation)
+	gameObject := game_objects.NewPlayerGameObject(player.ID, player.Name, player.Token, r.Map.GetRespawnLocation, r.Map.WrapPosition)
 
 	// Add player's GameObject to the object manager if it exists
 	r.addObject(gameObject)

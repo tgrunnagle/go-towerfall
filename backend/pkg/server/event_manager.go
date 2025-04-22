@@ -160,5 +160,6 @@ func (m *GameEventManager) Handle(
 func (m *GameEventManager) isExternalEvent(event *game_objects.GameEvent) bool {
 	return event.EventType == game_objects.EventObjectCreated ||
 		event.EventType == game_objects.EventObjectDestroyed ||
-		event.EventType == game_objects.EventPlayerDied
+		event.EventType == game_objects.EventPlayerDied ||
+		event.EventType == game_objects.EventObjectCollision
 }

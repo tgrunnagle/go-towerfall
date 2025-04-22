@@ -72,7 +72,8 @@ const LandingPage = () => {
     try {
       const response = await joinGame({
         playerName,
-        roomCode
+        roomCode,
+        roomPassword
       });
       
       // Navigate to game page with game info as query parameters

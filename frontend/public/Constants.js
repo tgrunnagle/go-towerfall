@@ -6,4 +6,6 @@ export class Constants {
 
     static PLAYER_DIED_ANIMATION_TIME_SEC = 3.0;
     static PLAYER_DIED_ANIMATION_BLINK_RATE_SEC = 0.2;
+
+    static COLLISION_ANIMATION_TIME_SEC = 0.5;
 }

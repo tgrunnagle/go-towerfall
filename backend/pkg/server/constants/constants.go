@@ -1,10 +1,13 @@
 package constants
 
+import "math"
+
 // Physics constants
 const (
 	AccelerationDueToGravityMetersPerSec2 = 20.0 // 9.81
 	MaxVelocityMetersPerSec               = 30.0
 	PxPerMeter                            = 20.0
+	CollisionAngleThreshold               = math.Pi * 0.2
 )
 
 // Room constants
@@ -16,16 +19,6 @@ const (
 	RoomWrapDistanceMeters = 2.0
 	RoomWrapDistancePx     = RoomWrapDistanceMeters * PxPerMeter
 )
-
-var RespawnLocationsPx = []struct {
-	X float64
-	Y float64
-}{
-	{X: 200, Y: 100},
-	{X: 200, Y: 600},
-	{X: 600, Y: 100},
-	{X: 600, Y: 600},
-}
 
 // Object types
 const (

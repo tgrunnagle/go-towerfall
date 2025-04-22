@@ -19,10 +19,17 @@ type PlayerGameObject struct {
 	respawnTimer       *time.Timer
 	respawning         bool
 	getRespawnLocation func() (float64, float64)
+	wrapPosition       func(float64, float64) (float64, float64)
 }
 
 // NewPlayerGameObject creates a new PlayerGameObject
-func NewPlayerGameObject(id string, name string, token string, getRespawnLocation func() (float64, float64)) *PlayerGameObject {
+func NewPlayerGameObject(
+	id string,
+	name string,
+	token string,
+	getRespawnLocation func() (float64, float64),
+	wrapPosition func(float64, float64) (float64, float64),
+) *PlayerGameObject {
 	base := NewBaseGameObject(id, constants.ObjectTypePlayer)
 	player := &PlayerGameObject{
 		BaseGameObject:     base,
@@ -30,6 +37,7 @@ func NewPlayerGameObject(id string, name string, token string, getRespawnLocatio
 		Token:              token,
 		respawnTimer:       nil,
 		getRespawnLocation: getRespawnLocation,
+		wrapPosition:       wrapPosition,
 	}
 	player.SetState(constants.StateID, id)
 	player.SetState(constants.StateName, name)
@@ -236,7 +244,7 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 			powerRatio := math.Min(time.Since(startTime.(time.Time)).Seconds()/constants.ArrowMaxPowerTimeSec, 1.0)
 			xClick := event.Data["x"].(float64)
 			yClick := event.Data["y"].(float64)
-			arrow := NewArrowGameObject(uuid.New().String(), p, xClick, yClick, powerRatio)
+			arrow := NewArrowGameObject(uuid.New().String(), p, xClick, yClick, powerRatio, p.wrapPosition)
 			return true, []*GameEvent{NewGameEvent(
 				"",
 				EventObjectCreated,
@@ -306,6 +314,16 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 		log.Printf("Player %s has no y state", p.GetID())
 		return false, nil
 	}
+	dx, exists := p.GetStateValue(constants.StateDx)
+	if !exists {
+		log.Printf("Player %s has no dx state", p.GetID())
+		return false, nil
+	}
+	dy, exists := p.GetStateValue(constants.StateDy)
+	if !exists {
+		log.Printf("Player %s has no dy state", p.GetID())
+		return false, nil
+	}
 
 	isOnGround := false
 	died := false
@@ -321,67 +339,97 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 			continue
 		}
 
-		if collides, collisionPoints := otherShape.CollidesWith(playerShape); collides {
+		collides, collisionPoints := otherShape.CollidesWith(playerShape)
+		if !collides {
+			continue
+		}
 
-			// Handle collisions with solid objects
-			if isSolid, exists := obj.GetProperty(GameObjectPropertyIsSolid); exists && isSolid.(bool) {
-				var totalAngle float64
-				var count int
-				for _, point := range collisionPoints {
-					angle := math.Atan2(point.Y-nextY, point.X-nextX)
-					totalAngle += angle
-					count++
+		// Handle collisions with solid objects
+		if isSolid, exists := obj.GetProperty(GameObjectPropertyIsSolid); exists && isSolid.(bool) {
+			// Adjust movement based on average angle of collision points
+			var avgAngle float64
+			for _, point := range collisionPoints {
+				avgAngle += math.Atan2(point.Y-nextY, point.X-nextX)
+				raisedEvents = append(raisedEvents, NewGameEvent(
+					event.RoomID,
+					EventObjectCollision,
+					map[string]interface{}{
+						"x": point.X,
+						"y": point.Y,
+					},
+					1,
+					p,
+				))
+			}
+			avgAngle /= float64(len(collisionPoints))
+
+			// Normalize angle to be between -π and π
+			normalizedAngle := math.Mod(avgAngle+math.Pi, 2*math.Pi) - math.Pi
+
+			// Check for horizontal collisions (left/right)
+			// Right collision (angle close to 0)
+			if math.Abs(normalizedAngle) < constants.CollisionAngleThreshold {
+				if dx.(float64) > 0 { // Only stop if moving right
+					stateChanged = true
+					nextX = x.(float64)
+					nextDx = 0.0
 				}
-				if count > 0 {
-					averageAngle := totalAngle / float64(count)
-					if math.Abs(math.Cos(averageAngle)) > 0.1 {
-						if nextDx != 0.0 {
-							stateChanged = true
-							nextDx = 0.0
-						}
-					}
-					if math.Abs(math.Sin(averageAngle)) > 0.1 {
-						if nextDy != 0.0 {
-							stateChanged = true
-							nextDy = 0.0
-						}
-						isOnGround = true
-					}
-					nextX, nextY, err = GetExtrapolatedPositionForDxDy(p, nextDx, nextDy)
-					if err != nil {
-						log.Printf("Failed to extrapolate player position: %v", err)
-						return false, nil
-					}
+			}
+			// Left collision (angle close to π or -π)
+			if math.Abs(normalizedAngle-math.Pi) < constants.CollisionAngleThreshold {
+				if dx.(float64) < 0 { // Only stop if moving left
+					stateChanged = true
+					nextX = x.(float64)
+					nextDx = 0.0
 				}
 			}
 
-			// Handle collisions with arrows
-			objType := obj.GetObjectType()
-			switch objType {
-			case constants.ObjectTypeArrow:
-				// Check if arrow is grounded
-				if grounded, exists := obj.GetStateValue(constants.StateArrowGrounded); exists && grounded.(bool) {
-					// Pick up arrow if we have room
-					if arrowCount, exists := p.GetStateValue(constants.StateArrowCount); exists && arrowCount.(int) < constants.PlayerMaxArrows {
-						p.SetState(constants.StateArrowCount, arrowCount.(int)+1)
-						// Mark arrow as destroyed
-						obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
-						obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
-						obj.SetState(constants.StateDestroyed, true)
-						stateChanged = true
-					}
-				} else {
-					// Check if the arrow was shot by this player
-					if obj.(*ArrowGameObject).SourcePlayer == p {
-						continue
-					}
+			// Check for vertical collisions (up/down)
+			// Note: angle is reflected over 0 due to y axis being inverted
+			// Up collision (angle close to -π/2)
+			if math.Abs(normalizedAngle+math.Pi/2) < constants.CollisionAngleThreshold {
+				if dy.(float64) < 0 { // Only stop if moving up
+					stateChanged = true
+					nextY = y.(float64)
+					nextDy = 0.0
+				}
+			}
+			// Down collision (angle close to π/2)
+			if math.Abs(normalizedAngle-math.Pi/2) < constants.CollisionAngleThreshold {
+				isOnGround = true
+				if dy.(float64) > 0 { // Only stop if moving down
+					stateChanged = true
+					nextY = y.(float64)
+					nextDy = 0.0
+				}
+			}
+		}
+
+		// Handle collisions with arrows
+		objType := obj.GetObjectType()
+		switch objType {
+		case constants.ObjectTypeArrow:
+			// Check if arrow is grounded
+			if grounded, exists := obj.GetStateValue(constants.StateArrowGrounded); exists && grounded.(bool) {
+				// Pick up arrow if we have room
+				if arrowCount, exists := p.GetStateValue(constants.StateArrowCount); exists && arrowCount.(int) < constants.PlayerMaxArrows {
+					p.SetState(constants.StateArrowCount, arrowCount.(int)+1)
+					// Mark arrow as destroyed
+					obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
+					obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
+					obj.SetState(constants.StateDestroyed, true)
+					stateChanged = true
+				}
+			} else {
+				// Check if the arrow was shot by another player
+				if obj.(*ArrowGameObject).SourcePlayer != p {
 					// Handle regular arrow collision (damage)
 					p.handleDeath()
 					died = true
 
 					// Create a grounded arrow if the player has any
 					if arrowCount, exists := p.GetStateValue(constants.StateArrowCount); exists && arrowCount.(int) > 0 {
-						arrow := NewArrowGameObject(uuid.New().String(), p, playerShape.GetCenter().X, playerShape.GetCenter().Y+(playerShape.(*geo.Circle).R), 0.0)
+						arrow := NewArrowGameObject(uuid.New().String(), p, playerShape.GetCenter().X, playerShape.GetCenter().Y+(playerShape.(*geo.Circle).R), 0.0, p.wrapPosition)
 						arrow.SetState(constants.StateArrowGrounded, true)
 						raisedEvents = append(raisedEvents, NewGameEvent(
 							event.RoomID,
@@ -418,19 +466,20 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 	}
 
 	if x.(float64)-nextX != 0 || y.(float64)-nextY != 0 || nextDx != 0 || nextDy != 0 {
-		// TODO user appears to be slowly falling into the floor on the client, even though it's not
-		// moving on the server (periodic server updates confirm players are moved to the right position)
-		// This might be a client-side issue due to interpolation
 		stateChanged = true
 	}
 
 	if isOnGround {
-		p.SetState(constants.StateJumpCount, 0)
+		jumpCount, exists := p.GetStateValue(constants.StateJumpCount)
+		if exists && jumpCount.(int) != 0 {
+			stateChanged = true
+			p.SetState(constants.StateJumpCount, 0)
+		}
 	}
 
 	// Update location state
 	if !died {
-		nextX, nextY = WrapPosition(nextX, nextY)
+		nextX, nextY = p.wrapPosition(nextX, nextY)
 
 		p.SetState(constants.StateX, nextX)
 		p.SetState(constants.StateY, nextY)

@@ -1,6 +1,9 @@
 /**
  * Manages and renders short-lived animations on a canvas context.
  */
+
+import { Constants } from './Constants.js';
+
 export class AnimationsManager {
     constructor() {
         this.animations = new Set();
@@ -14,6 +17,23 @@ export class AnimationsManager {
     registerAnimation(animationFunction) {
         if (!animationFunction) return;
         this.animations.add(animationFunction);
+    }
+
+    createCollisionAnimation(data) {
+        const startTime = performance.now();
+
+        const blinkAnimation = (canvasCtx, timestamp) => {
+
+            canvasCtx.fillStyle = '#cf4c19';
+            canvasCtx.beginPath();
+            canvasCtx.arc(data.x, data.y, 2, 0, Math.PI * 2);
+            canvasCtx.fill();
+            // debugger;
+
+            return (timestamp - startTime) / 1000.0 < Constants.COLLISION_ANIMATION_TIME_SEC;
+        };
+
+        this.registerAnimation(blinkAnimation);
     }
 
     /**

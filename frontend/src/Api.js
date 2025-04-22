@@ -22,10 +22,11 @@ export const createGame = async ({ playerName, roomName, mapType }) => {
   return response.data;
 };
 
-export const joinGame = async ({ playerName, roomCode }) => {
+export const joinGame = async ({ playerName, roomCode, roomPassword }) => {
   const response = await api.post('/api/joinGame', {
     playerName,
-    roomCode
+    roomCode,
+    roomPassword
   });
   return response.data;
 };
