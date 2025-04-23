@@ -18,9 +18,10 @@ import (
 
 // ConnectedPlayer represents a connected player in the game
 type ConnectedPlayer struct {
-	ID    string
-	Name  string
-	Token string
+	ID          string
+	Name        string
+	Token       string
+	IsSpectator bool
 }
 
 // GameRoom represents an instance of the game being played
@@ -84,12 +85,16 @@ func (r *GameRoom) AddPlayer(playerID string, player *ConnectedPlayer) bool {
 	// Add player to the room
 	r.Players[playerID] = player
 
-	gameObject := game_objects.NewPlayerGameObject(player.ID, player.Name, player.Token, r.Map.GetRespawnLocation, r.Map.WrapPosition)
+	if !player.IsSpectator {
+		gameObject := game_objects.NewPlayerGameObject(player.ID, player.Name, player.Token, r.Map.GetRespawnLocation, r.Map.WrapPosition)
 
-	// Add player's GameObject to the object manager if it exists
-	r.addObject(gameObject)
+		// Add player's GameObject to the object manager if it exists
+		r.addObject(gameObject)
+		log.Printf("Added player %s to room %s", player.ID, r.ID)
+	} else {
+		log.Printf("Added spectator %s to room %s", player.ID, r.ID)
+	}
 
-	log.Printf("Added player %s to room %s", player.ID, r.ID)
 	return true
 }
 
@@ -201,7 +206,7 @@ func NewGameWithPlayer(roomName string, playerName string, mapType game_maps.Map
 	return room, player, nil
 }
 
-func AddPlayerToGame(room *GameRoom, playerName string, roomPassword string) (*ConnectedPlayer, error) {
+func AddPlayerToGame(room *GameRoom, playerName string, roomPassword string, isSpectator bool) (*ConnectedPlayer, error) {
 	if room.Password != strings.ToUpper(roomPassword) {
 		return nil, errors.New("invalid room password")
 	}
@@ -212,9 +217,10 @@ func AddPlayerToGame(room *GameRoom, playerName string, roomPassword string) (*C
 
 	// Create player
 	player := &ConnectedPlayer{
-		ID:    playerID,
-		Name:  playerName,
-		Token: playerToken,
+		ID:          playerID,
+		Name:        playerName,
+		Token:       playerToken,
+		IsSpectator: isSpectator,
 	}
 
 	// Add player to room

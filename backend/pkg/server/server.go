@@ -137,24 +137,6 @@ func (s *Server) handleConnection(conn *Connection) {
 
 		// Process message based on type
 		switch msg.Type {
-		case "CreateGame":
-			// TODO remove
-			var req types.CreateGameRequest
-			if err := json.Unmarshal(msg.Payload, &req); err != nil {
-				log.Printf("Error unmarshalling CreateGame payload: %v", err)
-				continue
-			}
-			s.handleCreateGame(conn, req)
-
-		case "JoinGame":
-			// TODO remove
-			var req types.JoinGameRequest
-			if err := json.Unmarshal(msg.Payload, &req); err != nil {
-				log.Printf("Error unmarshalling JoinGame payload: %v", err)
-				continue
-			}
-			s.handleJoinGame(conn, req)
-
 		case "RejoinGame":
 			var req types.RejoinGameRequest
 			if err := json.Unmarshal(msg.Payload, &req); err != nil {

@@ -11,6 +11,7 @@ const LandingPage = () => {
   const [roomCode, setRoomCode] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [roomPassword, setRoomPassword] = useState('');
+  const [isSpectator, setIsSpectator] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [maps, setMaps] = useState([]);
@@ -73,17 +74,18 @@ const LandingPage = () => {
       const response = await joinGame({
         playerName,
         roomCode,
-        roomPassword
+        roomPassword,
+        isSpectator
       });
       
       // Navigate to game page with game info as query parameters
-      navigate(`/game?roomId=${response.roomId}&playerId=${response.playerId}&playerToken=${response.playerToken}&roomCode=${response.roomCode}&canvasSizeX=${response.canvasSizeX}&canvasSizeY=${response.canvasSizeY}`);
+      navigate(`/game?roomId=${response.roomId}&playerId=${response.playerId}&playerToken=${response.playerToken}&roomCode=${response.roomCode}&isSpectator=${response.isSpectator}&canvasSizeX=${response.canvasSizeX}&canvasSizeY=${response.canvasSizeY}`);
     } catch (error) {
       console.error('Error joining game:', error);
       setError('Failed to connect to server');
       setIsLoading(false);
     }
-  }, [navigate, playerName, roomCode, roomPassword]);
+  }, [navigate, playerName, roomCode, roomPassword, isSpectator]);
 
   return (
     <div className="landing-page">
@@ -199,6 +201,8 @@ const LandingPage = () => {
                     disabled={isLoading}
                   />
                 </div>
+
+                
                 
                 <div className="form-group">
                   <label htmlFor="join-player-name">Your Name</label>
@@ -211,6 +215,18 @@ const LandingPage = () => {
                     required
                     disabled={isLoading}
                   />
+                </div>
+
+                <div className="form-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={isSpectator}
+                      onChange={(e) => setIsSpectator(e.target.checked)}
+                      disabled={isLoading}
+                    />
+                    Join as spectator
+                  </label>
                 </div>
                 
                 {error && <div className="error">{error}</div>}

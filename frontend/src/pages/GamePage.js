@@ -15,6 +15,7 @@ const GamePage = () => {
   const queryRoomId = queryParams.get('roomId');
   const queryPlayerId = queryParams.get('playerId');
   const queryPlayerToken = queryParams.get('playerToken');
+  const queryIsSpectator = queryParams.get('isSpectator') === 'true';
   const queryCanvasSizeX = parseInt(queryParams.get('canvasSizeX'), 10);
   const queryCanvasSizeY = parseInt(queryParams.get('canvasSizeY'), 10);
   
@@ -23,7 +24,7 @@ const GamePage = () => {
     if (!queryRoomId || !queryPlayerId || !queryPlayerToken || !queryCanvasSizeX || !queryCanvasSizeY) {
       navigate('/');
     }
-  }, [queryRoomId, queryPlayerId, queryPlayerToken, queryCanvasSizeX, queryCanvasSizeY, navigate]);
+  }, [queryRoomId, queryPlayerId, queryPlayerToken, queryCanvasSizeX, queryCanvasSizeY, queryIsSpectator, navigate]);
   
   // Handle exit game
   const handleExitGame = useCallback(() => {
@@ -56,6 +57,7 @@ const GamePage = () => {
         roomId={queryRoomId}
         playerId={queryPlayerId}
         playerToken={queryPlayerToken}
+        isSpectator={queryIsSpectator}
         canvasSizeX={queryCanvasSizeX}
         canvasSizeY={queryCanvasSizeY}
         setPlayerName={setPlayerName}
@@ -66,11 +68,18 @@ const GamePage = () => {
       />
       
       <div className="controls">
-        <div className="instructions">
-          <p>Use <strong>W, A, S, D</strong> keys to move your player</p>
-          <p>Click, hold, and release left mouse button to shoot arrows, right mouse button to cancel</p>
-          <p>Don't forget to pick up grounded arrows if you run out</p>
-        </div>
+        {!queryIsSpectator && (
+          <div className="instructions">
+            <p>Use <strong>W, A, S, D</strong> keys to move your player</p>
+            <p>Click, hold, and release left mouse button to shoot arrows, right mouse button to cancel</p>
+            <p>Don't forget to pick up grounded arrows if you run out</p>
+          </div>
+        )}
+        {queryIsSpectator && (
+          <div className="spectator-instructions">
+            <p>You are spectating</p>
+          </div>
+        )}
       </div>
     </div>
   );
