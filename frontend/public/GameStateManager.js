@@ -15,9 +15,9 @@ export class GameStateManager {
         this.handleGameStateUpdate = this.handleGameStateUpdate.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
         this.getCurrentPlayerClientState = this.getCurrentPlayerClientState.bind(this);
-        this.animationManager = new AnimationsManager();
         this.reset = this.reset.bind(this);
         this.drawSpectators = this.drawSpectators.bind(this);
+        this.animationManager = new AnimationsManager();
 
         this.canvasSizeX = 0;
         this.canvasSizeY = 0;
@@ -177,7 +177,7 @@ export class GameStateManager {
         });
         this.animationManager.render(canvasCtx, timestamp);
 
-        this.drawSpectators(canvasCtx);
+        // this.drawSpectators(canvasCtx);
     }
 
     drawSpectators(canvasCtx) {

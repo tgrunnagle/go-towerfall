@@ -28,6 +28,10 @@ const GamePage = () => {
   
   // Handle exit game
   const handleExitGame = useCallback(() => {
+    setRoomName && setRoomName(null);
+    setRoomCode && setRoomCode(null);
+    setRoomPassword && setRoomPassword(null);
+    setPlayerName && setPlayerName(null);
     navigate('/');
   }, [navigate]);
 

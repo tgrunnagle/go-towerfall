@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"sync"
@@ -227,7 +226,7 @@ func (s *Server) sendGameUpdate(update GameUpdateQueueItem) error {
 	// Build the game state update from the GameObject states
 	room, exists := s.roomManager.GetGameRoom(update.RoomID)
 	if !exists {
-		return errors.New("room does not exist")
+		return nil
 	}
 
 	updateMessage := update.Update
@@ -235,8 +234,6 @@ func (s *Server) sendGameUpdate(update GameUpdateQueueItem) error {
 	if update.Update.FullUpdate {
 		updateMessage.ObjectStates = room.GetAllGameObjectStates()
 	}
-
-	// log.Printf("notifyRoom:Sending update to room %s: %v", update.RoomID, updateMessage)
 
 	// Send update to all connections in this room
 	connectionsToUpdate := make([]*Connection, 0)
@@ -250,7 +247,7 @@ func (s *Server) sendGameUpdate(update GameUpdateQueueItem) error {
 		// TODO remove this when the NaN issue is fixed
 		_, err := json.Marshal(updateMessage)
 		if err != nil {
-			log.Printf("notifyRoom:Error marshalling GameState: %v. %v", err, updateMessage)
+			log.Printf("sendGameUpdate:Error marshalling GameState: %v. %v", err, updateMessage)
 			continue
 		}
 		// Lock the connection before writing to prevent concurrent writes
@@ -262,7 +259,8 @@ func (s *Server) sendGameUpdate(update GameUpdateQueueItem) error {
 		conn.WriteMutex.Unlock()
 
 		if err != nil {
-			log.Printf("notifyRoom:Error sending GameState to connection %s: %v. %v", conn.ID, err, updateMessage)
+			// TODO better error handling - remove dead connections, etc
+			//log.Printf("sendGameUpdate:Error sending GameState to connection %s: %v. %v", conn.ID, err, updateMessage)
 		}
 	}
 
@@ -284,7 +282,7 @@ func (s *Server) sendSpectatorUpdate(update SpectatorUpdateQueueItem) error {
 	// Build the spectator update from the GameObject states
 	room, exists := s.roomManager.GetGameRoom(update.RoomID)
 	if !exists {
-		return errors.New("room does not exist")
+		return nil
 	}
 
 	spectators := room.GetSpectators()
