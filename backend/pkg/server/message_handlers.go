@@ -110,6 +110,10 @@ func (s *Server) handleRejoinGame(conn *Connection, req types.RejoinGameRequest)
 		RoomID: conn.RoomID,
 		Update: &types.GameUpdate{FullUpdate: true},
 	}
+
+	s.spectatorUpdateQueue <- SpectatorUpdateQueueItem{
+		RoomID: conn.RoomID,
+	}
 }
 
 // handleKeyStatus handles key events (press/release)
@@ -253,6 +257,8 @@ func (s *Server) handleExitGame(conn *Connection, _ types.ExitGameRequest) {
 	conn.WriteMutex.Unlock()
 
 	log.Printf("Player %s exited game room %s", player.ID, room.ID)
+
+	s.spectatorUpdateQueue <- SpectatorUpdateQueueItem{RoomID: room.ID}
 }
 
 func (s *Server) addConnectionForRoom(conn *Connection, room *GameRoom) {

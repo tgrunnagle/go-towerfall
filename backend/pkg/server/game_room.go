@@ -231,3 +231,16 @@ func AddPlayerToGame(room *GameRoom, playerName string, roomPassword string, isS
 
 	return player, nil
 }
+
+func (r *GameRoom) GetSpectators() []string {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+
+	spectators := make([]string, 0)
+	for _, player := range r.Players {
+		if player.IsSpectator {
+			spectators = append(spectators, player.Name)
+		}
+	}
+	return spectators
+}

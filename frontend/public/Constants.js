@@ -8,4 +8,10 @@ export class Constants {
     static PLAYER_DIED_ANIMATION_BLINK_RATE_SEC = 0.2;
 
     static COLLISION_ANIMATION_TIME_SEC = 0.5;
+
+    static SPECTATOR_TEXT_FONT = '20px Arial';
+    static SPECTATOR_TEXT_COLOR = '#000000';
+    static SPECTATOR_TEXT_OFFSET_X = 20;
+    static SPECTATOR_TEXT_OFFSET_Y = 20;
+    static SPECTATOR_TEXT_LINE_HEIGHT = 30;
 }

@@ -39,6 +39,11 @@ type GameUpdateQueueItem struct {
 	Update *types.GameUpdate
 }
 
+// SpectatorUpdateQueueItem represents a request to update spectators
+type SpectatorUpdateQueueItem struct {
+	RoomID string
+}
+
 // Connection represents a WebSocket connection
 type Connection struct {
 	ID         string
@@ -53,6 +58,9 @@ type Server struct {
 
 	// Message queue for room updates
 	gameStateUpdateQueue chan GameUpdateQueueItem
+
+	// Message queue for spectator updates
+	spectatorUpdateQueue chan SpectatorUpdateQueueItem
 
 	// Map of roomID -> connectionID -> connection
 	connectionsByRoom map[string]map[string]*Connection
@@ -77,7 +85,10 @@ func NewServer() *Server {
 	}
 
 	// Start the update worker
-	go server.runProcessUpdateQueue()
+	go server.runProcessGameUpdateQueue()
+
+	// Start the spectator update worker
+	go server.runProcessSpectatorUpdateQueue()
 
 	// Start a periodic check to ensure all rooms get updated occasionally
 	go server.runPeriodicUpdates()
@@ -199,20 +210,20 @@ func (s *Server) handleDisconnect(conn *Connection) {
 	s.serverLock.Unlock()
 }
 
-// runProcessUpdateQueue processes the update queue
-func (s *Server) runProcessUpdateQueue() {
+// runProcessGameUpdateQueue processes the game update queue
+func (s *Server) runProcessGameUpdateQueue() {
 	for {
-		s.processUpdateQueue()
+		s.processGameUpdateQueue()
 	}
 }
 
-func (s *Server) processUpdateQueue() {
+func (s *Server) processGameUpdateQueue() {
 	update := <-s.gameStateUpdateQueue
-	go s.notifyRoom(update)
+	go s.sendGameUpdate(update)
 }
 
-// notifyRoom sends the game state update to all connections to the room
-func (s *Server) notifyRoom(update GameUpdateQueueItem) error {
+// sendGameUpdate sends the game state update to all connections to the room
+func (s *Server) sendGameUpdate(update GameUpdateQueueItem) error {
 	// Build the game state update from the GameObject states
 	room, exists := s.roomManager.GetGameRoom(update.RoomID)
 	if !exists {
@@ -236,6 +247,7 @@ func (s *Server) notifyRoom(update GameUpdateQueueItem) error {
 	s.serverLock.Unlock()
 
 	for _, conn := range connectionsToUpdate {
+		// TODO remove this when the NaN issue is fixed
 		_, err := json.Marshal(updateMessage)
 		if err != nil {
 			log.Printf("notifyRoom:Error marshalling GameState: %v. %v", err, updateMessage)
@@ -251,6 +263,57 @@ func (s *Server) notifyRoom(update GameUpdateQueueItem) error {
 
 		if err != nil {
 			log.Printf("notifyRoom:Error sending GameState to connection %s: %v. %v", conn.ID, err, updateMessage)
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) runProcessSpectatorUpdateQueue() {
+	for {
+		s.processSpectatorUpdateQueue()
+	}
+}
+
+func (s *Server) processSpectatorUpdateQueue() {
+	update := <-s.spectatorUpdateQueue
+	go s.sendSpectatorUpdate(update)
+}
+
+func (s *Server) sendSpectatorUpdate(update SpectatorUpdateQueueItem) error {
+	// Build the spectator update from the GameObject states
+	room, exists := s.roomManager.GetGameRoom(update.RoomID)
+	if !exists {
+		return errors.New("room does not exist")
+	}
+
+	spectators := room.GetSpectators()
+	if len(spectators) == 0 {
+		return nil
+	}
+	payload := types.SpectatorUpdate{
+		Spectators: spectators,
+	}
+
+	// Send update to all connections in this room
+	connectionsToUpdate := make([]*Connection, 0)
+	s.serverLock.Lock()
+	for _, conn := range s.connectionsByRoom[update.RoomID] {
+		connectionsToUpdate = append(connectionsToUpdate, conn)
+	}
+	s.serverLock.Unlock()
+
+	for _, conn := range connectionsToUpdate {
+		// Lock the connection before writing to prevent concurrent writes
+		conn.WriteMutex.Lock()
+		err := conn.connection.WriteJSON(types.Message{
+			Type:    "Spectators",
+			Payload: util.Must(json.Marshal(payload)),
+		})
+		conn.WriteMutex.Unlock()
+
+		if err != nil {
+			log.Printf("sendSpectatorUpdate:Error sending Spectators to connection %s: %v. %v", conn.ID, err, spectators)
 		}
 	}
 
