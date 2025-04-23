@@ -75,6 +75,11 @@ const GameWrapper = ({
     if (window.gameInstance) {
       window.gameInstance.exitGame();
     }
+
+    setRoomName && setRoomName(null);
+    setRoomCode && setRoomCode(null);
+    setRoomPassword && setRoomPassword(null);
+    setPlayerName && setPlayerName(null);
     if (onExitGame) {
       onExitGame();
     }
