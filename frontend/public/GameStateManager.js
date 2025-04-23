@@ -177,7 +177,7 @@ export class GameStateManager {
         });
         this.animationManager.render(canvasCtx, timestamp);
 
-        // this.drawSpectators(canvasCtx);
+        this.drawSpectators(canvasCtx);
     }
 
     drawSpectators(canvasCtx) {

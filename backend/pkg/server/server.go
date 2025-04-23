@@ -78,6 +78,7 @@ type Server struct {
 func NewServer() *Server {
 	server := &Server{
 		gameStateUpdateQueue: make(chan GameUpdateQueueItem, 100), // Buffer size of 100
+		spectatorUpdateQueue: make(chan SpectatorUpdateQueueItem, 100),
 		connectionsByRoom:    make(map[string]map[string]*Connection),
 		lastActivity:         make(map[string]time.Time),
 		roomManager:          NewRoomManager(),
@@ -207,6 +208,8 @@ func (s *Server) handleDisconnect(conn *Connection) {
 	s.lastActivity[conn.RoomID] = time.Now()
 	delete(s.connectionsByRoom[conn.RoomID], conn.ID)
 	s.serverLock.Unlock()
+
+	s.spectatorUpdateQueue <- SpectatorUpdateQueueItem{RoomID: conn.RoomID}
 }
 
 // runProcessGameUpdateQueue processes the game update queue
@@ -279,6 +282,7 @@ func (s *Server) processSpectatorUpdateQueue() {
 }
 
 func (s *Server) sendSpectatorUpdate(update SpectatorUpdateQueueItem) error {
+	return nil
 	// Build the spectator update from the GameObject states
 	room, exists := s.roomManager.GetGameRoom(update.RoomID)
 	if !exists {
