@@ -94,6 +94,7 @@ type JoinGameHTTPRequest struct {
 	PlayerName   string `json:"playerName"`
 	RoomCode     string `json:"roomCode"`
 	RoomPassword string `json:"roomPassword"`
+	IsSpectator  bool   `json:"isSpectator,omitempty"`
 }
 
 // JoinGameResponse represents the response to a join game request
@@ -103,6 +104,7 @@ type JoinGameHTTPResponse struct {
 	PlayerToken string `json:"playerToken,omitempty"`
 	RoomID      string `json:"roomId,omitempty"`
 	RoomCode    string `json:"roomCode,omitempty"`
+	IsSpectator bool   `json:"isSpectator"`
 	CanvasSizeX int    `json:"canvasSizeX,omitempty"`
 	CanvasSizeY int    `json:"canvasSizeY,omitempty"`
 	Error       string `json:"error,omitempty"`
@@ -245,7 +247,8 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add player to room
-	player, err := AddPlayerToGame(room, req.PlayerName, req.RoomPassword)
+	isSpectator := req.IsSpectator || false
+	player, err := AddPlayerToGame(room, req.PlayerName, req.RoomPassword, isSpectator)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(JoinGameHTTPResponse{
@@ -271,6 +274,7 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 		PlayerToken: player.Token,
 		RoomID:      room.ID,
 		RoomCode:    room.RoomCode,
+		IsSpectator: isSpectator,
 		CanvasSizeX: canvasSizeX,
 		CanvasSizeY: canvasSizeY,
 	})

@@ -87,6 +87,10 @@ type GameUpdate struct {
 	Events       []GameUpdateEvent                 `json:"events"`       // List of events
 }
 
+type SpectatorUpdate struct {
+	Spectators []string `json:"spectators"`
+}
+
 // ExitGameRequest is sent when a player wants to exit a game
 type ExitGameRequest struct {
 }

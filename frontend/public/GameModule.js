@@ -56,10 +56,9 @@ class Game {
     this.exitGame = this.exitGame.bind(this);
     this.sendMessage = this.sendMessage.bind(this);
     this.handleMessage = this.handleMessage.bind(this);
-    this.handleCreateGameResponse = this.handleCreateGameResponse.bind(this);
-    this.handleJoinGameResponse = this.handleJoinGameResponse.bind(this);
     this.handleRejoinGameResponse = this.handleRejoinGameResponse.bind(this);
     this.handleGameStateUpdate = this.handleGameStateUpdate.bind(this);
+    this.handleSpectatorsUpdate = this.handleSpectatorsUpdate.bind(this);
     this.handleExitGameResponse = this.handleExitGameResponse.bind(this);
     this.handleErrorMessage = this.handleErrorMessage.bind(this);
     this.createGame = this.createGame.bind(this);
@@ -293,17 +292,14 @@ class Game {
     try {
       const message = JSON.parse(event.data);
       switch (message.type) {
-        case 'CreateGameResponse':
-          this.handleCreateGameResponse(message.payload);
-          break;
-        case 'JoinGameResponse':
-          this.handleJoinGameResponse(message.payload);
-          break;
         case 'RejoinGameResponse':
           this.handleRejoinGameResponse(message.payload);
           break;
         case 'GameState':
           this.handleGameStateUpdate(message.payload);
+          break;
+        case 'Spectators':
+          this.handleSpectatorsUpdate(message.payload);
           break;
         case 'ExitGameResponse':
           this.handleExitGameResponse(message.payload);
@@ -316,65 +312,6 @@ class Game {
       }
     } catch (error) {
       console.error('Error parsing message:', error);
-    }
-  }
-
-  // Handle specific message types
-  handleCreateGameResponse(payload) {
-    this.playerInfo = {
-      playerId: payload.playerId,
-      playerToken: payload.playerToken
-    };
-
-    this.gameStateManager.setCurrentPlayerObjectId(payload.playerId);
-
-    this.roomInfo = {
-      roomId: payload.roomId,
-      roomName: payload.roomName,
-      roomPassword: payload.roomPassword,
-      roomCode: payload.roomCode
-    };
-
-    // Notify room info change
-    if (this.options.onRoomInfoChange) {
-      this.options.onRoomInfoChange(this.roomInfo);
-    }
-
-    // Notify player info change
-    if (this.options.onPlayerInfoChange) {
-      this.options.onPlayerInfoChange(this.playerInfo);
-    }
-  }
-
-  handleJoinGameResponse(payload) {
-    if (!payload.success && payload.error) {
-      if (this.options.onError) {
-        this.options.onError(payload.error);
-      }
-      return;
-    }
-
-    this.playerInfo = {
-      playerId: payload.playerId,
-      playerToken: payload.playerToken
-    };
-
-    this.gameStateManager.setCurrentPlayerObjectId(payload.playerId);
-
-    this.roomInfo = {
-      roomId: payload.roomId,
-      roomName: payload.roomName,
-      roomCode: payload.roomCode
-    };
-
-    // Notify room info change
-    if (this.options.onRoomInfoChange) {
-      this.options.onRoomInfoChange(this.roomInfo);
-    }
-
-    // Notify player info change
-    if (this.options.onPlayerInfoChange) {
-      this.options.onPlayerInfoChange(this.playerInfo);
     }
   }
 
@@ -414,6 +351,10 @@ class Game {
 
   handleGameStateUpdate(payload) {
     this.gameStateManager.handleGameStateUpdate(payload);
+  }
+
+  handleSpectatorsUpdate(payload) {
+    this.gameStateManager.handleSpectatorsUpdate(payload);
   }
 
   handleExitGameResponse(payload) {

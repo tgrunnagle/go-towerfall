@@ -8,14 +8,16 @@ import { Constants } from './Constants.js';
 export class GameStateManager {
     constructor() {
         this.gameObjects = {};
+        this.spectators = [];
         this.currentPlayerObjectId = null;
 
         this.setCurrentPlayerObjectId = this.setCurrentPlayerObjectId.bind(this);
         this.handleGameStateUpdate = this.handleGameStateUpdate.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
         this.getCurrentPlayerClientState = this.getCurrentPlayerClientState.bind(this);
-        this.animationManager = new AnimationsManager();
         this.reset = this.reset.bind(this);
+        this.drawSpectators = this.drawSpectators.bind(this);
+        this.animationManager = new AnimationsManager();
 
         this.canvasSizeX = 0;
         this.canvasSizeY = 0;
@@ -140,6 +142,12 @@ export class GameStateManager {
         }
     }
 
+    handleSpectatorsUpdate(payload) {
+        if (payload.spectators) {
+            this.spectators = payload.spectators;
+        }
+    }
+
     render(canvasCtx, timestamp) {
         // Clear canvas
         canvasCtx.clearRect(0, 0, this.canvasSizeX, this.canvasSizeY);
@@ -168,6 +176,24 @@ export class GameStateManager {
             gameObject.render(canvasCtx, timestamp);
         });
         this.animationManager.render(canvasCtx, timestamp);
+
+        this.drawSpectators(canvasCtx);
+    }
+
+    drawSpectators(canvasCtx) {
+        if (!this.spectators || this.spectators.length === 0) return;
+        canvasCtx.fillStyle = Constants.SPECTATOR_TEXT_COLOR;
+        canvasCtx.font = Constants.SPECTATOR_TEXT_FONT;
+        canvasCtx.textBaseline = 'top';
+        canvasCtx.textAlign = 'left';
+        canvasCtx.fillText('Spectators:', Constants.SPECTATOR_TEXT_OFFSET_X, Constants.SPECTATOR_TEXT_OFFSET_Y);
+        this.spectators.forEach((spectator, index) => {
+            canvasCtx.fillText(
+                spectator,
+                Constants.SPECTATOR_TEXT_OFFSET_X,
+                Constants.SPECTATOR_TEXT_OFFSET_Y + ((index + 1) * Constants.SPECTATOR_TEXT_LINE_HEIGHT)
+            );
+        });
     }
 
     handleMouseMove(x, y) {
