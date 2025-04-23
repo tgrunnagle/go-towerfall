@@ -282,7 +282,6 @@ func (s *Server) processSpectatorUpdateQueue() {
 }
 
 func (s *Server) sendSpectatorUpdate(update SpectatorUpdateQueueItem) error {
-	return nil
 	// Build the spectator update from the GameObject states
 	room, exists := s.roomManager.GetGameRoom(update.RoomID)
 	if !exists {

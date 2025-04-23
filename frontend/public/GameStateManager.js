@@ -189,7 +189,7 @@ export class GameStateManager {
         canvasCtx.fillText('Spectators:', Constants.SPECTATOR_TEXT_OFFSET_X, Constants.SPECTATOR_TEXT_OFFSET_Y);
         this.spectators.forEach((spectator, index) => {
             canvasCtx.fillText(
-                spectator.playerName,
+                spectator,
                 Constants.SPECTATOR_TEXT_OFFSET_X,
                 Constants.SPECTATOR_TEXT_OFFSET_Y + ((index + 1) * Constants.SPECTATOR_TEXT_LINE_HEIGHT)
             );
