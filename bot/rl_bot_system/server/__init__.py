@@ -1,0 +1,1 @@
+# Bot server package for managing bot instances

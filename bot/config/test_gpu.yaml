@@ -1,0 +1,144 @@
+action_space:
+  action_repeat: 1
+  action_type: discrete
+  continuous_aim_range:
+  - 0.0
+  - 1.0
+  continuous_movement_range:
+  - -1.0
+  - 1.0
+  discrete_actions:
+  - no_action
+  - move_left
+  - move_right
+  - jump
+  - shoot
+  - move_left_shoot
+  - move_right_shoot
+  - jump_shoot
+  - move_left_jump
+  - move_right_jump
+  - dodge_left
+  - dodge_right
+cohort_training:
+  cohort_size: 5
+  difficulty_progression: true
+  enemy_count_range:
+  - 1
+  - 4
+  generation_weights:
+  - 0.4
+  - 0.3
+  - 0.2
+  - 0.1
+  opponent_selection: weighted
+  rules_bot_weight: 0.2
+data_dir: data
+evaluation:
+  evaluation_episodes: 200
+  evaluation_opponents:
+  - rules_bot
+  - previous_generation
+  - random
+  - best_generation
+  metrics_to_track:
+  - win_rate
+  - average_reward
+  - episode_length
+  - strategic_diversity
+  - reaction_time
+  min_improvement_threshold: 0.03
+  statistical_significance: 0.05
+game:
+  connection_timeout: 30.0
+  default_player_name: RL-Bot-GPU
+  default_room_code: null
+  http_url: http://localhost:4000
+  reconnect_attempts: 3
+  reconnect_delay: 5.0
+  ws_url: ws://localhost:4000/ws
+logging:
+  log_file_path: logs/rl_bot_system_gpu.log
+  log_level: INFO
+  log_to_file: true
+  tensorboard_log_dir: logs/tensorboard_gpu
+  use_tensorboard: true
+  use_wandb: true
+  wandb_entity: null
+  wandb_project: rl-bot-system-gpu
+logs_dir: logs
+metrics_dir: data/metrics
+model:
+  activation: relu
+  batch_norm: true
+  dropout_rate: 0.1
+  hidden_layers:
+  - 512
+  - 512
+  - 256
+  keep_best_n: 20
+  knowledge_transfer_method: weight_initialization
+  max_generations: 100
+  network_architecture: mlp
+models_dir: data/models
+replays_dir: data/replays
+reward:
+  exploration_bonus: 0.005
+  horizon_weights:
+    long_term: 0.2
+    medium_term: 0.4
+    short_term: 0.4
+  normalization: z_score
+  primary_function: health_differential
+  reward_clipping:
+  - -15.0
+  - 15.0
+  secondary_functions:
+  - aim_accuracy
+  - survival
+  - strategic_positioning
+  weights:
+  - 0.6
+  - 0.2
+  - 0.1
+  - 0.1
+speed_control:
+  batch_episode_size: 32
+  evaluation_speed_multiplier: 1.0
+  headless_mode: true
+  max_parallel_episodes: 8
+  training_speed_multiplier: 20.0
+state_representation:
+  feature_vector_size: 128
+  grid_resolution: 64
+  history_length: 8
+  include_ammunition: true
+  include_health: true
+  include_velocity: true
+  normalize_coordinates: true
+  representation_type: feature_vector
+training:
+  algorithm: PPO
+  batch_size: 256
+  buffer_size: 1000000
+  clip_range: 0.2
+  device: auto
+  ent_coef: 0.01
+  eval_episodes: 20
+  eval_freq: 10000
+  exploration_final_eps: 0.02
+  exploration_fraction: 0.1
+  exploration_initial_eps: 1.0
+  gamma: 0.99
+  gradient_steps: 1
+  learning_rate: 0.0003
+  log_interval: 50
+  max_grad_norm: 0.5
+  n_epochs: 20
+  n_steps: 4096
+  save_freq: 25000
+  target_update_interval: 10000
+  tau: 0.005
+  total_timesteps: 5000000
+  train_freq: 4
+  vf_coef: 0.5

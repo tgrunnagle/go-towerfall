@@ -106,3 +106,20 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+# RL Bot System
+bot/data/models/*.pth
+bot/data/models/*.pkl
+bot/data/models/*/
+bot/data/replays/*.h5
+bot/data/replays/*.json
+bot/data/metrics/*.json
+bot/logs/*.log
+bot/logs/tensorboard/
+wandb/
+*.wandb
+
+# ML/AI specific
+*.onnx
+*.tflite
+checkpoints/
+runs/

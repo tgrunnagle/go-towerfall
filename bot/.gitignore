@@ -1,0 +1,16 @@
+
+# RL Bot System
+data/models/*.pth
+data/models/*.pkl
+data/replays/*.h5
+data/metrics/*.json
+logs/*.log
+logs/tensorboard/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.coverage
+wandb/

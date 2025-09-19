@@ -21,6 +21,7 @@ A Go-based WebSocket server with a React frontend designed for multiplayer onlin
 - `/backend` - Go WebSocket server
 - `/frontend` - React frontend application
 - `/test` - Selenium tests
+- `/bot` - Python based bots
 
 ## Running the Application
 
@@ -68,27 +69,7 @@ npm test
 
 ### Bot
 
-The bot is a ML model that can play the game. It runs in python and is located in the `bot` directory. Initialize the virtual environment with:
-
-```bash
-cd bot
-# on macOS
-python3.11 -m venv env
-source env/bin/activate
-# on windows (in powershell, Set-ExecutionPolicy RemoteSigned)
-py -3.11 -m venv env
-.\env\Scripts\activate
-# exit venv
-deactivate
-
-pip install -r requirements.txt
-```
-
-Run the bot with:
-
-```bash
-// TODO
-```
+The bot is a ML model that can play the game. It runs in python and is located in the `bot` directory. See (README_RL_BOT_SYSTEM.md)[./bot/README_RL_BOT_SYSTEM.md].
 
 ## Game Controls
 
