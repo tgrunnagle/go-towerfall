@@ -53,7 +53,7 @@ uv python install 3.12
 cd bot
 
 # Run the setup script (automatically creates Python 3.12 venv with uv)
-python setup.py
+python run_setup.py
 
 # Activate the virtual environment
 # On Windows:
@@ -62,10 +62,10 @@ python setup.py
 source .venv/bin/activate
 
 # Configure GPU support (run after activating the environment)
-python gpu_setup.py
+python run_setup_gpu.py
 
 # Test the installation
-python test_setup.py
+python run_setup_test.py
 ```
 
 ### 3. Initialize the System

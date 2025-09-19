@@ -12,14 +12,26 @@
   - Create configuration management system for training parameters
   - _Requirements: 1.1, 2.1, 3.1_
 
-- [ ] 2. Implement rules-based bot foundation
-- [ ] 2.1 Create basic rules-based bot framework
+- [-] 2. Implement rules-based bot foundation
+
+
+
+
+
+- [x] 2.1 Create basic rules-based bot framework
+
+
+
+
+
+
   - Implement RulesBasedBot class with configurable difficulty levels
   - Create game state analysis methods (analyze_game_state, detect_threats, find_opportunities)
   - Implement action selection logic with rule priorities and decision trees
   - _Requirements: 1.1, 1.2, 4.1_
 
-- [ ] 2.2 Implement survival and combat rules
+- [-] 2.2 Implement survival and combat rules
+
   - Code survival rules (avoid projectiles, stay in bounds, maintain health)
   - Implement combat rules (target enemies, aim projectiles, use cover)
   - Create strategic rules (control territory, collect power-ups, time attacks)
