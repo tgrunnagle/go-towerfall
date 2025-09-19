@@ -1,32 +1,30 @@
 #!/usr/bin/env python3
 """
-Simple wrapper script that calls the test setup script.
-This maintains backward compatibility while organizing scripts in the setup/ folder.
+Test Setup Wrapper for RL Bot System
+This is a convenience wrapper that runs the test setup from the setup directory.
 """
-import subprocess
+
 import sys
+import subprocess
 from pathlib import Path
 
 def main():
-    """Run the test setup script."""
-    bot_dir = Path(__file__).parent
-    test_script = bot_dir / "setup" / "test_setup.py"
+    """Run the test setup script from the setup directory."""
+    setup_dir = Path(__file__).parent / "setup"
+    test_setup_script = setup_dir / "test_setup.py"
     
-    if not test_script.exists():
-        print("❌ Test script not found at setup/test_setup.py")
+    if not test_setup_script.exists():
+        print(f"❌ Test setup script not found at: {test_setup_script}")
         sys.exit(1)
     
-    # Change to bot directory and run test script
-    cmd = [sys.executable, str(test_script)] + sys.argv[1:]
-    
+    # Run the actual test setup script
     try:
-        result = subprocess.run(cmd, cwd=bot_dir)
-        sys.exit(result.returncode)
+        subprocess.run([sys.executable, str(test_setup_script)], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Test setup failed with exit code: {e.returncode}")
+        sys.exit(e.returncode)
     except KeyboardInterrupt:
-        print("\n⚠️  Test interrupted by user")
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ Error running test: {e}")
+        print("\n⚠️  Test setup interrupted by user")
         sys.exit(1)
 
 if __name__ == "__main__":

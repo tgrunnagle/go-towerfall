@@ -53,54 +53,29 @@ uv python install 3.12
 cd bot
 
 # Run the setup script (automatically creates Python 3.12 venv with uv)
-python setup.py --gpu
-
-# For CPU-only training
-python setup.py --cpu-only
+python setup.py
 
 # Activate the virtual environment
 # On Windows:
 .venv\Scripts\activate
 # On Unix/macOS:
 source .venv/bin/activate
+
+# Configure GPU support (run after activating the environment)
+python gpu_setup.py
+
+# Test the installation
+python test_setup.py
 ```
 
-### Alternative Manual Setup
-
-If you need to set up manually:
-
-```bash
-# Create virtual environment with Python 3.12
-uv venv --python 3.12
-
-# Activate virtual environment
-.venv\Scripts\activate  # Windows
-source .venv/bin/activate  # Unix/macOS
-
-# Install dependencies
-uv pip install -r requirements.txt
-
-# For GPU support
-uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-source .venv/bin/activate  # Unix/macOS
-
-# Install dependencies
-uv pip install -r requirements.txt
-# Or with standard pip:
-pip install -r requirements.txt
-
-# For GPU support
-uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
-
-### 2. Initialize the System
+### 3. Initialize the System
 
 ```bash
 # Set up directories and default configuration
 python rl_bot_cli.py setup
 ```
 
-### 3. View Available Configurations
+### 4. View Available Configurations
 
 ```bash
 # List all configurations
@@ -113,7 +88,7 @@ python rl_bot_cli.py config show default
 python rl_bot_cli.py config validate default
 ```
 
-### 4. Create Custom Configuration
+### 5. Create Custom Configuration
 
 ```bash
 # Create a quick training configuration for experimentation
