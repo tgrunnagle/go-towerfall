@@ -30,7 +30,12 @@
   - Implement action selection logic with rule priorities and decision trees
   - _Requirements: 1.1, 1.2, 4.1_
 
-- [-] 2.2 Implement survival and combat rules
+- [x] 2.2 Implement survival and combat rules
+
+
+
+
+
 
   - Code survival rules (avoid projectiles, stay in bounds, maintain health)
   - Implement combat rules (target enemies, aim projectiles, use cover)

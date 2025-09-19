@@ -123,6 +123,11 @@ class RulesBasedBot:
         self.last_action_time = 0
         self.reaction_delay_buffer = []
         
+        # Initialize rule modules (will be imported when needed)
+        self._combat_rules = None
+        self._survival_rules = None
+        self._strategic_rules = None
+        
     def _configure_difficulty_parameters(self):
         """Configure bot parameters based on difficulty level"""
         difficulty_configs = {
@@ -813,3 +818,24 @@ class RulesBasedBot:
                 action.parameters['y'] += random.uniform(-aim_error, aim_error)
         
         return action
+        
+    def _get_combat_rules(self):
+        """Lazy initialization of combat rules"""
+        if self._combat_rules is None:
+            from .combat_rules import CombatRules
+            self._combat_rules = CombatRules(self.config)
+        return self._combat_rules
+        
+    def _get_survival_rules(self):
+        """Lazy initialization of survival rules"""
+        if self._survival_rules is None:
+            from .survival_rules import SurvivalRules
+            self._survival_rules = SurvivalRules(self.config)
+        return self._survival_rules
+        
+    def _get_strategic_rules(self):
+        """Lazy initialization of strategic rules"""
+        if self._strategic_rules is None:
+            from .strategic_rules import StrategicRules
+            self._strategic_rules = StrategicRules(self.config)
+        return self._strategic_rules
