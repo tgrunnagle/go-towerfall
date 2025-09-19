@@ -123,6 +123,16 @@ class RulesBasedBot:
         self.last_action_time = 0
         self.reaction_delay_buffer = []
         
+        # Adaptive behavior tracking
+        self.game_history = []
+        self.recent_performance = {
+            'wins': 0,
+            'losses': 0,
+            'recent_games': 10  # Number of recent games to consider for adaptation
+        }
+        self.adaptation_enabled = True
+        self.base_config = self.config.copy()  # Store original config for adaptation
+        
         # Initialize rule modules (will be imported when needed)
         self._combat_rules = None
         self._survival_rules = None
@@ -332,10 +342,14 @@ class RulesBasedBot:
         
     def update_performance_metrics(self, game_result: Dict[str, Any]):
         """Update performance metrics based on game results"""
-        if game_result.get('won'):
+        won = game_result.get('won', False)
+        
+        if won:
             self.performance_metrics['wins'] += 1
+            self.recent_performance['wins'] += 1
         else:
             self.performance_metrics['losses'] += 1
+            self.recent_performance['losses'] += 1
             
         self.performance_metrics['kills'] += game_result.get('kills', 0)
         self.performance_metrics['deaths'] += game_result.get('deaths', 0)
@@ -350,6 +364,31 @@ class RulesBasedBot:
             self.performance_metrics['accuracy'] = (
                 (self.performance_metrics['accuracy'] * (total_games - 1) + game_accuracy) / total_games
             )
+        
+        # Store game result for adaptive behavior
+        self.game_history.append({
+            'won': won,
+            'kills': game_result.get('kills', 0),
+            'deaths': game_result.get('deaths', 0),
+            'accuracy': game_accuracy if shots_fired > 0 else 0,
+            'duration': game_result.get('duration', 0),
+            'strategy_used': self.current_strategy,
+            'difficulty_at_time': self.difficulty
+        })
+        
+        # Keep only recent games for adaptation
+        if len(self.game_history) > self.recent_performance['recent_games']:
+            self.game_history.pop(0)
+        
+        # Trigger adaptive behavior if enabled
+        if self.adaptation_enabled:
+            self._adapt_behavior()
+        
+        # Reset recent performance counter if we've reached the limit
+        recent_total = self.recent_performance['wins'] + self.recent_performance['losses']
+        if recent_total >= self.recent_performance['recent_games']:
+            self.recent_performance['wins'] = 0
+            self.recent_performance['losses'] = 0
             
     def get_performance_metrics(self) -> Dict[str, Any]:
         """Get current performance metrics"""
@@ -809,15 +848,97 @@ class RulesBasedBot:
         # Modify confidence based on accuracy
         action.confidence *= self.config['accuracy_modifier']
         
-        # Add some randomness to shooting accuracy for lower difficulties
-        if action.action_type == 'shoot_at_enemy' and self.difficulty != DifficultyLevel.EXPERT:
-            # Add aim error
-            aim_error = (1.0 - self.config['accuracy_modifier']) * 20  # Up to 20 pixel error
-            if 'x' in action.parameters and 'y' in action.parameters:
-                action.parameters['x'] += random.uniform(-aim_error, aim_error)
-                action.parameters['y'] += random.uniform(-aim_error, aim_error)
+        # Apply difficulty-specific modifications
+        if action.action_type == 'shoot_at_enemy':
+            self._apply_shooting_difficulty_modifiers(action)
+        elif action.action_type in ['move_left', 'move_right', 'jump', 'evade_threat']:
+            self._apply_movement_difficulty_modifiers(action)
+        
+        # Apply reaction time delays for lower difficulties
+        if self.difficulty in [DifficultyLevel.BEGINNER, DifficultyLevel.INTERMEDIATE]:
+            # Add slight delay to action execution
+            delay_factor = 1.0 if self.difficulty == DifficultyLevel.INTERMEDIATE else 2.0
+            additional_delay = random.uniform(0, 0.05 * delay_factor)
+            if additional_delay > 0:
+                self.reaction_delay_buffer.append(asyncio.get_event_loop().time() + additional_delay)
         
         return action
+    
+    def _apply_shooting_difficulty_modifiers(self, action: Action):
+        """Apply difficulty-specific modifiers to shooting actions"""
+        if 'x' not in action.parameters or 'y' not in action.parameters:
+            return
+        
+        # Calculate aim error based on difficulty
+        base_error = (1.0 - self.config['accuracy_modifier']) * 30
+        
+        if self.difficulty == DifficultyLevel.BEGINNER:
+            # Large aim error, sometimes miss completely
+            aim_error = base_error + random.uniform(0, 20)
+            if random.random() < 0.1:  # 10% chance of complete miss
+                aim_error *= 3
+        elif self.difficulty == DifficultyLevel.INTERMEDIATE:
+            # Moderate aim error with occasional precision
+            aim_error = base_error * random.uniform(0.7, 1.3)
+        elif self.difficulty == DifficultyLevel.ADVANCED:
+            # Small aim error, mostly accurate
+            aim_error = base_error * random.uniform(0.3, 0.8)
+        else:  # EXPERT
+            # Minimal aim error, very precise
+            aim_error = base_error * random.uniform(0.1, 0.4)
+        
+        # Apply aim error
+        action.parameters['x'] += random.uniform(-aim_error, aim_error)
+        action.parameters['y'] += random.uniform(-aim_error, aim_error)
+        
+        # Adjust confidence based on target distance and difficulty
+        if 'target_id' in action.parameters and self.last_analysis:
+            target_enemy = None
+            for enemy in self.last_analysis.enemies:
+                if enemy.get('id') == action.parameters['target_id']:
+                    target_enemy = enemy
+                    break
+            
+            if target_enemy:
+                target_pos = target_enemy.get('position', (0, 0))
+                distance = math.sqrt(
+                    (target_pos[0] - self.last_analysis.player_position[0])**2 + 
+                    (target_pos[1] - self.last_analysis.player_position[1])**2
+                )
+                
+                # Reduce confidence for distant targets based on difficulty
+                distance_factor = min(1.0, 200 / max(1, distance))  # Optimal range is ~200 units
+                difficulty_distance_penalty = {
+                    DifficultyLevel.BEGINNER: 0.5,
+                    DifficultyLevel.INTERMEDIATE: 0.7,
+                    DifficultyLevel.ADVANCED: 0.85,
+                    DifficultyLevel.EXPERT: 0.95
+                }
+                
+                action.confidence *= distance_factor * difficulty_distance_penalty[self.difficulty]
+    
+    def _apply_movement_difficulty_modifiers(self, action: Action):
+        """Apply difficulty-specific modifiers to movement actions"""
+        # Lower difficulties have less precise movement timing
+        if self.difficulty == DifficultyLevel.BEGINNER:
+            # Sometimes hold keys too long or too short
+            if action.duration:
+                duration_error = random.uniform(-0.05, 0.1)  # Tend to hold longer
+                action.duration = max(0.05, action.duration + duration_error)
+            
+            # Sometimes make suboptimal movement choices
+            if random.random() < 0.15:  # 15% chance of suboptimal movement
+                action.confidence *= 0.6
+                
+        elif self.difficulty == DifficultyLevel.INTERMEDIATE:
+            # Slight timing variations
+            if action.duration:
+                duration_error = random.uniform(-0.02, 0.03)
+                action.duration = max(0.05, action.duration + duration_error)
+            
+            # Occasional suboptimal choices
+            if random.random() < 0.08:  # 8% chance
+                action.confidence *= 0.8
         
     def _get_combat_rules(self):
         """Lazy initialization of combat rules"""
@@ -839,3 +960,108 @@ class RulesBasedBot:
             from .strategic_rules import StrategicRules
             self._strategic_rules = StrategicRules(self.config)
         return self._strategic_rules
+    
+    def _adapt_behavior(self):
+        """Adapt bot behavior based on recent game outcomes"""
+        if len(self.game_history) < 3:  # Need at least 3 games for meaningful adaptation
+            return
+        
+        recent_games = self.game_history[-5:]  # Look at last 5 games
+        recent_win_rate = sum(1 for game in recent_games if game['won']) / len(recent_games)
+        recent_avg_accuracy = sum(game['accuracy'] for game in recent_games) / len(recent_games)
+        recent_kd_ratio = (sum(game['kills'] for game in recent_games) / 
+                          max(1, sum(game['deaths'] for game in recent_games)))
+        
+        self.logger.info(f"Adapting behavior - Recent win rate: {recent_win_rate:.2f}, "
+                        f"Accuracy: {recent_avg_accuracy:.2f}, K/D: {recent_kd_ratio:.2f}")
+        
+        # Adapt strategy based on performance
+        if recent_win_rate < 0.3:  # Losing too much
+            if self.current_strategy == "aggressive":
+                self.current_strategy = "balanced"
+                self.logger.info("Switching from aggressive to balanced strategy")
+            elif self.current_strategy == "balanced":
+                self.current_strategy = "defensive"
+                self.logger.info("Switching from balanced to defensive strategy")
+            
+            # Also reduce aggression level temporarily
+            self.config['aggression_level'] = max(0.2, self.config['aggression_level'] * 0.9)
+            
+        elif recent_win_rate > 0.7:  # Winning too much, can be more aggressive
+            if self.current_strategy == "defensive":
+                self.current_strategy = "balanced"
+                self.logger.info("Switching from defensive to balanced strategy")
+            elif self.current_strategy == "balanced":
+                self.current_strategy = "aggressive"
+                self.logger.info("Switching from balanced to aggressive strategy")
+            
+            # Increase aggression level
+            self.config['aggression_level'] = min(1.0, self.config['aggression_level'] * 1.1)
+        
+        # Adapt accuracy and reaction time based on performance
+        if recent_avg_accuracy < 0.3:  # Poor accuracy
+            # Slow down to improve accuracy
+            self.config['reaction_time'] = min(self.base_config['reaction_time'] * 1.5,
+                                             self.config['reaction_time'] * 1.1)
+            self.config['decision_frequency'] = min(self.base_config['decision_frequency'] * 1.5,
+                                                   self.config['decision_frequency'] * 1.1)
+            self.logger.info("Slowing down reactions to improve accuracy")
+            
+        elif recent_avg_accuracy > 0.8:  # Very good accuracy
+            # Can speed up
+            self.config['reaction_time'] = max(self.base_config['reaction_time'] * 0.8,
+                                             self.config['reaction_time'] * 0.95)
+            self.config['decision_frequency'] = max(self.base_config['decision_frequency'] * 0.8,
+                                                   self.config['decision_frequency'] * 0.95)
+            self.logger.info("Speeding up reactions due to good accuracy")
+        
+        # Adapt risk tolerance based on K/D ratio
+        if recent_kd_ratio < 0.5:  # Dying too much
+            self.config['risk_tolerance'] = max(0.1, self.config['risk_tolerance'] * 0.9)
+            self.logger.info("Reducing risk tolerance due to high death rate")
+        elif recent_kd_ratio > 2.0:  # Very good K/D
+            self.config['risk_tolerance'] = min(1.0, self.config['risk_tolerance'] * 1.1)
+            self.logger.info("Increasing risk tolerance due to good K/D ratio")
+    
+    def reset_adaptation(self):
+        """Reset adaptive behavior to base configuration"""
+        self.config = self.base_config.copy()
+        self.current_strategy = "balanced"
+        self.game_history.clear()
+        self.recent_performance = {'wins': 0, 'losses': 0, 'recent_games': 10}
+        self.logger.info("Reset adaptive behavior to base configuration")
+    
+    def set_adaptation_enabled(self, enabled: bool):
+        """Enable or disable adaptive behavior"""
+        self.adaptation_enabled = enabled
+        self.logger.info(f"Adaptive behavior {'enabled' if enabled else 'disabled'}")
+    
+    def get_adaptation_status(self) -> Dict[str, Any]:
+        """Get current adaptation status and metrics"""
+        if len(self.game_history) == 0:
+            return {
+                'adaptation_enabled': self.adaptation_enabled,
+                'games_played': 0,
+                'current_strategy': self.current_strategy,
+                'config_changes': {}
+            }
+        
+        recent_games = self.game_history[-5:] if len(self.game_history) >= 5 else self.game_history
+        recent_win_rate = sum(1 for game in recent_games if game['won']) / len(recent_games)
+        
+        config_changes = {}
+        for key in ['aggression_level', 'reaction_time', 'risk_tolerance', 'decision_frequency']:
+            if abs(self.config[key] - self.base_config[key]) > 0.01:
+                config_changes[key] = {
+                    'base': self.base_config[key],
+                    'current': self.config[key],
+                    'change': self.config[key] - self.base_config[key]
+                }
+        
+        return {
+            'adaptation_enabled': self.adaptation_enabled,
+            'games_played': len(self.game_history),
+            'recent_win_rate': recent_win_rate,
+            'current_strategy': self.current_strategy,
+            'config_changes': config_changes
+        }
