@@ -6,6 +6,122 @@ The successive RL bot system will build upon the existing game client infrastruc
 
 The architecture leverages the existing `GameClient` class for game interaction and introduces new components for RL model training, evaluation, and management. The system will support multiple RL algorithms (DQN, PPO, A3C) and provide a unified interface for training successive generations of bots.
 
+## Code Organization and Standards
+
+### Project Structure
+The project follows a hierarchical module structure with clear separation of concerns:
+
+```
+bot/
+├── run_test.py                    # Main test runner script
+├── requirements.txt               # Python dependencies
+├── game_client.py                # Existing game client interface
+├── rl_bot_system/                # Main RL bot system package
+│   ├── __init__.py
+│   ├── config/                   # Configuration management
+│   │   ├── __init__.py
+│   │   ├── training_config.py
+│   │   └── tests/
+│   ├── environment/              # RL environment wrapper
+│   │   ├── __init__.py
+│   │   ├── game_environment.py
+│   │   ├── state_processors.py
+│   │   ├── action_spaces.py
+│   │   ├── reward_functions.py
+│   │   └── tests/
+│   ├── models/                   # RL model implementations
+│   │   ├── __init__.py
+│   │   ├── dqn.py
+│   │   ├── ppo.py
+│   │   └── tests/
+│   ├── training/                 # Training engine and management
+│   │   ├── __init__.py
+│   │   ├── training_engine.py
+│   │   ├── model_manager.py
+│   │   └── tests/
+│   ├── evaluation/               # Model evaluation framework
+│   │   ├── __init__.py
+│   │   ├── evaluator.py
+│   │   └── tests/
+│   ├── rules_based/              # Rules-based bot foundation
+│   │   ├── __init__.py
+│   │   ├── rules_based_bot.py
+│   │   └── tests/
+│   ├── server/                   # Bot server and game integration
+│   │   ├── __init__.py
+│   │   ├── bot_server.py
+│   │   └── tests/
+│   ├── storage/                  # Model and data persistence
+│   │   ├── __init__.py
+│   │   ├── model_storage.py
+│   │   └── tests/
+│   ├── utils/                    # Shared utilities
+│   │   ├── __init__.py
+│   │   ├── async_env.py
+│   │   ├── metrics.py
+│   │   └── tests/
+│   └── tests/                    # Integration tests
+│       ├── __init__.py
+│       └── test_integration.py
+└── example_bots/                 # Example bot implementations
+    ├── rules_based_bot_example.py
+    └── rl_bot_example.py
+```
+
+### Import Standards
+
+**Absolute Imports Only**:
+- All imports must use absolute paths from the project root
+- Never use relative imports (e.g., `from .module import Class`)
+- Never modify `sys.path` in production code or tests
+
+**Correct Import Examples**:
+```python
+# Correct - absolute imports
+from bot.rl_bot_system.environment import GameEnvironment
+from bot.rl_bot_system.training.training_engine import TrainingEngine
+from bot.game_client import GameClient
+
+# Incorrect - relative imports
+from .environment import GameEnvironment  # DON'T DO THIS
+from ..training.training_engine import TrainingEngine  # DON'T DO THIS
+```
+
+**Import Organization**:
+```python
+# Standard library imports
+import asyncio
+import logging
+from typing import Dict, Any, Optional
+
+# Third-party imports
+import numpy as np
+import torch
+import gymnasium as gym
+
+# Project imports
+from bot.rl_bot_system.environment import GameEnvironment
+from bot.rl_bot_system.models.dqn import DQNModel
+from bot.game_client import GameClient
+```
+
+### Module Dependencies
+
+**Dependency Flow**:
+- Higher-level modules can import from lower-level modules
+- Avoid circular dependencies between modules
+- Use dependency injection for external services
+
+**Allowed Dependencies**:
+```
+training/ → models/, environment/, storage/, utils/
+evaluation/ → models/, environment/, storage/, utils/
+environment/ → utils/
+models/ → utils/
+server/ → training/, evaluation/, rules_based/, utils/
+rules_based/ → utils/
+```
+
 ## Architecture
 
 ### High-Level Architecture
@@ -533,26 +649,171 @@ class EvaluationResult:
 
 ## Testing Strategy
 
+### Testing Guidelines and Standards
+
+**Test Organization**:
+- All unit tests must be placed in local `/tests/` folders within each module
+- Tests should be designed to run with the `run_test.py` (pytest) script
+- Test files should follow the naming convention `test_*.py`
+- Test classes should follow the naming convention `Test*`
+
+**Import Standards**:
+- Use absolute imports throughout the codebase; avoid relative imports
+- Do not append to `sys.path` in test files or production code
+- Import from the root package using full module paths (e.g., `from bot.rl_bot_system.environment import GameEnvironment`)
+
+**Mocking Guidelines**:
+- Minimize the use of mocks except where there are external dependencies
+- Mock only external systems that require running services (e.g., game client requiring a running game server)
+- Prefer real implementations and dependency injection for internal components
+- When mocking is necessary, use `unittest.mock` or `pytest-mock`
+
+**Test Structure Example**:
+```
+bot/rl_bot_system/
+├── environment/
+│   ├── __init__.py
+│   ├── game_environment.py
+│   ├── state_processors.py
+│   ├── action_spaces.py
+│   ├── reward_functions.py
+│   └── tests/
+│       ├── __init__.py
+│       ├── test_game_environment.py
+│       ├── test_state_processors.py
+│       ├── test_action_spaces.py
+│       └── test_reward_functions.py
+├── training/
+│   ├── __init__.py
+│   ├── training_engine.py
+│   └── tests/
+│       ├── __init__.py
+│       └── test_training_engine.py
+└── tests/
+    ├── __init__.py
+    └── test_integration.py
+```
+
 ### Unit Testing
-- **Model Components**: Test individual RL algorithms and neural networks
-- **Environment Wrapper**: Validate state extraction and reward calculation
-- **Evaluation Metrics**: Test performance calculation accuracy
-- **Storage Operations**: Test model save/load functionality
+
+**Model Components**:
+- Test individual RL algorithms and neural networks without external dependencies
+- Use synthetic data and controlled environments for algorithm validation
+- Test model serialization/deserialization without file system dependencies
+- Validate hyperparameter handling and configuration management
+
+**Environment Wrapper**:
+- Test state extraction and reward calculation with mock game states
+- Validate action space conversions and input mappings
+- Test different state representations (coordinate, grid, feature vector)
+- Mock only the GameClient connection, use real game state processing
+
+**Evaluation Metrics**:
+- Test performance calculation accuracy with known input/output pairs
+- Validate statistical comparisons and confidence intervals
+- Test metric aggregation and reporting functions
+- Use deterministic test data to ensure reproducible results
+
+**Storage Operations**:
+- Test model save/load functionality with temporary directories
+- Validate configuration serialization and deserialization
+- Test model versioning and metadata handling
+- Use in-memory storage for fast test execution where possible
+
+**Rules-Based Bot Logic**:
+- Test decision-making algorithms with controlled game states
+- Validate difficulty scaling and adaptive behavior
+- Test rule priority systems and conflict resolution
+- Use real game state structures, mock only external game interactions
 
 ### Integration Testing
-- **End-to-End Training**: Complete training pipeline from start to finish
-- **Model Succession**: Test knowledge transfer between generations
-- **Game Integration**: Validate bot behavior in actual game sessions
-- **Performance Comparison**: Test evaluation framework accuracy
+
+**End-to-End Training**:
+- Test complete training pipeline from initialization to model output
+- Use small-scale training runs with limited episodes for speed
+- Validate model improvement over successive generations
+- Mock game server connections, use real training algorithms
+
+**Model Succession**:
+- Test knowledge transfer between generations with real models
+- Validate model compatibility across different generations
+- Test evaluation framework with multiple model generations
+- Use lightweight models for faster test execution
+
+**Game Integration**:
+- Test bot behavior integration with mock game sessions
+- Validate action execution and state observation pipelines
+- Test spectator interface and training session management
+- Mock WebSocket connections, use real bot decision logic
+
+**Performance Comparison**:
+- Test evaluation framework accuracy with known performance differences
+- Validate statistical significance testing and confidence intervals
+- Test cross-generation compatibility and fair comparison metrics
+- Use deterministic models for reproducible comparison results
 
 ### Performance Testing
-- **Training Speed**: Benchmark training time per episode and generation
-- **Memory Usage**: Monitor memory consumption during training
-- **Concurrent Training**: Test multiple simultaneous training sessions
-- **Model Inference**: Measure bot response time during gameplay
+
+**Training Speed**:
+- Benchmark training time per episode and generation with real algorithms
+- Test training acceleration and speed controller functionality
+- Validate memory usage patterns during extended training sessions
+- Use profiling tools to identify performance bottlenecks
+
+**Concurrent Training**:
+- Test multiple simultaneous training sessions with resource management
+- Validate model isolation and independent training progression
+- Test resource allocation and cleanup mechanisms
+- Use lightweight models to enable concurrent testing
+
+**Model Inference**:
+- Measure bot response time during gameplay simulation
+- Test action selection speed under different state representations
+- Validate real-time performance requirements for game integration
+- Benchmark different model architectures and sizes
 
 ### Validation Testing
-- **Model Quality**: Validate that successive models actually improve
-- **Behavioral Analysis**: Ensure bots exhibit intelligent gameplay
-- **Stability Testing**: Long-running training sessions without degradation
-- **Cross-Generation Compatibility**: Ensure models can compete across generations
+
+**Model Quality**:
+- Validate that successive models show measurable improvement
+- Test against baseline rules-based bots for performance benchmarking
+- Validate learning curves and convergence behavior
+- Use statistical tests to confirm improvement significance
+
+**Behavioral Analysis**:
+- Test bot decision-making patterns for intelligent gameplay
+- Validate strategic diversity and tactical adaptation
+- Test behavioral consistency across different game scenarios
+- Analyze action distributions and decision rationale
+
+**Stability Testing**:
+- Run extended training sessions to test for performance degradation
+- Validate model stability across different opponent configurations
+- Test recovery from training failures and edge cases
+- Monitor resource usage patterns over long-running sessions
+
+**Cross-Generation Compatibility**:
+- Test model loading and execution across different software versions
+- Validate backward compatibility for older model generations
+- Test evaluation fairness when comparing models from different training runs
+- Ensure consistent behavior across different hardware configurations
+
+### Test Execution and CI/CD
+
+**Local Testing**:
+- All tests should run via `python run_test.py` from the project root
+- Tests should complete within reasonable time limits (< 5 minutes for unit tests)
+- Integration tests may have longer timeouts but should remain under 30 minutes
+- Performance tests should be tagged separately for optional execution
+
+**Test Data Management**:
+- Use fixtures and factory patterns for test data generation
+- Minimize external file dependencies; prefer in-memory test data
+- Use temporary directories for tests requiring file system operations
+- Clean up test artifacts automatically after test completion
+
+**Continuous Integration**:
+- Unit tests should run on every commit and pull request
+- Integration tests should run on merge to main branch
+- Performance tests should run on scheduled basis (nightly/weekly)
+- Test results should be reported with clear pass/fail status and coverage metrics
