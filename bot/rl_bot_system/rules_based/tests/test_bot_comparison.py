@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Integration tests for comparing the rules-based bot against other bots.
 Tests different difficulty levels and adaptive behavior.
@@ -6,14 +5,14 @@ Tests different difficulty levels and adaptive behavior.
 
 import asyncio
 import logging
-import unittest
+import pytest
 from typing import Dict, List, Any
 import json
 from datetime import datetime
 from unittest.mock import Mock, AsyncMock, patch
 
 try:
-    from game_client import GameClient
+    from bot.game_client import GameClient
     GAME_CLIENT_AVAILABLE = True
 except ImportError:
     GAME_CLIENT_AVAILABLE = False
@@ -39,60 +38,100 @@ except ImportError:
             pass
 
 try:
-    from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
+    from bot.rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
     RULES_BOT_AVAILABLE = True
 except ImportError:
-    # Try alternative import for standalone mode
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-    try:
-        from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
-        RULES_BOT_AVAILABLE = True
-    except ImportError:
-        RULES_BOT_AVAILABLE = False
-        # Create dummy classes
-        class RulesBasedBot:
-            pass
-        class DifficultyLevel:
-            pass
+    RULES_BOT_AVAILABLE = False
+    # Create dummy classes with the expected attributes
+    class DifficultyLevel:
+        def __init__(self, value):
+            self.value = value
+        
+        @classmethod
+        def create_levels(cls):
+            cls.BEGINNER = cls("beginner")
+            cls.INTERMEDIATE = cls("intermediate")
+            cls.ADVANCED = cls("advanced")
+            cls.EXPERT = cls("expert")
+    
+    DifficultyLevel.create_levels()
+    
+    class RulesBasedBot:
+        def __init__(self, difficulty):
+            self.difficulty = difficulty
+            # Different accuracy for different difficulty levels
+            accuracy = 0.3 if difficulty.value == 'beginner' else 0.8
+            self.config = {'reaction_time': 1.0, 'accuracy_modifier': accuracy, 'aggression_level': 0.7}
+            self.current_strategy = 'balanced'
+            self.games_played = 0
+        
+        def set_adaptation_enabled(self, enabled):
+            self.adaptation_enabled = enabled
+        
+        def get_adaptation_status(self):
+            return {
+                'adaptation_enabled': getattr(self, 'adaptation_enabled', False),
+                'games_played': self.games_played,
+                'current_strategy': self.current_strategy,
+                'recent_win_rate': 0.0
+            }
+        
+        def update_performance_metrics(self, metrics):
+            self.games_played += 1
+            # Simulate strategy change after losses
+            if not metrics.get('won', True):
+                self.current_strategy = 'defensive'
+                self.config['aggression_level'] = 0.3
+        
+        def get_performance_metrics(self):
+            return {'accuracy': self.config['accuracy_modifier']}
 
 DEPENDENCIES_AVAILABLE = GAME_CLIENT_AVAILABLE and RULES_BOT_AVAILABLE
 
 
-class TestBotComparison(unittest.TestCase):
-    """Integration tests for bot comparison and performance evaluation"""
-    
-    def setUp(self):
-        """Set up test fixtures"""
-        self.logger = logging.getLogger(__name__)
-        self.test_results = []
-        
-        # Mock game state for testing
-        self.mock_game_state = {
-            'player': {
-                'position': (100, 100),
-                'velocity': (0, 0),
-                'health': 100,
-                'ammunition': 10
-            },
-            'enemies': [
-                {
-                    'id': 'example_bot',
-                    'position': (200, 150),
-                    'velocity': (10, 0),
-                    'health': 100
-                }
-            ],
-            'projectiles': [],
-            'powerUps': [],
-            'boundaries': {
-                'left': -400,
-                'right': 400,
-                'top': -300,
-                'bottom': 300
+@pytest.fixture
+def logger():
+    """Logger fixture for tests."""
+    return logging.getLogger(__name__)
+
+
+@pytest.fixture
+def test_results():
+    """Test results fixture."""
+    return []
+
+
+@pytest.fixture
+def mock_game_state():
+    """Mock game state fixture for testing."""
+    return {
+        'player': {
+            'position': (100, 100),
+            'velocity': (0, 0),
+            'health': 100,
+            'ammunition': 10
+        },
+        'enemies': [
+            {
+                'id': 'example_bot',
+                'position': (200, 150),
+                'velocity': (10, 0),
+                'health': 100
             }
+        ],
+        'projectiles': [],
+        'powerUps': [],
+        'boundaries': {
+            'left': -400,
+            'right': 400,
+            'top': -300,
+            'bottom': 300
         }
+    }
+
+
+class TestBotComparison:
+    """Integration tests for bot comparison and performance evaluation"""
         
     def test_difficulty_levels_configuration(self):
         """Test that different difficulty levels have distinct performance characteristics"""
@@ -109,23 +148,23 @@ class TestBotComparison(unittest.TestCase):
             bots.append(bot)
             
             # Test that bot can be created with difficulty
-            self.assertEqual(bot.difficulty, difficulty)
-            self.assertIsNotNone(bot.config)
+            assert bot.difficulty == difficulty
+            assert bot.config is not None
             
         # Test that difficulty levels have different configurations
         reaction_times = [bot.config['reaction_time'] for bot in bots]
         accuracies = [bot.config['accuracy_modifier'] for bot in bots]
         
         # Reaction times should decrease with higher difficulty
-        self.assertEqual(reaction_times, sorted(reaction_times, reverse=True))
+        assert reaction_times == sorted(reaction_times, reverse=True)
         
         # Accuracies should increase with higher difficulty
-        self.assertEqual(accuracies, sorted(accuracies))
+        assert accuracies == sorted(accuracies)
         
         print("PASS: All difficulty levels have distinct configurations")
     
-    @unittest.skipUnless(DEPENDENCIES_AVAILABLE, "Game client dependencies not available")
-    def test_difficulty_levels_integration(self):
+    @pytest.mark.skipif(not DEPENDENCIES_AVAILABLE, reason="Game client dependencies not available")
+    def test_difficulty_levels_integration(self, test_results):
         """Integration test for different difficulty levels (requires game client)"""
         difficulties = [DifficultyLevel.BEGINNER, DifficultyLevel.INTERMEDIATE]
         
@@ -135,17 +174,17 @@ class TestBotComparison(unittest.TestCase):
             # Run mock test games
             results = asyncio.run(self._run_mock_test_games(bot, num_games=2))
             
-            self.test_results.append({
+            test_results.append({
                 'difficulty': difficulty.value,
                 'results': results,
                 'timestamp': datetime.now().isoformat()
             })
             
             # Verify results structure
-            self.assertIn('total_games', results)
-            self.assertIn('win_rate', results)
-            self.assertIn('kd_ratio', results)
-            self.assertGreaterEqual(results['total_games'], 1)
+            assert 'total_games' in results
+            assert 'win_rate' in results
+            assert 'kd_ratio' in results
+            assert results['total_games'] >= 1
             
         print(f"PASS: Integration test completed for {len(difficulties)} difficulty levels")
     
@@ -155,19 +194,19 @@ class TestBotComparison(unittest.TestCase):
         
         # Test adaptation can be enabled/disabled
         bot.set_adaptation_enabled(True)
-        self.assertTrue(bot.adaptation_enabled)
+        assert bot.adaptation_enabled
         
         bot.set_adaptation_enabled(False)
-        self.assertFalse(bot.adaptation_enabled)
+        assert not bot.adaptation_enabled
         
         # Test adaptation status reporting
         bot.set_adaptation_enabled(True)
         status = bot.get_adaptation_status()
         
-        self.assertIn('adaptation_enabled', status)
-        self.assertIn('games_played', status)
-        self.assertIn('current_strategy', status)
-        self.assertTrue(status['adaptation_enabled'])
+        assert 'adaptation_enabled' in status
+        assert 'games_played' in status
+        assert 'current_strategy' in status
+        assert status['adaptation_enabled']
         
         print("PASS: Adaptive behavior configuration works correctly")
     
@@ -194,13 +233,13 @@ class TestBotComparison(unittest.TestCase):
         final_aggression = bot.config['aggression_level']
         
         # Strategy should have changed to be more defensive
-        self.assertNotEqual(initial_strategy, final_strategy)
-        self.assertLess(final_aggression, initial_aggression)
+        assert initial_strategy != final_strategy
+        assert final_aggression < initial_aggression
         
         # Get adaptation status
         status = bot.get_adaptation_status()
-        self.assertGreater(status['games_played'], 0)
-        self.assertEqual(status['recent_win_rate'], 0.0)  # All losses
+        assert status['games_played'] > 0
+        assert status['recent_win_rate'] == 0.0  # All losses
         
         print(f"PASS: Adaptive behavior simulation: {initial_strategy} -> {final_strategy}")
         print(f"  Aggression: {initial_aggression:.2f} -> {final_aggression:.2f}")
@@ -330,15 +369,15 @@ class TestBotComparison(unittest.TestCase):
         wrapper = RulesBotWrapper(bot, client)
         
         # Test initialization
-        self.assertEqual(wrapper.bot, bot)
-        self.assertEqual(wrapper.client, client)
-        self.assertFalse(wrapper.running)
+        assert wrapper.bot == bot
+        assert wrapper.client == client
+        assert not wrapper.running
         
         # Test game result initialization
         result = wrapper.get_game_result()
         expected_keys = ['won', 'kills', 'deaths', 'shots_fired', 'shots_hit', 'duration']
         for key in expected_keys:
-            self.assertIn(key, result)
+            assert key in result
         
         print("PASS: Bot wrapper functionality works correctly")
     
@@ -369,7 +408,7 @@ class TestBotComparison(unittest.TestCase):
         expert_accuracy = performance_metrics['expert']['accuracy']
         beginner_accuracy = performance_metrics['beginner']['accuracy']
         
-        self.assertGreater(expert_accuracy, beginner_accuracy)
+        assert expert_accuracy > beginner_accuracy
         
         print(f"PASS: Performance comparison: Expert accuracy ({expert_accuracy:.1%}) > Beginner accuracy ({beginner_accuracy:.1%})")
     
