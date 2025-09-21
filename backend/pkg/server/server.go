@@ -350,23 +350,73 @@ func (s *Server) runCleanupInactiveRooms() {
 	}
 }
 
-// runGameTick runs the game tick
+// runGameTick runs the game tick with support for variable tick rates
 func (s *Server) runGameTick() {
+	// Create separate goroutines for different tick rates
+	roomTickRates := make(map[string]time.Duration)
+	roomTickers := make(map[string]*time.Ticker)
+	
+	// Main loop to manage room-specific tickers
 	for {
-		time.Sleep(GAME_TICK_INTERVAL)
-		s.triggerGameTick()
+		time.Sleep(100 * time.Millisecond) // Check for room changes every 100ms
+		
+		roomIDs := s.roomManager.GetGameRoomIDs()
+		currentRooms := make(map[string]bool)
+		
+		for _, roomID := range roomIDs {
+			currentRooms[roomID] = true
+			room, exists := s.roomManager.GetGameRoom(roomID)
+			if !exists {
+				continue
+			}
+			
+			// Get the tick rate for this room
+			var tickRate time.Duration
+			if room.IsTrainingRoom() {
+				tickRate = room.GetCustomTickRate()
+			} else {
+				tickRate = GAME_TICK_INTERVAL
+			}
+			
+			// Check if we need to create or update ticker for this room
+			if existingRate, hasRate := roomTickRates[roomID]; !hasRate || existingRate != tickRate {
+				// Stop existing ticker if it exists
+				if ticker, hasTicker := roomTickers[roomID]; hasTicker {
+					ticker.Stop()
+				}
+				
+				// Create new ticker with the correct rate
+				roomTickRates[roomID] = tickRate
+				roomTickers[roomID] = time.NewTicker(tickRate)
+				
+				// Start goroutine for this room's ticks
+				go s.runRoomTicker(roomID, roomTickers[roomID])
+			}
+		}
+		
+		// Clean up tickers for removed rooms
+		for roomID, ticker := range roomTickers {
+			if !currentRooms[roomID] {
+				ticker.Stop()
+				delete(roomTickers, roomID)
+				delete(roomTickRates, roomID)
+			}
+		}
 	}
 }
 
-// triggerGameTick triggers a game tick for all rooms
-func (s *Server) triggerGameTick() {
-	// Send tick events to all rooms
-	roomIDs := s.roomManager.GetGameRoomIDs()
-	for _, roomID := range roomIDs {
+// runRoomTicker runs the ticker for a specific room
+func (s *Server) runRoomTicker(roomID string, ticker *time.Ticker) {
+	defer ticker.Stop()
+	
+	for range ticker.C {
+		// Check if room still exists
 		room, exists := s.roomManager.GetGameRoom(roomID)
 		if !exists {
-			continue
+			return // Room was removed, stop ticking
 		}
+		
+		// Send tick event to the room
 		go s.processEvent(room, game_objects.NewGameEvent(
 			roomID,
 			game_objects.EventGameTick,
@@ -375,6 +425,12 @@ func (s *Server) triggerGameTick() {
 			nil,
 		))
 	}
+}
+
+// triggerGameTick triggers a game tick for all rooms (legacy method, now handled by runGameTick)
+func (s *Server) triggerGameTick() {
+	// This method is now handled by the new runGameTick implementation
+	// Keeping for compatibility but functionality moved to runRoomTicker
 }
 
 // cleanupInactiveRooms removes inactive rooms

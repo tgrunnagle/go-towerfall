@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/gorilla/mux v1.8.1 // indirect
 	golang.org/x/net v0.37.0 // indirect
 	gonum.org/v1/gonum v0.16.0 // indirect
 )
