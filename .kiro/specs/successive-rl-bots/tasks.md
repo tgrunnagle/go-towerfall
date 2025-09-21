@@ -101,7 +101,7 @@
   - Verify training room speed multiplier functionality
   - _Requirements: 3.1, 4.2_
 
-- [ ] 4.3.2 Implement player management tests
+- [x] 4.3.2 Implement player management tests
   - Test adding multiple players to rooms (players and spectators)
   - Test player removal and disconnection handling
   - Test player token validation and authentication
