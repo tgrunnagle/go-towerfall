@@ -85,6 +85,79 @@
   - Created comprehensive test suite with 8 passing integration tests
   - Documented server-side requirements and implementation details
 
+- [ ] 4.3 Implement comprehensive Go backend unit tests
+  - Create unit test framework for Go server components
+  - Create tests in files prefixed with "test_" in a tests/ folder next to the source code
+  - Implement tests for core game server functionality
+  - Add integration tests for client-server communication
+  - Document testing procedures and requirements
+  - _Requirements: 3.1, 3.2, 4.1, 4.2_
+
+- [ ] 4.3.1 Create game room management tests
+  - Test room creation with different configurations (normal, training, headless)
+  - Test room cleanup and resource management
+  - Test room state persistence and retrieval
+  - Test room password validation and access control
+  - Verify training room speed multiplier functionality
+  - _Requirements: 3.1, 4.2_
+
+- [ ] 4.3.2 Implement player management tests
+  - Test adding multiple players to rooms (players and spectators)
+  - Test player removal and disconnection handling
+  - Test player token validation and authentication
+  - Test player state synchronization across clients
+  - Verify spectator mode functionality
+  - _Requirements: 3.1, 4.2_
+
+- [ ] 4.3.3 Create client input processing tests
+  - Test keyboard input handling (W/A/S/D movement keys)
+  - Test mouse input processing (click coordinates and buttons)
+  - Test input validation and sanitization
+  - Test input rate limiting and spam protection
+  - Verify training mode input bypass functionality
+  - _Requirements: 3.1, 3.2_
+
+- [ ] 4.3.4 Implement game state communication tests
+  - Test WebSocket message broadcasting to all clients
+  - Test game state serialization and deserialization
+  - Test direct state access API for training mode
+  - Test state update frequency and performance
+  - Verify client-specific state filtering
+  - _Requirements: 3.1, 3.2, 4.2_
+
+- [ ] 4.3.5 Create game physics and collision tests
+  - Test game tick processing at different speeds
+  - Test collision detection between game objects
+  - Test collision notification message generation
+  - Test physics simulation accuracy at high speeds
+  - Verify projectile trajectory and impact calculations
+  - Test boundary collision and wrapping behavior
+  - _Requirements: 3.1, 4.2_
+
+- [ ] 4.3.6 Add HTTP API endpoint tests
+  - Test room creation and joining API endpoints
+  - Test training room API endpoints (/api/training/*)
+  - Test map retrieval and metadata APIs
+  - Test error handling and validation for all endpoints
+  - Verify CORS configuration and security headers
+  - _Requirements: 3.1, 4.2_
+
+- [ ] 4.3.7 Create performance and load tests
+  - Test server performance with multiple concurrent rooms
+  - Test memory usage and cleanup under load
+  - Test WebSocket connection limits and handling
+  - Test training mode performance at high speed multipliers
+  - Verify server stability during extended operation
+  - _Requirements: 4.1, 4.2_
+
+- [ ] 4.3.8 Implement test infrastructure and documentation
+  - Create test runner scripts and CI/CD integration
+  - Set up test database and mock services where needed
+  - Document test execution procedures and requirements
+  - Create backend README with testing instructions
+  - Add test coverage reporting and quality gates
+  - _Requirements: All backend requirements_
+
 - [ ] 5. Build RL training engine with successive learning
 - [ ] 5.1 Implement model management system
   - Create ModelManager class for model lifecycle and versioning
