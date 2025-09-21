@@ -87,13 +87,13 @@
 
 - [ ] 4.3 Implement comprehensive Go backend unit tests
   - Create unit test framework for Go server components
-  - Create tests in files prefixed with "test_" in a tests/ folder next to the source code
+  - Create tests in a tests/ folder next to the source code
   - Implement tests for core game server functionality
   - Add integration tests for client-server communication
   - Document testing procedures and requirements
   - _Requirements: 3.1, 3.2, 4.1, 4.2_
 
-- [ ] 4.3.1 Create game room management tests
+- [x] 4.3.1 Create game room management tests
   - Test room creation with different configurations (normal, training, headless)
   - Test room cleanup and resource management
   - Test room state persistence and retrieval
