@@ -62,10 +62,13 @@ python run_setup.py
 source .venv/bin/activate
 
 # Configure GPU support (run after activating the environment)
-python run_setup_gpu.py
+python run_setup.py --gpu
 
-# Test the installation
-python run_setup_test.py
+# Diagnose GPU issues
+python run_setup.py --diagnose_gpu
+
+# Validate the installation
+python run_setup.py --validate
 ```
 
 ### 3. Initialize the System
