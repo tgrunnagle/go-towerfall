@@ -134,7 +134,7 @@
   - Test boundary collision and wrapping behavior
   - _Requirements: 3.1, 4.2_
 
-- [ ] 4.3.6 Add HTTP API endpoint tests
+- [x] 4.3.6 Add HTTP API endpoint tests
   - Test room creation and joining API endpoints
   - Test training room API endpoints (/api/training/*)
   - Test map retrieval and metadata APIs
