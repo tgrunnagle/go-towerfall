@@ -47,6 +47,22 @@ from bot.rl_bot_system.training.cohort_training import (
     CohortMetrics
 )
 
+from bot.rl_bot_system.training.training_engine import (
+    TrainingEngine,
+    TrainingConfig,
+    TrainingMetrics,
+    EvaluationResult
+)
+
+from bot.rl_bot_system.training.hyperparameter_tuning import (
+    HyperparameterTuner,
+    HyperparameterSpace,
+    HyperparameterConfig,
+    GridSearchTuner,
+    RandomSearchTuner,
+    BayesianOptimizationTuner
+)
+
 __all__ = [
     # Training Session
     'TrainingSession',
@@ -82,5 +98,19 @@ __all__ = [
     'OpponentSelectionStrategy',
     'DifficultyProgression',
     'EpisodeOpponentSetup',
-    'CohortMetrics'
+    'CohortMetrics',
+    
+    # Training Engine
+    'TrainingEngine',
+    'TrainingConfig',
+    'TrainingMetrics',
+    'EvaluationResult',
+    
+    # Hyperparameter Tuning
+    'HyperparameterTuner',
+    'HyperparameterSpace',
+    'HyperparameterConfig',
+    'GridSearchTuner',
+    'RandomSearchTuner',
+    'BayesianOptimizationTuner'
 ]

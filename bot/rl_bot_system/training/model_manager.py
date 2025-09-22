@@ -129,12 +129,12 @@ class ModelManager:
             # Save metadata
             config_path = generation_dir / "config.json"
             with open(config_path, 'w') as f:
-                json.dump(rl_model.to_dict(), f, indent=2)
+                json.dump(rl_model.to_dict(), f, indent=2, default=str)
             
             # Save performance metrics separately for easy access
             metrics_path = generation_dir / "metrics.json"
             with open(metrics_path, 'w') as f:
-                json.dump(metadata['performance_metrics'], f, indent=2)
+                json.dump(metadata['performance_metrics'], f, indent=2, default=str)
             
             # Cache the model metadata
             self._model_cache[generation] = rl_model

@@ -167,19 +167,13 @@
   - _Requirements: 2.1, 2.2, 2.3_
 
 - [x] 5.2 Create cohort-based training system
-
-
-
-
-
-
   - Implement opponent selection from previous bot generations
   - Create configurable cohort size and selection strategies
   - Add support for variable enemy counts per training episode
   - Implement difficulty progression and multi-agent training scenarios
   - _Requirements: 2.1, 2.2, 2.3_
 
-- [ ] 5.3 Implement RL training algorithms
+- [x] 5.3 Implement RL training algorithms
   - Integrate stable-baselines3 for DQN, PPO, and A3C algorithms
   - Create training loop with episode management and progress tracking
   - Implement behavior cloning initialization from rules-based bot
