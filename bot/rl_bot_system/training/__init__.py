@@ -32,6 +32,11 @@ from bot.rl_bot_system.training.training_api import (
     TrainingAPI
 )
 
+from bot.rl_bot_system.training.model_manager import (
+    ModelManager,
+    RLModel
+)
+
 __all__ = [
     # Training Session
     'TrainingSession',
@@ -54,5 +59,9 @@ __all__ = [
     'EpisodeStatus',
     
     # Training API
-    'TrainingAPI'
+    'TrainingAPI',
+    
+    # Model Manager
+    'ModelManager',
+    'RLModel'
 ]
