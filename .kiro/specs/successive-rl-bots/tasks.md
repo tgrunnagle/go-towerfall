@@ -160,19 +160,19 @@
 
 - [ ] 5. Build RL training engine with successive learning
 - [x] 5.1 Implement model management system
-
-
-
-
-
-
   - Create ModelManager class for model lifecycle and versioning
   - Implement model save/load with metadata and performance metrics
   - Create knowledge transfer methods between model generations
   - Add model comparison and promotion logic
   - _Requirements: 2.1, 2.2, 2.3_
 
-- [ ] 5.2 Create cohort-based training system
+- [x] 5.2 Create cohort-based training system
+
+
+
+
+
+
   - Implement opponent selection from previous bot generations
   - Create configurable cohort size and selection strategies
   - Add support for variable enemy counts per training episode

@@ -37,6 +37,16 @@ from bot.rl_bot_system.training.model_manager import (
     RLModel
 )
 
+from bot.rl_bot_system.training.cohort_training import (
+    CohortTrainingSystem,
+    CohortConfig,
+    OpponentConfig,
+    OpponentSelectionStrategy,
+    DifficultyProgression,
+    EpisodeOpponentSetup,
+    CohortMetrics
+)
+
 __all__ = [
     # Training Session
     'TrainingSession',
@@ -63,5 +73,14 @@ __all__ = [
     
     # Model Manager
     'ModelManager',
-    'RLModel'
+    'RLModel',
+    
+    # Cohort Training
+    'CohortTrainingSystem',
+    'CohortConfig',
+    'OpponentConfig',
+    'OpponentSelectionStrategy',
+    'DifficultyProgression',
+    'EpisodeOpponentSetup',
+    'CohortMetrics'
 ]
