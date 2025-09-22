@@ -383,7 +383,7 @@ def main():
     print("=== ModelManager Example with Training & Inference ===\n")
     
     # Use a temporary directory for this example
-    model_manager = ModelManager(models_dir="bot/data/example_models")
+    model_manager = ModelManager(models_dir="data/examples/models")
     print(f"Initialized ModelManager with directory: {model_manager.models_dir}")
     
     # Train and save first generation model

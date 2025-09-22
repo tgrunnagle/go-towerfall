@@ -33,7 +33,7 @@ async def example_basic_cohort_training():
     logger.info("=== Basic Cohort Training Example ===")
     
     # Initialize model manager
-    model_manager = ModelManager("bot/data/models")
+    model_manager = ModelManager("data/examples/models")
     
     # Configure cohort training
     cohort_config = CohortConfig(
@@ -111,7 +111,7 @@ async def example_curriculum_learning():
     """
     logger.info("\n=== Curriculum Learning Example ===")
     
-    model_manager = ModelManager("bot/data/models")
+    model_manager = ModelManager("bot/data/examples/models")
     
     # Configure curriculum learning
     cohort_config = CohortConfig(
@@ -174,7 +174,7 @@ async def example_adaptive_difficulty():
     """
     logger.info("\n=== Adaptive Difficulty Example ===")
     
-    model_manager = ModelManager("bot/data/models")
+    model_manager = ModelManager("bot/data/examples/models")
     
     # Configure adaptive difficulty
     cohort_config = CohortConfig(
@@ -242,7 +242,7 @@ async def example_multi_agent_scenarios():
     """
     logger.info("\n=== Multi-Agent Scenarios Example ===")
     
-    model_manager = ModelManager("bot/data/models")
+    model_manager = ModelManager("bot/data/examples/models")
     
     # Configure for multi-agent scenarios
     cohort_config = CohortConfig(

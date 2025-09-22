@@ -61,7 +61,7 @@ def demonstrate_basic_training():
     logger.info("=== Basic Training Demonstration ===")
     
     # Set up components
-    model_manager = ModelManager(models_dir="bot/data/demo_models")
+    model_manager = ModelManager(models_dir="data/examples/models")
     training_engine = TrainingEngine(model_manager, device='cpu')
     mock_env = MockGameEnvironment()
     
@@ -145,7 +145,7 @@ def demonstrate_algorithm_comparison():
     """Demonstrate training with different algorithms."""
     logger.info("=== Algorithm Comparison Demonstration ===")
     
-    model_manager = ModelManager(models_dir="bot/data/algorithm_comparison")
+    model_manager = ModelManager(models_dir="bot/data/examples/models")
     mock_env = MockGameEnvironment()
     
     algorithms = ['DQN', 'PPO', 'A2C']
@@ -199,7 +199,7 @@ def demonstrate_hyperparameter_tuning():
     
     def objective_function(hyperparameters):
         """Objective function for hyperparameter tuning."""
-        model_manager = ModelManager(models_dir="bot/data/hp_tuning")
+        model_manager = ModelManager(models_dir="bot/data/examples/models")
         training_engine = TrainingEngine(model_manager, device='cpu')
         
         config = TrainingConfig(
@@ -250,7 +250,7 @@ def demonstrate_cohort_training():
     # This is a simplified demonstration since we don't have
     # the full cohort system implemented in this example
     
-    model_manager = ModelManager(models_dir="bot/data/cohort_training")
+    model_manager = ModelManager(models_dir="bot/data/examples/models")
     
     # Create a mock cohort system
     cohort_system = type('CohortSystem', (), {

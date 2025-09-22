@@ -24,10 +24,10 @@ def main():
     """Demonstrate EvaluationManager usage."""
     
     # Initialize model manager and evaluation manager
-    model_manager = ModelManager("bot/data/models")
+    model_manager = ModelManager("data/examples/models")
     evaluator = EvaluationManager(
         model_manager=model_manager,
-        results_dir="bot/data/evaluations"
+        results_dir="data/examples/evaluations"
     )
     
     logger.info("=== RL Bot Evaluation System Demo ===")

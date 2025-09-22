@@ -11,9 +11,6 @@ import logging
 import sys
 import os
 
-# Add the bot directory to the Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from game_client import GameClient, TrainingMode
 from rl_bot_system.environment.game_environment import GameEnvironment
 

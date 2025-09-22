@@ -1,0 +1,5 @@
+# Ignore example outputs but keep the directory structure
+examples/
+!examples/.gitkeep
+!examples/*/
+!examples/*/.gitkeep
