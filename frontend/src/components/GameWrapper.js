@@ -103,6 +103,9 @@ const GameWrapper = ({
         case 'd':
           // Toggle decisions - this would be handled by the overlay component
           break;
+        case 'r':
+          // Toggle episode replay browser - this would be handled by the overlay component
+          break;
         default:
           break;
       }

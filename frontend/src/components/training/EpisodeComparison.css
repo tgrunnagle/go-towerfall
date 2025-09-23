@@ -1,0 +1,483 @@
+.episode-comparison {
+  background: rgba(0, 0, 0, 0.95);
+  color: white;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Header */
+.comparison-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #333;
+}
+
+.comparison-header h3 {
+  margin: 0;
+  color: #2196F3;
+  font-size: 24px;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.view-mode-selector {
+  display: flex;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.view-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.view-btn:hover {
+  background: #444;
+}
+
+.view-btn.active {
+  background: #2196F3;
+  color: white;
+}
+
+.close-btn {
+  background: #f44336;
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: #d32f2f;
+  transform: scale(1.1);
+}
+
+/* Episode Selection */
+.episode-selection {
+  margin-bottom: 20px;
+}
+
+.episode-selection h4 {
+  margin: 0 0 15px 0;
+  color: #FFF;
+  font-size: 18px;
+}
+
+.selected-episodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.selected-episode {
+  background: #222;
+  border: 2px solid #444;
+  border-radius: 8px;
+  padding: 12px;
+  position: relative;
+}
+
+.selected-episode.episode-0 { border-color: #2196F3; }
+.selected-episode.episode-1 { border-color: #4CAF50; }
+.selected-episode.episode-2 { border-color: #FF9800; }
+.selected-episode.episode-3 { border-color: #9C27B0; }
+
+.episode-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.episode-label {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.remove-btn {
+  background: #f44336;
+  border: none;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.episode-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.info-row .label {
+  opacity: 0.7;
+}
+
+.info-row .value {
+  font-weight: 500;
+}
+
+.info-row .value.result-win { color: #4CAF50; }
+.info-row .value.result-loss { color: #f44336; }
+.info-row .value.result-draw { color: #FF9800; }
+
+.add-episode-slot {
+  background: #111;
+  border: 2px dashed #444;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.add-episode-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.episode-count {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Comparison Metrics */
+.comparison-metrics {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.comparison-metrics h4 {
+  margin: 0 0 15px 0;
+  color: #2196F3;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.metric-group {
+  background: #222;
+  border-radius: 6px;
+  padding: 15px;
+}
+
+.metric-group h5 {
+  margin: 0 0 10px 0;
+  color: #FFF;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-value {
+  font-size: 16px;
+  font-weight: bold;
+  color: #2196F3;
+}
+
+.results-breakdown,
+.metric-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.result-item,
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.result-label.wins { color: #4CAF50; }
+.result-label.losses { color: #f44336; }
+.result-label.draws { color: #FF9800; }
+
+.stat-label {
+  opacity: 0.7;
+}
+
+.stat-value,
+.result-value {
+  font-weight: bold;
+}
+
+/* Comparison Controls */
+.comparison-controls {
+  margin-bottom: 20px;
+}
+
+.comparison-replay-controls {
+  background: #1a1a1a;
+}
+
+/* Comparison View */
+.comparison-view {
+  min-height: 400px;
+  background: #111;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+/* Side-by-Side View */
+.side-by-side-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  height: 100%;
+}
+
+.episode-panel {
+  background: #222;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid #444;
+}
+
+.episode-panel.panel-0 { border-color: #2196F3; }
+.episode-panel.panel-1 { border-color: #4CAF50; }
+.episode-panel.panel-2 { border-color: #FF9800; }
+.episode-panel.panel-3 { border-color: #9C27B0; }
+
+.panel-header {
+  background: #333;
+  padding: 10px 15px;
+  border-bottom: 1px solid #444;
+}
+
+.panel-header h5 {
+  margin: 0 0 5px 0;
+  font-size: 14px;
+}
+
+.panel-info {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.panel-content {
+  padding: 15px;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Overlay View */
+.overlay-view {
+  height: 100%;
+}
+
+.overlay-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.overlay-game-view {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.overlay-legend {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.legend-color.color-0 { background: #2196F3; }
+.legend-color.color-1 { background: #4CAF50; }
+.legend-color.color-2 { background: #FF9800; }
+.legend-color.color-3 { background: #9C27B0; }
+
+/* Game View Placeholders */
+.game-view-placeholder {
+  background: #333;
+  border: 2px dashed #555;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+}
+
+.game-view-placeholder.large {
+  min-height: 300px;
+}
+
+.placeholder-text {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
+
+.placeholder-info {
+  font-size: 14px;
+  opacity: 0.5;
+}
+
+/* Available Episodes */
+.available-episodes {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #333;
+}
+
+.available-episodes h4 {
+  margin: 0 0 15px 0;
+  color: #FFF;
+  font-size: 16px;
+}
+
+.episodes-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.available-episode {
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.available-episode:hover {
+  background: #333;
+  border-color: #2196F3;
+  transform: translateY(-2px);
+}
+
+.episode-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.episode-id {
+  font-weight: bold;
+}
+
+.episode-result.result-win { color: #4CAF50; }
+.episode-result.result-loss { color: #f44336; }
+.episode-result.result-draw { color: #FF9800; }
+
+.episode-reward {
+  opacity: 0.8;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .episode-comparison {
+    padding: 15px;
+  }
+  
+  .comparison-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
+  }
+  
+  .header-controls {
+    justify-content: space-between;
+  }
+  
+  .selected-episodes {
+    grid-template-columns: 1fr;
+  }
+  
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .side-by-side-view {
+    grid-template-columns: 1fr;
+  }
+  
+  .overlay-legend {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* Animation */
+.episode-comparison {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

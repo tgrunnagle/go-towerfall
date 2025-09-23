@@ -322,7 +322,7 @@ class ConfigurationManager:
     """
     
     def __init__(self, config_path: Optional[str] = None):
-        self.config_path = config_path or "config/training_metrics_server.json"
+        self.config_path = config_path or "config/server.json"
         self._config: Optional[ServerConfiguration] = None
     
     def load_config(self) -> ServerConfiguration:

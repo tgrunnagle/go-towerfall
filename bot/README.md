@@ -10,10 +10,10 @@ A comprehensive reinforcement learning bot system for game AI development, train
 python run_setup.py
 ```
 
-### 2. Run Training Metrics Server
+### 2. Run RL Bot Training Server
 ```bash
-# Start the FastAPI server for real-time training metrics
-python run_server.py --port 8001
+# Start the unified server with training metrics and episode replay
+python run_server.py
 ```
 
 ### 3. Run Examples
@@ -33,9 +33,15 @@ python run_test.py rl_bot_system/server/tests/
 
 The bot directory contains several `run_*` scripts that provide convenient entry points for different aspects of the system:
 
-### 🚀 `run_server.py` - Training Metrics Server
+**Available Scripts:**
+- `run_server.py` - Unified RL Bot Training Server with metrics and replay
+- `run_setup.py` - Environment setup and dependency installation  
+- `run_example.py` - Example script runner with proper imports
+- `run_test.py` - Test runner with pytest integration
 
-**Purpose:** Starts a FastAPI server for real-time training metrics and spectator functionality.
+### 🚀 `run_server.py` - RL Bot Training Server
+
+**Purpose:** Starts a unified FastAPI server with training metrics, episode replay, and spectator functionality.
 
 **Usage:**
 ```bash
@@ -46,29 +52,59 @@ python run_server.py [options]
 - `--host HOST` - Server host (default: localhost)
 - `--port PORT` - Server port (default: 4002)
 - `--log-level LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
-- `--config CONFIG` - Configuration file path
+- `--config CONFIG` - Configuration file path (JSON format)
+- `--simple` - Force use of simple server (basic metrics only)
 
 **Features:**
-- ✅ REST API endpoints for training session management
-- ✅ WebSocket endpoints for real-time metrics streaming
-- ✅ Health check and server status endpoints
-- ✅ CORS support for frontend integration
-- ✅ Standalone operation without complex dependencies
+- **Training Metrics API:** Real-time training metrics and session management
+- **Episode Replay API:** Browse, replay, and compare recorded episodes
+- **WebSocket Support:** Real-time updates for spectator interfaces
+- **Spectator Integration:** Coordinate with spectator management system
+- **Data Persistence:** Store training data and replay sessions
+
+**Configuration File Example:**
+```json
+{
+  "host": "localhost",
+  "port": 4002,
+  "cors_origins": ["http://localhost:3000", "http://localhost:4000"],
+  "max_connections_per_session": 50,
+  "metrics_history_size": 10000,
+  "cleanup_interval_seconds": 300,
+  "log_level": "INFO",
+  "game_server_url": "http://localhost:4000",
+  "enable_spectator_integration": true,
+  "enable_replay_integration": true,
+  "data_storage_path": "data/training_metrics",
+  "replay_storage_path": "data/replays",
+  "enable_data_persistence": true
+}
+```
 
 **API Endpoints:**
 - `GET /health` - Health check
 - `GET /status` - Server status and metrics
+- `GET /info` - Server information and available features
 - `POST /api/training/sessions` - Create training session
 - `GET /api/training/sessions` - List active sessions
+- `POST /api/training/sessions/{id}/metrics` - Update training metrics
+- `GET /api/replay/sessions` - List replay sessions
+- `POST /api/replay/start` - Start episode replay
 - `WS /ws/{session_id}` - Real-time metrics WebSocket
 
 **Example:**
 ```bash
+# Start server with default settings
+python run_server.py
+
 # Start server on custom port
-python run_server.py --port 8001 --log-level DEBUG
+python run_server.py --port 4003 --log-level DEBUG
 
 # Start with configuration file
-python run_server.py --config config/server.json
+python run_server.py --config server_config.json
+
+# Force simple server (basic metrics only)
+python run_server.py --simple
 ```
 
 ### 🔧 `run_setup.py` - Environment Setup
@@ -170,12 +206,12 @@ python run_test.py rl_bot_system/server/tests/ -c
 
 ```
 bot/
-├── run_server.py          # FastAPI training metrics server
+├── run_server.py          # Unified RL Bot Training Server
 ├── run_setup.py           # Environment setup and configuration
 ├── run_example.py         # Example script runner
 ├── run_test.py            # Test runner with pytest integration
 ├── rl_bot_system/         # Core RL bot system modules
-│   ├── server/            # Training metrics server components
+│   ├── server/            # Server components (APIs, WebSocket, data models)
 │   ├── training/          # Training engines and algorithms
 │   ├── models/            # RL model implementations (DQN, PPO, A2C)
 │   ├── evaluation/        # Model evaluation and testing
@@ -200,8 +236,8 @@ python run_setup.py
 
 ### 2. Development
 ```bash
-# Start the training metrics server for development
-python run_server.py --port 8001 --log-level DEBUG
+# Start the RL bot training server for development
+python run_server.py --log-level DEBUG
 
 # Run examples to test functionality
 python run_example.py rl_bot_system/training/examples/example_training_engine_usage.py
@@ -223,12 +259,12 @@ python run_test.py rl_bot_system/models/tests/
 
 ## Integration with Frontend
 
-The training metrics server (`run_server.py`) provides API endpoints that integrate with the frontend spectator UI:
+The RL Bot Training Server (`run_server.py`) provides comprehensive API endpoints that integrate with the frontend spectator UI:
 
 ### WebSocket Connection
 ```javascript
-// Connect to real-time metrics
-const ws = new WebSocket('ws://localhost:8001/ws/training_session_123?user_name=Spectator');
+// Connect to real-time metrics (default port 4002)
+const ws = new WebSocket('ws://localhost:4002/ws/training_session_123?user_name=Spectator');
 
 ws.onmessage = (event) => {
     const message = JSON.parse(event.data);
@@ -242,6 +278,9 @@ ws.onmessage = (event) => {
         case 'graph_update':
             updatePerformanceGraphs(message.data);
             break;
+        case 'replay_frame':
+            updateReplayVisualization(message.data);
+            break;
     }
 };
 ```
@@ -249,46 +288,75 @@ ws.onmessage = (event) => {
 ### REST API Usage
 ```javascript
 // Create training session
-const response = await fetch('http://localhost:8001/api/training/sessions', {
+const response = await fetch('http://localhost:4002/api/training/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
         training_session_id: 'session_123',
         model_generation: 2,
         algorithm: 'DQN',
-        total_episodes: 1000
+        total_episodes: 1000,
+        room_code: 'ABC123'
     })
 });
 
-// Get server status
-const status = await fetch('http://localhost:8001/status').then(r => r.json());
+// Start episode replay
+const replayResponse = await fetch('http://localhost:4002/api/replay/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        session_id: 'session_123',
+        episode_id: 'episode_456',
+        controls: {
+            playback_speed: 1.0,
+            show_frame_info: true
+        }
+    })
+});
+
+// Get server status and features
+const status = await fetch('http://localhost:4002/status').then(r => r.json());
+const info = await fetch('http://localhost:4002/info').then(r => r.json());
 ```
 
 ## Configuration
 
 ### Server Configuration
-Create a `config/server.json` file:
+Create a `server_config.json` file (example provided):
 ```json
 {
-    "host": "localhost",
-    "port": 8001,
-    "cors_origins": ["http://localhost:3000", "http://localhost:4000"],
-    "max_connections_per_session": 50,
-    "log_level": "INFO",
-    "data_storage_path": "data/training_metrics"
+  "host": "localhost",
+  "port": 4002,
+  "cors_origins": [
+    "http://localhost:3000",
+    "http://localhost:4000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:4000"
+  ],
+  "max_connections_per_session": 50,
+  "metrics_history_size": 10000,
+  "cleanup_interval_seconds": 300,
+  "log_level": "INFO",
+  "game_server_url": "http://localhost:4000",
+  "enable_spectator_integration": true,
+  "enable_replay_integration": true,
+  "data_storage_path": "data/training_metrics",
+  "replay_storage_path": "data/replays",
+  "enable_data_persistence": true
 }
 ```
 
 ### Environment Variables
 ```bash
 # Server settings
-export TRAINING_METRICS_HOST=localhost
-export TRAINING_METRICS_PORT=8001
-export TRAINING_METRICS_DEBUG=false
+export RL_BOT_SERVER_HOST=localhost
+export RL_BOT_SERVER_PORT=4002
+export RL_BOT_SERVER_DEBUG=false
 
 # Integration settings
 export GAME_SERVER_URL=http://localhost:4000
 export DATA_STORAGE_PATH=data/training_metrics
+export REPLAY_STORAGE_PATH=data/replays
 ```
 
 ## Troubleshooting
@@ -305,7 +373,7 @@ python run_server.py
 **Port Already in Use:**
 ```bash
 # Use a different port
-python run_server.py --port 8002
+python run_server.py --port 4003
 ```
 
 **Missing Dependencies:**
@@ -327,14 +395,74 @@ python run_test.py -v
 - Use `python run_test.py` to verify system integrity
 - Check `requirements.txt` for dependency versions
 
+## Server Architecture
+
+The RL Bot Training Server uses a modular architecture with separate API modules:
+
+### Unified Server (`rl_bot_system/server/server.py`)
+- **Main server class:** `UnifiedServer` - Combines all functionality
+- **Configuration:** `ServerConfig` - Centralized configuration management
+- **Features:** Training metrics, episode replay, WebSocket communication
+
+### API Modules
+- **Training Metrics API** (`training_metrics_api.py`): Session management, metrics updates, historical data
+- **Replay API** (`replay_api.py`): Episode browsing, replay controls, comparison features
+- **WebSocket Manager** (`websocket_manager.py`): Real-time communication with frontend
+
+### Fallback Support
+- **Simple Server:** Basic training metrics functionality when full features unavailable
+- **Graceful Degradation:** Automatically falls back if dependencies missing
+- **Standalone Operation:** Can run without complex integrations
+
+### Integration Points
+- **Spectator Manager:** Coordinate spectator sessions and room management
+- **Replay Manager:** Handle episode storage and retrieval
+- **Training Engine:** Automatic metrics collection during training
+
+### Episode Replay Features
+- **Episode Browser:** Browse and filter recorded training episodes
+- **Replay Controls:** Play, pause, rewind, step-by-step navigation
+- **Speed Control:** Variable playback speed (0.25x to 4x)
+- **Episode Comparison:** Side-by-side comparison of multiple episodes
+- **Metrics Analysis:** Detailed performance metrics and statistics
+- **WebSocket Integration:** Real-time replay updates to frontend
+
 ## Contributing
 
 1. Run setup: `python run_setup.py`
 2. Make changes to the codebase
 3. Run tests: `python run_test.py`
 4. Test examples: `python run_example.py <example_path>`
-5. Test server: `python run_server.py --port 8001`
+5. Test server: `python run_server.py --log-level DEBUG`
 6. Submit pull request
+
+## Quick Reference
+
+### Common Commands
+```bash
+# Setup and start server
+python run_setup.py
+python run_server.py
+
+# Run with custom configuration
+python run_server.py --config server_config.json
+
+# Development mode with debug logging
+python run_server.py --log-level DEBUG
+
+# Run tests
+python run_test.py
+
+# Run examples
+python run_example.py rl_bot_system/training/examples/example_training_engine_usage.py
+```
+
+### Default Ports and URLs
+- **Server:** http://localhost:4002
+- **WebSocket:** ws://localhost:4002/ws/{session_id}
+- **Health Check:** http://localhost:4002/health
+- **Server Status:** http://localhost:4002/status
+- **API Documentation:** http://localhost:4002/docs (when server is running)
 
 ## License
 

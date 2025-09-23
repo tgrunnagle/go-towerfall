@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Training Metrics Server Startup Script
+RL Bot Training Server Startup Script
 
-This script starts the FastAPI training metrics server with proper import handling.
+This script starts the unified FastAPI server with training metrics and replay functionality.
 It can be run directly from the bot/ directory without import issues.
 """
 
@@ -10,36 +10,44 @@ import sys
 import os
 import logging
 import argparse
+import json
 from pathlib import Path
 
-# Now we can import our modules
+# Add the bot directory to Python path for imports
+bot_dir = Path(__file__).parent
+if str(bot_dir) not in sys.path:
+    sys.path.insert(0, str(bot_dir))
+
+# Check for required dependencies
 try:
-    import asyncio
-    import json
-    from datetime import datetime, timedelta
-    from typing import Dict, Any, List, Optional
+    import uvicorn
+    from fastapi import FastAPI
+    FASTAPI_AVAILABLE = True
+except ImportError as e:
+    print(f"FastAPI dependencies not available: {e}")
+    print("Please install: pip install fastapi uvicorn pydantic")
+    FASTAPI_AVAILABLE = False
+    sys.exit(1)
+
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    print("psutil not available, server status will be limited")
+    PSUTIL_AVAILABLE = False
+
+
+# Try to import the unified server
+try:
+    from rl_bot_system.server.server import UnifiedServer, ServerConfig, run_server
+    UNIFIED_SERVER_AVAILABLE = True
+    print("Using unified server with full functionality")
+except ImportError as e:
+    print(f"Unified server not available: {e}")
+    print("Falling back to simple server implementation")
+    UNIFIED_SERVER_AVAILABLE = False
     
-    # Try to import FastAPI dependencies
-    try:
-        from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
-        from fastapi.middleware.cors import CORSMiddleware
-        from pydantic import BaseModel
-        import uvicorn
-        FASTAPI_AVAILABLE = True
-    except ImportError as e:
-        print(f"FastAPI dependencies not available: {e}")
-        print("Please install: pip install fastapi uvicorn pydantic")
-        FASTAPI_AVAILABLE = False
-    
-    # Try to import psutil
-    try:
-        import psutil
-        PSUTIL_AVAILABLE = True
-    except ImportError:
-        print("psutil not available, server status will be limited")
-        PSUTIL_AVAILABLE = False
-    
-    # Import our server components directly
+    # Import components for fallback server
     try:
         from rl_bot_system.server.data_models import (
             TrainingMetricsData,
@@ -48,35 +56,19 @@ try:
             TrainingSessionInfo,
             TrainingSessionRequest,
             TrainingSessionUpdate,
-            HistoricalDataRequest,
-            HistoricalDataResponse,
             ServerStatus,
-            ErrorResponse,
             TrainingStatus,
             MessageType
         )
         from rl_bot_system.server.websocket_manager import ConnectionManager, WebSocketManager
     except ImportError as e:
         print(f"Failed to import core server components: {e}")
-        raise
-    
-    # Optional imports - these may fail due to dependencies
-    SpectatorManager = None
-    TrainingEngine = None
-    
-    # Don't import these as they have complex dependencies that require 'bot' package
-    # They can be imported later if needed for full integration
-    print("Note: SpectatorManager and TrainingEngine integration disabled in standalone mode")
-    print("      Use the full server implementation for complete integration")
-
-except ImportError as e:
-    print(f"Failed to import required modules: {e}")
-    print("Make sure you're running this script from the bot/ directory")
-    sys.exit(1)
+        print("Make sure you're running this script from the bot/ directory")
+        sys.exit(1)
 
 
 class SimpleServerConfig:
-    """Simple server configuration without complex dependencies."""
+    """Simple server configuration for fallback server."""
     
     def __init__(self, **kwargs):
         self.host = kwargs.get('host', 'localhost')
@@ -87,7 +79,7 @@ class SimpleServerConfig:
         self.cleanup_interval_seconds = kwargs.get('cleanup_interval_seconds', 300)
         self.log_level = kwargs.get('log_level', 'INFO')
         self.game_server_url = kwargs.get('game_server_url', 'http://localhost:4000')
-        self.enable_spectator_integration = kwargs.get('enable_spectator_integration', True)
+        self.enable_spectator_integration = kwargs.get('enable_spectator_integration', False)
         self.data_storage_path = kwargs.get('data_storage_path', 'data/training_metrics')
         self.enable_data_persistence = kwargs.get('enable_data_persistence', True)
 
@@ -345,12 +337,13 @@ class SimpleTrainingMetricsServer:
 
 
 def main():
-    """Main entry point for the training metrics server."""
-    parser = argparse.ArgumentParser(description="Training Metrics Server")
+    """Main entry point for the RL bot training server."""
+    parser = argparse.ArgumentParser(description="RL Bot Training Server")
     parser.add_argument("--host", default="localhost", help="Server host")
     parser.add_argument("--port", type=int, default=4002, help="Server port")
     parser.add_argument("--log-level", default="INFO", help="Logging level")
     parser.add_argument("--config", help="Configuration file path")
+    parser.add_argument("--simple", action="store_true", help="Force use of simple server")
     
     args = parser.parse_args()
     
@@ -370,12 +363,30 @@ def main():
         except Exception as e:
             print(f"Failed to load config file: {e}")
     
+    # Use unified server if available and not forced to use simple
+    if UNIFIED_SERVER_AVAILABLE and not args.simple:
+        try:
+            config = ServerConfig(**config_kwargs)
+            print(f"Starting unified server on {config.host}:{config.port}")
+            print("Features: Training Metrics, Episode Replay, Spectator Integration")
+            run_server(config)
+        except KeyboardInterrupt:
+            print("\nServer stopped by user")
+        except Exception as e:
+            print(f"Unified server error: {e}")
+            print("Falling back to simple server...")
+            # Fall through to simple server
+        else:
+            return  # Successfully ran unified server
+    
+    # Fall back to simple server
+    print("Using simple server (limited functionality)")
     config = SimpleServerConfig(**config_kwargs)
     
-    # Create and run server
     try:
         server = SimpleTrainingMetricsServer(config)
-        print(f"Starting server on {config.host}:{config.port}")
+        print(f"Starting simple server on {config.host}:{config.port}")
+        print("Features: Basic Training Metrics only")
         server.run()
     except KeyboardInterrupt:
         print("\nServer stopped by user")

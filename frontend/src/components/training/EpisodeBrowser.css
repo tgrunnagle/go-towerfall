@@ -1,0 +1,482 @@
+.episode-browser {
+  background: rgba(0, 0, 0, 0.95);
+  color: white;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Header */
+.browser-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #333;
+}
+
+.browser-header h3 {
+  margin: 0;
+  color: #2196F3;
+  font-size: 24px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.compare-btn {
+  background: #4CAF50;
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.compare-btn:hover {
+  background: #45a049;
+  transform: translateY(-1px);
+}
+
+.close-btn {
+  background: #f44336;
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: #d32f2f;
+  transform: scale(1.1);
+}
+
+/* Session Selector */
+.session-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #1a1a1a;
+  border-radius: 6px;
+}
+
+.session-selector label {
+  font-weight: 500;
+  min-width: 60px;
+}
+
+.session-selector select {
+  flex: 1;
+  background: #333;
+  border: 1px solid #555;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.session-selector select:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+/* Filters */
+.episode-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #1a1a1a;
+  border-radius: 6px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-group label {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filter-group select,
+.filter-group input {
+  background: #333;
+  border: 1px solid #555;
+  color: white;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.filter-group input::placeholder {
+  color: #888;
+}
+
+/* Messages */
+.error-message {
+  background: #f44336;
+  color: white;
+  padding: 12px 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.error-message button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 40px;
+  font-size: 16px;
+  opacity: 0.7;
+}
+
+.no-episodes-message {
+  text-align: center;
+  padding: 40px;
+  font-size: 16px;
+  opacity: 0.7;
+  background: #1a1a1a;
+  border-radius: 6px;
+}
+
+/* Episodes Section */
+.episodes-section {
+  margin-bottom: 20px;
+}
+
+.episodes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.selection-info {
+  color: #2196F3;
+  font-weight: 500;
+}
+
+/* Episodes List */
+.episodes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.episode-item {
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.episode-item:hover {
+  background: #333;
+  border-color: #555;
+  transform: translateY(-1px);
+}
+
+.episode-item.selected {
+  background: #1a237e;
+  border-color: #2196F3;
+}
+
+.episode-info {
+  flex: 1;
+}
+
+.episode-id {
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: #2196F3;
+}
+
+.episode-details {
+  display: flex;
+  gap: 15px;
+  font-size: 14px;
+}
+
+.episode-details span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.generation {
+  background: #333;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.result {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.result.result-win {
+  background: #4CAF50;
+  color: white;
+}
+
+.result.result-loss {
+  background: #f44336;
+  color: white;
+}
+
+.result.result-draw {
+  background: #FF9800;
+  color: white;
+}
+
+.reward {
+  font-weight: 500;
+  color: #FFF;
+}
+
+.length {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.episode-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.replay-btn {
+  background: #2196F3;
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.replay-btn:hover {
+  background: #1976D2;
+  transform: translateY(-1px);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+}
+
+.pagination button {
+  background: #333;
+  border: 1px solid #555;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #444;
+  border-color: #666;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+/* Replay Section */
+.replay-section {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.replay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.replay-header h4 {
+  margin: 0;
+  color: #2196F3;
+  font-size: 18px;
+}
+
+.stop-replay-btn {
+  background: #f44336;
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.stop-replay-btn:hover {
+  background: #d32f2f;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .episode-browser {
+    padding: 15px;
+    max-height: 95vh;
+  }
+  
+  .browser-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
+  }
+  
+  .header-actions {
+    justify-content: space-between;
+  }
+  
+  .episode-filters {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  
+  .episode-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  
+  .episode-details {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .episode-actions {
+    justify-content: center;
+  }
+  
+  .pagination {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .episode-filters {
+    grid-template-columns: 1fr;
+  }
+  
+  .episode-details {
+    flex-direction: column;
+    gap: 5px;
+  }
+}
+
+/* Animation */
+.episode-browser {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrollbar styling */
+.episode-browser::-webkit-scrollbar {
+  width: 8px;
+}
+
+.episode-browser::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 4px;
+}
+
+.episode-browser::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+.episode-browser::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

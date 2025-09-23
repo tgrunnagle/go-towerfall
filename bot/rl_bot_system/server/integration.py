@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, Optional, Callable, Awaitable
 
-from bot.rl_bot_system.server.training_metrics_server import TrainingMetricsServer
+from bot.rl_bot_system.server.server import UnifiedServer as TrainingMetricsServer
 from bot.rl_bot_system.server.data_models import (
     TrainingMetricsData,
     BotDecisionData,

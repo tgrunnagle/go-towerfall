@@ -236,6 +236,8 @@ const TrainingMetricsOverlay = ({
           onSettingsChange={handleSettingsChange}
           onExportData={handleExportData}
           roomId={roomId}
+          websocketConnection={websocketConnection}
+          sessionId={roomId} // Use roomId as sessionId for now
         />
       </div>
     </div>

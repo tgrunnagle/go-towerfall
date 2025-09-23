@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
+import EpisodeBrowser from './EpisodeBrowser';
 
 const SpectatorControls = ({ 
   settings, 
   onSettingsChange, 
   onExportData, 
-  roomId 
+  roomId,
+  websocketConnection,
+  sessionId
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showEpisodeBrowser, setShowEpisodeBrowser] = useState(false);
 
   const handleToggleSetting = (settingName) => {
     onSettingsChange({
@@ -130,6 +134,14 @@ const SpectatorControls = ({
               </button>
               
               <button 
+                className="control-button replay-button"
+                onClick={() => setShowEpisodeBrowser(true)}
+                title="Browse and replay episodes"
+              >
+                🎬 Episode Replay
+              </button>
+              
+              <button 
                 className="control-button reset-button"
                 onClick={handleResetView}
                 title="Reset all settings to default"
@@ -172,7 +184,25 @@ const SpectatorControls = ({
                 <span className="shortcut-key">H</span>
                 <span className="shortcut-desc">Hide/Show Overlay</span>
               </div>
+              <div className="shortcut-row">
+                <span className="shortcut-key">R</span>
+                <span className="shortcut-desc">Open Episode Replay</span>
+              </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Episode Browser Modal */}
+      {showEpisodeBrowser && (
+        <div className="episode-browser-modal">
+          <div className="modal-backdrop" onClick={() => setShowEpisodeBrowser(false)} />
+          <div className="modal-content">
+            <EpisodeBrowser
+              sessionId={sessionId}
+              websocketConnection={websocketConnection}
+              onClose={() => setShowEpisodeBrowser(false)}
+            />
           </div>
         </div>
       )}

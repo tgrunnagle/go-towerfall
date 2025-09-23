@@ -456,3 +456,54 @@
     gap: 5px;
   }
 }
+/* Epis
+ode Browser Modal Styles */
+.episode-browser-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  position: relative;
+  z-index: 2001;
+  max-width: 95vw;
+  max-height: 95vh;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.replay-button {
+  background: rgba(33, 150, 243, 0.2) !important;
+  border-color: #2196F3 !important;
+}
+
+.replay-button:hover {
+  background: rgba(33, 150, 243, 0.3) !important;
+  border-color: #1976D2 !important;
+}
+
+/* Additional responsive styles for modal */
+@media (max-width: 768px) {
+  .modal-content {
+    max-width: 98vw;
+    max-height: 98vh;
+  }
+}
