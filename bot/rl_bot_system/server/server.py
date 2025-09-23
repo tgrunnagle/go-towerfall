@@ -65,6 +65,17 @@ except ImportError:
     TrainingEngine = None
     TRAINING_ENGINE_AVAILABLE = False
 
+# Optional imports for bot server
+try:
+    from rl_bot_system.server.bot_server_api import (
+        BotServerApi, BotServerConfig as BotConfig
+    )
+    BOT_SERVER_AVAILABLE = True
+except ImportError:
+    BotServerApi = None
+    BotConfig = None
+    BOT_SERVER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,6 +98,13 @@ class ServerConfig(BaseModel):
     data_storage_path: str = "data/training_metrics"
     replay_storage_path: str = "data/replays"
     enable_data_persistence: bool = True
+    
+    # Bot server settings
+    enable_bot_server: bool = True
+    max_bots_per_room: int = 8
+    max_total_bots: int = 50
+    bot_timeout_seconds: int = 300
+    models_dir: str = "bot/data/models"
 
 
 class UnifiedServer:
@@ -131,6 +149,7 @@ class UnifiedServer:
         self.training_engine: Optional[TrainingEngine] = None
         self.replay_manager: Optional[ReplayManager] = None
         self.episode_replay_manager: Optional[EpisodeReplayManager] = None
+        self.bot_server_api: Optional[BotServerApi] = None
         
         # Server state
         self.start_time = datetime.now()
@@ -188,12 +207,15 @@ class UnifiedServer:
                     "training_metrics": True,
                     "replay_system": REPLAY_AVAILABLE,
                     "spectator_integration": SPECTATOR_AVAILABLE,
-                    "training_engine": TRAINING_ENGINE_AVAILABLE
+                    "training_engine": TRAINING_ENGINE_AVAILABLE,
+                    "bot_server": BOT_SERVER_AVAILABLE and self.config.enable_bot_server
                 },
                 "config": {
                     "max_connections_per_session": self.config.max_connections_per_session,
                     "metrics_history_size": self.config.metrics_history_size,
-                    "data_persistence": self.config.enable_data_persistence
+                    "data_persistence": self.config.enable_data_persistence,
+                    "max_bots_per_room": self.config.max_bots_per_room if self.config.enable_bot_server else 0,
+                    "max_total_bots": self.config.max_total_bots if self.config.enable_bot_server else 0
                 }
             }
     
@@ -322,6 +344,12 @@ class UnifiedServer:
             elif self.config.enable_replay_integration:
                 logger.warning("Replay system not available - replay functionality disabled")
             
+            # Initialize bot server if enabled and available
+            if self.config.enable_bot_server and BOT_SERVER_AVAILABLE:
+                await self._initialize_bot_server()
+            elif self.config.enable_bot_server:
+                logger.warning("Bot server not available - bot functionality disabled")
+            
             # Start cleanup task
             self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
             
@@ -350,6 +378,10 @@ class UnifiedServer:
             # Clean up replay system
             if self.episode_replay_manager:
                 await self.episode_replay_manager.cleanup()
+            
+            # Clean up bot server
+            if self.bot_server_api:
+                await self.bot_server_api.cleanup()
             
             logger.info("Unified Server shutdown complete")
     
@@ -382,6 +414,30 @@ class UnifiedServer:
             logger.error(f"Failed to initialize replay system: {e}")
             self.replay_manager = None
             self.episode_replay_manager = None
+    
+    async def _initialize_bot_server(self) -> None:
+        """Initialize the bot server components."""
+        try:
+            # Create bot server configuration
+            bot_config = BotConfig(
+                max_bots_per_room=self.config.max_bots_per_room,
+                max_total_bots=self.config.max_total_bots,
+                bot_timeout_seconds=self.config.bot_timeout_seconds,
+                game_server_url=self.config.game_server_url,
+                models_dir=self.config.models_dir
+            )
+            
+            # Initialize bot integration
+            self.bot_server_api = BotServerApi(bot_config)
+            await self.bot_server_api.initialize()
+            
+            # Include bot API router
+            self.app.include_router(self.bot_server_api.router)
+            logger.info("Bot server initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize bot server: {e}")
+            self.bot_server_api = None
     
     async def _periodic_cleanup(self) -> None:
         """Background task for periodic cleanup."""
