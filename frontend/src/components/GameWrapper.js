@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import TrainingMetricsOverlay from './training/TrainingMetricsOverlay';
+import BotManagementPanel from './BotManagementPanel';
 
 const GameWrapper = ({
   roomId,
@@ -19,6 +20,7 @@ const GameWrapper = ({
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState(null);
   const [showTrainingOverlay, setShowTrainingOverlay] = useState(false);
+  const [showBotManagement, setShowBotManagement] = useState(false);
   const [websocketConnection, setWebsocketConnection] = useState(null);
 
   // Initialize the game
@@ -94,6 +96,12 @@ const GameWrapper = ({
         case 'h':
           setShowTrainingOverlay(prev => !prev);
           break;
+        case 'b':
+          // Toggle bot management panel (only for non-spectators)
+          if (!isSpectator) {
+            setShowBotManagement(prev => !prev);
+          }
+          break;
         case 'm':
           // Toggle metrics - this would be handled by the overlay component
           break;
@@ -154,6 +162,14 @@ const GameWrapper = ({
       />
 
       <div className="game-controls">
+        {!isSpectator && (
+          <button 
+            onClick={() => setShowBotManagement(true)} 
+            className="bot-management-button"
+          >
+            Manage Bots
+          </button>
+        )}
         <button onClick={handleExitGame} className="exit-button">
           Exit Game
         </button>
@@ -166,6 +182,16 @@ const GameWrapper = ({
           isVisible={showTrainingOverlay}
           onToggleVisibility={() => setShowTrainingOverlay(prev => !prev)}
           websocketConnection={websocketConnection}
+        />
+      )}
+
+      {/* Bot Management Panel for non-spectators */}
+      {!isSpectator && (
+        <BotManagementPanel
+          roomId={roomId}
+          playerToken={playerToken}
+          isVisible={showBotManagement}
+          onClose={() => setShowBotManagement(false)}
         />
       )}
     </div>

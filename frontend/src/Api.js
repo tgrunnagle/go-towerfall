@@ -31,3 +31,53 @@ export const joinGame = async ({ playerName, roomCode, roomPassword, isSpectator
   });
   return response.data;
 };
+
+// Bot management API functions
+
+export const getAvailableBots = async () => {
+  const response = await api.get('/api/bots/available');
+  return response.data;
+};
+
+export const getBotServerStatus = async () => {
+  const response = await api.get('/api/bots/status');
+  return response.data;
+};
+
+export const getRoomBots = async (roomId, playerToken) => {
+  const response = await api.get(`/api/rooms/${roomId}/bots`, {
+    headers: {
+      'Authorization': `Bearer ${playerToken}`
+    }
+  });
+  return response.data;
+};
+
+export const addBotToRoom = async (roomId, playerToken, botConfig) => {
+  const response = await api.post(`/api/rooms/${roomId}/bots`, botConfig, {
+    headers: {
+      'Authorization': `Bearer ${playerToken}`
+    }
+  });
+  return response.data;
+};
+
+export const removeBotFromRoom = async (roomId, botId, playerToken) => {
+  const response = await api.delete(`/api/rooms/${roomId}/bots/${botId}`, {
+    headers: {
+      'Authorization': `Bearer ${playerToken}`
+    }
+  });
+  return response.data;
+};
+
+export const configureBotDifficulty = async (roomId, botId, difficulty, playerToken) => {
+  const response = await api.put(`/api/rooms/${roomId}/bots/${botId}/difficulty`, {
+    difficulty
+  }, {
+    headers: {
+      'Authorization': `Bearer ${playerToken}`
+    }
+  });
+  return response.data;
+};
