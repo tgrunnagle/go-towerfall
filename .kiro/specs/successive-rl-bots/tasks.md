@@ -213,7 +213,7 @@
   - Add CSS styling for overlay positioning and responsive design
   - _Requirements: 3.1, 5.1_
 
-- [ ] 7.1.2 Implement FastAPI server for training metrics data
+- [x] 7.1.2 Implement FastAPI server for training metrics data
   - Create FastAPI server to serve training metrics data to frontend overlay
   - Implement WebSocket endpoints for real-time training_metrics, bot_decision, and graph_update messages
   - Build REST API endpoints for training session management and historical data retrieval
