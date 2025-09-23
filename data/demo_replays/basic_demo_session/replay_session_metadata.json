@@ -1,0 +1,71 @@
+{
+  "session_id": "basic_demo_session",
+  "start_time": "2025-09-22T18:56:24.043359",
+  "user_metadata": {
+    "experiment": "basic_demo",
+    "model_type": "DQN"
+  },
+  "components": {
+    "recorder_config": {
+      "storage_path": "data/demo_replays",
+      "max_episodes_per_file": 5,
+      "compression": true,
+      "record_states": true,
+      "record_actions": true,
+      "record_rewards": true,
+      "record_metadata": true,
+      "auto_cleanup": true,
+      "max_storage_mb": 1000
+    },
+    "buffer_config": {
+      "max_size": 1000,
+      "min_size_for_sampling": 10,
+      "prioritized_replay": false,
+      "alpha": 0.6,
+      "beta": 0.4,
+      "epsilon": 1e-06
+    },
+    "analyzer_config": {
+      "min_pattern_frequency": 3,
+      "min_confidence_threshold": 0.7,
+      "sequence_length": 5,
+      "analyze_action_sequences": true,
+      "analyze_state_preferences": true,
+      "analyze_reward_patterns": true,
+      "analyze_strategic_behavior": true
+    }
+  },
+  "end_time": "2025-09-22T18:56:24.057959",
+  "session_summary": {
+    "session_id": "basic_demo_session",
+    "start_time": "2025-09-22T18:56:24.042352",
+    "config": {
+      "storage_path": "data/demo_replays",
+      "max_episodes_per_file": 5,
+      "compression": true,
+      "record_states": true,
+      "record_actions": true,
+      "record_rewards": true,
+      "record_metadata": true,
+      "auto_cleanup": true,
+      "max_storage_mb": 1000
+    },
+    "end_time": "2025-09-22T18:56:24.057959",
+    "duration_seconds": 0.015607,
+    "total_episodes": 15,
+    "episodes_per_second": 961.1071954892036,
+    "experience_buffer_stats": {
+      "total_experiences": 105,
+      "unique_episodes": 15,
+      "total_experiences_added": 105,
+      "episodes_processed": 15,
+      "buffer_utilization": 0.105,
+      "ready_for_sampling": true,
+      "config": {
+        "max_size": 1000,
+        "min_size_for_sampling": 10,
+        "prioritized_replay": false
+      }
+    }
+  }
+}

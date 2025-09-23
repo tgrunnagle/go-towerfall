@@ -1,0 +1,6 @@
+episode_id,model_generation,opponent_generation,total_reward,episode_length,game_result
+export_ep_0,1,0,14.5,10,win
+export_ep_1,1,0,24.4,10,win
+export_ep_2,1,0,42.4,10,win
+export_ep_3,1,0,22.6,10,win
+export_ep_4,1,0,24.4,10,win

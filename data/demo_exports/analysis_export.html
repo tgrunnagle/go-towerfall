@@ -1,0 +1,60 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Replay Analysis Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .pattern { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+                .stats { background-color: #f5f5f5; padding: 10px; margin: 10px 0; }
+            </style>
+        </head>
+        <body>
+            <h1>Replay Analysis Report</h1>
+            
+            <div class="stats">
+                <h2>Performance Statistics</h2>
+                <p>Episodes analyzed: 20</p>
+                <p>Patterns detected: 5</p>
+            </div>
+            
+            <h2>Detected Patterns</h2>
+        
+                <div class="pattern">
+                    <h3>Action_Sequence: action_seq_-7144810621488494634</h3>
+                    <p><strong>Description:</strong> Action sequence: (2, 2, 2, 2, 2)</p>
+                    <p><strong>Frequency:</strong> 17</p>
+                    <p><strong>Confidence:</strong> 0.85</p>
+                </div>
+                
+                <div class="pattern">
+                    <h3>State_Preference: state_pref_player_x</h3>
+                    <p><strong>Description:</strong> Preference for player_x around 51.94</p>
+                    <p><strong>Frequency:</strong> 227</p>
+                    <p><strong>Confidence:</strong> 0.75</p>
+                </div>
+                
+                <div class="pattern">
+                    <h3>State_Preference: state_pref_player_y</h3>
+                    <p><strong>Description:</strong> Preference for player_y around 48.69</p>
+                    <p><strong>Frequency:</strong> 227</p>
+                    <p><strong>Confidence:</strong> 0.71</p>
+                </div>
+                
+                <div class="pattern">
+                    <h3>State_Preference: state_pref_health</h3>
+                    <p><strong>Description:</strong> Preference for health around 87.19</p>
+                    <p><strong>Frequency:</strong> 227</p>
+                    <p><strong>Confidence:</strong> 0.90</p>
+                </div>
+                
+                <div class="pattern">
+                    <h3>Reward_Pattern: reward_timing_pattern</h3>
+                    <p><strong>Description:</strong> Significant rewards typically occur at 45.9% of episode</p>
+                    <p><strong>Frequency:</strong> 142</p>
+                    <p><strong>Confidence:</strong> 0.80</p>
+                </div>
+                
+        </body>
+        </html>
+        

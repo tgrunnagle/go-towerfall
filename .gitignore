@@ -118,6 +118,10 @@ bot/logs/tensorboard/
 wandb/
 *.wandb
 
+# Example outputs
+bot/data/examples/replays/
+bot/data/examples/exports/
+
 # ML/AI specific
 *.onnx
 *.tflite

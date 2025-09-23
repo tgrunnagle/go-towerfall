@@ -1,0 +1,190 @@
+{
+  "episode_count": 20,
+  "model_generations": {
+    "1": 10,
+    "2": 10
+  },
+  "performance_stats": {
+    "total_episodes": 20,
+    "win_rate": 0.75,
+    "average_reward": 71.4,
+    "reward_std": 18.459144075498195,
+    "average_episode_length": 11.35,
+    "min_reward": 40.0,
+    "max_reward": 111.0
+  },
+  "patterns": [
+    {
+      "pattern_id": "action_seq_-7144810621488494634",
+      "pattern_type": "action_sequence",
+      "description": "Action sequence: (2, 2, 2, 2, 2)",
+      "frequency": 17,
+      "confidence": 0.85,
+      "episodes": [
+        "gen1_ep_6",
+        "gen1_ep_0",
+        "gen2_ep_3",
+        "gen2_ep_6",
+        "gen1_ep_8",
+        "gen1_ep_7",
+        "gen1_ep_5",
+        "gen1_ep_3"
+      ],
+      "metadata": {
+        "sequence": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "length": 5
+      }
+    },
+    {
+      "pattern_id": "state_pref_player_x",
+      "pattern_type": "state_preference",
+      "description": "Preference for player_x around 51.94",
+      "frequency": 227,
+      "confidence": 0.7482040497358032,
+      "episodes": [
+        "gen1_ep_0",
+        "gen1_ep_1",
+        "gen1_ep_2",
+        "gen1_ep_3",
+        "gen1_ep_4",
+        "gen1_ep_5",
+        "gen1_ep_6",
+        "gen1_ep_7",
+        "gen1_ep_8",
+        "gen1_ep_9",
+        "gen2_ep_0",
+        "gen2_ep_1",
+        "gen2_ep_2",
+        "gen2_ep_3",
+        "gen2_ep_4",
+        "gen2_ep_5",
+        "gen2_ep_6",
+        "gen2_ep_7",
+        "gen2_ep_8",
+        "gen2_ep_9"
+      ],
+      "metadata": {
+        "feature": "player_x",
+        "preferred_value": 51.936112204820965,
+        "variance": 13.077302977436792
+      }
+    },
+    {
+      "pattern_id": "state_pref_player_y",
+      "pattern_type": "state_preference",
+      "description": "Preference for player_y around 48.69",
+      "frequency": 227,
+      "confidence": 0.71453354065983,
+      "episodes": [
+        "gen1_ep_0",
+        "gen1_ep_1",
+        "gen1_ep_2",
+        "gen1_ep_3",
+        "gen1_ep_4",
+        "gen1_ep_5",
+        "gen1_ep_6",
+        "gen1_ep_7",
+        "gen1_ep_8",
+        "gen1_ep_9",
+        "gen2_ep_0",
+        "gen2_ep_1",
+        "gen2_ep_2",
+        "gen2_ep_3",
+        "gen2_ep_4",
+        "gen2_ep_5",
+        "gen2_ep_6",
+        "gen2_ep_7",
+        "gen2_ep_8",
+        "gen2_ep_9"
+      ],
+      "metadata": {
+        "feature": "player_y",
+        "preferred_value": 48.685838325200024,
+        "variance": 13.898174172169263
+      }
+    },
+    {
+      "pattern_id": "state_pref_health",
+      "pattern_type": "state_preference",
+      "description": "Preference for health around 87.19",
+      "frequency": 227,
+      "confidence": 0.902617859302341,
+      "episodes": [
+        "gen1_ep_0",
+        "gen1_ep_1",
+        "gen1_ep_2",
+        "gen1_ep_3",
+        "gen1_ep_4",
+        "gen1_ep_5",
+        "gen1_ep_6",
+        "gen1_ep_7",
+        "gen1_ep_8",
+        "gen1_ep_9",
+        "gen2_ep_0",
+        "gen2_ep_1",
+        "gen2_ep_2",
+        "gen2_ep_3",
+        "gen2_ep_4",
+        "gen2_ep_5",
+        "gen2_ep_6",
+        "gen2_ep_7",
+        "gen2_ep_8",
+        "gen2_ep_9"
+      ],
+      "metadata": {
+        "feature": "health",
+        "preferred_value": 87.18942731277534,
+        "variance": 8.490693175303148
+      }
+    },
+    {
+      "pattern_id": "reward_timing_pattern",
+      "pattern_type": "reward_pattern",
+      "description": "Significant rewards typically occur at 45.9% of episode",
+      "frequency": 142,
+      "confidence": 0.8,
+      "episodes": [
+        "gen1_ep_0",
+        "gen1_ep_1",
+        "gen1_ep_2",
+        "gen1_ep_3",
+        "gen1_ep_4",
+        "gen1_ep_5",
+        "gen1_ep_6",
+        "gen1_ep_7",
+        "gen1_ep_8",
+        "gen1_ep_9",
+        "gen2_ep_0",
+        "gen2_ep_1",
+        "gen2_ep_2",
+        "gen2_ep_3",
+        "gen2_ep_4",
+        "gen2_ep_5",
+        "gen2_ep_6",
+        "gen2_ep_7",
+        "gen2_ep_8",
+        "gen2_ep_9"
+      ],
+      "metadata": {
+        "average_timing": 0.4594870700504502,
+        "timing_variance": 0.08050076997793716
+      }
+    }
+  ],
+  "behavioral_insights": {
+    "dominant_strategies": [],
+    "learning_indicators": [],
+    "consistency_metrics": {
+      "reward_consistency": 0.7414685739920621,
+      "performance_trend": "declining",
+      "episode_length_consistency": 0.8321938742142762
+    },
+    "improvement_areas": []
+  }
+}
