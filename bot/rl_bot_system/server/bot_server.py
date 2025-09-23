@@ -402,6 +402,8 @@ class BotServer:
         bot_instance = self._bots[bot_id]
         
         try:
+            old_difficulty = bot_instance.config.difficulty
+            
             # Update config
             bot_instance.config.difficulty = difficulty
             
@@ -409,10 +411,20 @@ class BotServer:
             if (bot_instance.config.bot_type == BotType.RULES_BASED and 
                 isinstance(bot_instance.bot_ai, RulesBasedBot)):
                 bot_instance.bot_ai.set_difficulty_level(difficulty)
+                
+                # Apply real-time difficulty adjustments
+                await self._apply_realtime_difficulty_changes(bot_id, old_difficulty, difficulty)
             
             bot_instance.last_activity = datetime.now()
             
-            self.logger.info(f"Updated bot {bot_id} difficulty to {difficulty.value}")
+            # Notify callbacks about difficulty change
+            for callback in self._bot_status_callbacks:
+                try:
+                    await callback(bot_id, bot_instance.status)
+                except Exception as e:
+                    self.logger.error(f"Error in difficulty change callback: {e}")
+            
+            self.logger.info(f"Updated bot {bot_id} difficulty from {old_difficulty.value} to {difficulty.value}")
             return True
             
         except Exception as e:
@@ -527,6 +539,204 @@ class BotServer:
     def register_room_empty_callback(self, callback: Callable[[str], Awaitable[None]]) -> None:
         """Register a callback for when rooms become empty of bots."""
         self._room_empty_callbacks.append(callback)
+    
+    async def check_room_human_players(self, room_id: str) -> bool:
+        """
+        Check if a room has any human players remaining.
+        
+        Args:
+            room_id: ID of the room to check
+            
+        Returns:
+            bool: True if human players are present, False otherwise
+        """
+        try:
+            # This would need to integrate with the game server API
+            # For now, we'll implement a placeholder that can be extended
+            # In a real implementation, this would query the game server
+            
+            # Placeholder implementation - assume room has human players
+            # This should be replaced with actual game server integration
+            self.logger.debug(f"Checking human players in room {room_id} (placeholder implementation)")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error checking human players in room {room_id}: {e}")
+            return True  # Assume players present on error to avoid premature cleanup
+    
+    async def cleanup_room_bots(self, room_id: str, reason: str = "room_empty") -> int:
+        """
+        Clean up all bots in a room.
+        
+        Args:
+            room_id: ID of the room to clean up
+            reason: Reason for cleanup
+            
+        Returns:
+            int: Number of bots cleaned up
+        """
+        if room_id not in self._room_bots:
+            return 0
+        
+        bot_ids = list(self._room_bots[room_id])
+        cleanup_count = 0
+        
+        self.logger.info(f"Cleaning up {len(bot_ids)} bots from room {room_id} (reason: {reason})")
+        
+        for bot_id in bot_ids:
+            try:
+                success = await self.terminate_bot(bot_id)
+                if success:
+                    cleanup_count += 1
+            except Exception as e:
+                self.logger.error(f"Error cleaning up bot {bot_id} from room {room_id}: {e}")
+        
+        return cleanup_count
+    
+    async def monitor_bot_health(self, bot_id: str) -> Dict[str, Any]:
+        """
+        Monitor the health status of a specific bot.
+        
+        Args:
+            bot_id: ID of the bot to monitor
+            
+        Returns:
+            Dict[str, Any]: Health status information
+        """
+        if bot_id not in self._bots:
+            return {"status": "not_found", "healthy": False}
+        
+        bot_instance = self._bots[bot_id]
+        current_time = datetime.now()
+        
+        # Calculate time since last activity
+        time_since_activity = (current_time - bot_instance.last_activity).total_seconds()
+        
+        # Check various health indicators
+        health_status = {
+            "bot_id": bot_id,
+            "status": bot_instance.status.value,
+            "healthy": True,
+            "last_activity_seconds": time_since_activity,
+            "connection_status": "unknown",
+            "ai_status": "unknown",
+            "performance_issues": []
+        }
+        
+        # Check if bot is responsive
+        if time_since_activity > self.config.bot_timeout_seconds:
+            health_status["healthy"] = False
+            health_status["performance_issues"].append("inactive_timeout")
+        
+        # Check connection status
+        if bot_instance.game_client:
+            try:
+                # Check if WebSocket connection is still alive
+                if hasattr(bot_instance.game_client, 'websocket') and bot_instance.game_client.websocket:
+                    if bot_instance.game_client.websocket.client_state.name == 'CONNECTED':
+                        health_status["connection_status"] = "connected"
+                    else:
+                        health_status["connection_status"] = "disconnected"
+                        health_status["healthy"] = False
+                        health_status["performance_issues"].append("connection_lost")
+                else:
+                    health_status["connection_status"] = "no_websocket"
+            except Exception as e:
+                health_status["connection_status"] = f"error: {e}"
+                health_status["performance_issues"].append("connection_check_failed")
+        else:
+            health_status["connection_status"] = "no_client"
+            health_status["healthy"] = False
+            health_status["performance_issues"].append("no_game_client")
+        
+        # Check AI status
+        if bot_instance.bot_ai:
+            health_status["ai_status"] = "loaded"
+        else:
+            health_status["ai_status"] = "not_loaded"
+            health_status["healthy"] = False
+            health_status["performance_issues"].append("no_ai_loaded")
+        
+        # Check for error status
+        if bot_instance.status == BotStatus.ERROR:
+            health_status["healthy"] = False
+            health_status["performance_issues"].append("bot_error_status")
+            if bot_instance.error_message:
+                health_status["error_message"] = bot_instance.error_message
+        
+        return health_status
+    
+    async def attempt_bot_reconnection(self, bot_id: str) -> bool:
+        """
+        Attempt to reconnect a bot that has lost connection.
+        
+        Args:
+            bot_id: ID of the bot to reconnect
+            
+        Returns:
+            bool: True if reconnection successful
+        """
+        if bot_id not in self._bots:
+            return False
+        
+        bot_instance = self._bots[bot_id]
+        
+        try:
+            self.logger.info(f"Attempting to reconnect bot {bot_id}")
+            
+            # Update status to indicate reconnection attempt
+            await self._update_bot_status(bot_id, BotStatus.CONNECTING)
+            
+            # Get fresh game client
+            if bot_instance.game_client:
+                await self.client_pool.return_client(bot_id)
+            
+            bot_instance.game_client = await self.client_pool.get_client(
+                bot_id, self.config.game_server_url
+            )
+            
+            # Configure training mode if needed
+            if bot_instance.config.training_mode:
+                await bot_instance.game_client.enable_training_mode(
+                    speed_multiplier=10.0,
+                    headless=True
+                )
+            
+            # Reconnect to the same room
+            if bot_instance.room_id:
+                # This would need room information to reconnect
+                # For now, we'll mark as active and let the AI loop handle reconnection
+                pass
+            
+            # Restart bot AI loop
+            asyncio.create_task(self._run_bot_ai_loop(bot_id))
+            
+            await self._update_bot_status(bot_id, BotStatus.ACTIVE)
+            bot_instance.last_activity = datetime.now()
+            bot_instance.error_message = None
+            
+            self.logger.info(f"Successfully reconnected bot {bot_id}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to reconnect bot {bot_id}: {e}")
+            bot_instance.status = BotStatus.ERROR
+            bot_instance.error_message = f"Reconnection failed: {e}"
+            return False
+    
+    async def get_all_bot_health(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get health status for all active bots.
+        
+        Returns:
+            Dict[str, Dict[str, Any]]: Health status for each bot
+        """
+        health_statuses = {}
+        
+        for bot_id in self._bots.keys():
+            health_statuses[bot_id] = await self.monitor_bot_health(bot_id)
+        
+        return health_statuses
     
     # Private methods
     
@@ -715,6 +925,88 @@ class BotServer:
                 except Exception as e:
                     self.logger.error(f"Error in bot status callback: {e}")
     
+    async def _apply_realtime_difficulty_changes(self, bot_id: str, old_difficulty: DifficultyLevel, new_difficulty: DifficultyLevel) -> None:
+        """
+        Apply real-time difficulty changes to a bot's behavior.
+        
+        Args:
+            bot_id: ID of the bot
+            old_difficulty: Previous difficulty level
+            new_difficulty: New difficulty level
+        """
+        if bot_id not in self._bots:
+            return
+        
+        bot_instance = self._bots[bot_id]
+        
+        try:
+            # Update reaction times and decision frequencies
+            if isinstance(bot_instance.bot_ai, RulesBasedBot):
+                # Adjust decision frequency based on difficulty
+                decision_frequencies = {
+                    DifficultyLevel.BEGINNER: 0.3,
+                    DifficultyLevel.INTERMEDIATE: 0.2,
+                    DifficultyLevel.ADVANCED: 0.15,
+                    DifficultyLevel.EXPERT: 0.1
+                }
+                
+                new_frequency = decision_frequencies.get(new_difficulty, 0.2)
+                bot_instance.bot_ai.config['decision_frequency'] = new_frequency
+                
+                # Adjust accuracy and reaction time modifiers
+                accuracy_modifiers = {
+                    DifficultyLevel.BEGINNER: 0.6,
+                    DifficultyLevel.INTERMEDIATE: 0.75,
+                    DifficultyLevel.ADVANCED: 0.9,
+                    DifficultyLevel.EXPERT: 0.95
+                }
+                
+                new_accuracy = accuracy_modifiers.get(new_difficulty, 0.75)
+                bot_instance.bot_ai.config['accuracy_modifier'] = new_accuracy
+                
+                self.logger.debug(f"Applied real-time difficulty changes to bot {bot_id}: "
+                                f"frequency={new_frequency}, accuracy={new_accuracy}")
+        
+        except Exception as e:
+            self.logger.error(f"Error applying real-time difficulty changes to bot {bot_id}: {e}")
+    
+    async def _check_and_cleanup_empty_rooms(self) -> None:
+        """
+        Check for rooms that have no human players and clean up bots if configured to do so.
+        """
+        try:
+            rooms_to_check = list(self._room_bots.keys())
+            
+            for room_id in rooms_to_check:
+                # Check if room has human players
+                has_human_players = await self.check_room_human_players(room_id)
+                
+                if not has_human_players:
+                    # Get bots with auto_cleanup enabled
+                    bots_to_cleanup = []
+                    
+                    for bot_id in self._room_bots.get(room_id, set()):
+                        if bot_id in self._bots:
+                            bot_instance = self._bots[bot_id]
+                            if bot_instance.config.auto_cleanup:
+                                bots_to_cleanup.append(bot_id)
+                    
+                    if bots_to_cleanup:
+                        self.logger.info(f"Room {room_id} has no human players, cleaning up {len(bots_to_cleanup)} bots")
+                        
+                        for bot_id in bots_to_cleanup:
+                            await self.terminate_bot(bot_id)
+                        
+                        # Notify callbacks about room cleanup
+                        for callback in self._room_empty_callbacks:
+                            try:
+                                await callback(room_id)
+                            except Exception as e:
+                                self.logger.error(f"Error in room empty callback for {room_id}: {e}")
+        
+        except Exception as e:
+            self.logger.error(f"Error checking and cleaning up empty rooms: {e}")
+    
     async def _periodic_cleanup(self) -> None:
         """Background task for periodic cleanup of inactive bots."""
         while self._running:
@@ -724,15 +1016,51 @@ class BotServer:
                 
                 # Find inactive bots
                 inactive_bots = []
+                unhealthy_bots = []
+                
                 for bot_id, bot_instance in self._bots.items():
+                    # Check for timeout
                     if (bot_instance.last_activity < timeout_threshold and 
                         bot_instance.status in [BotStatus.ACTIVE, BotStatus.ERROR]):
                         inactive_bots.append(bot_id)
+                    
+                    # Check bot health
+                    health_status = await self.monitor_bot_health(bot_id)
+                    if not health_status["healthy"] and bot_instance.status == BotStatus.ACTIVE:
+                        unhealthy_bots.append((bot_id, health_status))
+                
+                # Attempt reconnection for unhealthy bots before terminating
+                for bot_id, health_status in unhealthy_bots:
+                    if "connection_lost" in health_status.get("performance_issues", []):
+                        self.logger.info(f"Attempting reconnection for unhealthy bot {bot_id}")
+                        
+                        # Try reconnection up to configured attempts
+                        bot_instance = self._bots[bot_id]
+                        reconnect_attempts = getattr(bot_instance, '_reconnect_attempts', 0)
+                        
+                        if reconnect_attempts < self.config.bot_reconnect_attempts:
+                            bot_instance._reconnect_attempts = reconnect_attempts + 1
+                            
+                            # Wait before reconnection attempt
+                            await asyncio.sleep(self.config.bot_reconnect_delay)
+                            
+                            success = await self.attempt_bot_reconnection(bot_id)
+                            if success:
+                                bot_instance._reconnect_attempts = 0  # Reset on success
+                            else:
+                                self.logger.warning(f"Reconnection attempt {reconnect_attempts + 1} failed for bot {bot_id}")
+                        else:
+                            self.logger.error(f"Bot {bot_id} exceeded max reconnection attempts, terminating")
+                            inactive_bots.append(bot_id)
                 
                 # Terminate inactive bots
                 for bot_id in inactive_bots:
                     self.logger.info(f"Terminating inactive bot {bot_id}")
                     await self.terminate_bot(bot_id)
+                
+                # Auto-cleanup: Check for empty rooms if enabled
+                if self.config.auto_cleanup_empty_rooms:
+                    await self._check_and_cleanup_empty_rooms()
                 
                 # Sleep until next cleanup
                 await asyncio.sleep(self.config.cleanup_interval_seconds)

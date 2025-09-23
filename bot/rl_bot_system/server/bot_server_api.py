@@ -240,6 +240,67 @@ class BotServerApi:
             # This would trigger the cleanup process
             # For now, just return success
             return {"message": "Cleanup triggered"}
+        
+        @self.router.get("/{bot_id}/health")
+        async def get_bot_health(bot_id: str):
+            """Get health status of a specific bot."""
+            if not self.bot_server:
+                raise HTTPException(status_code=503, detail="Bot server not initialized")
+            
+            health_status = await self.bot_server.monitor_bot_health(bot_id)
+            
+            if health_status["status"] == "not_found":
+                raise HTTPException(status_code=404, detail="Bot not found")
+            
+            return health_status
+        
+        @self.router.get("/health/all")
+        async def get_all_bot_health():
+            """Get health status of all bots."""
+            if not self.bot_server:
+                raise HTTPException(status_code=503, detail="Bot server not initialized")
+            
+            health_statuses = await self.bot_server.get_all_bot_health()
+            return {"bot_health": health_statuses}
+        
+        @self.router.post("/{bot_id}/reconnect")
+        async def reconnect_bot(bot_id: str):
+            """Attempt to reconnect a bot."""
+            if not self.bot_server:
+                raise HTTPException(status_code=503, detail="Bot server not initialized")
+            
+            success = await self.bot_server.attempt_bot_reconnection(bot_id)
+            
+            if not success:
+                raise HTTPException(status_code=400, detail="Reconnection failed")
+            
+            return {"message": f"Bot {bot_id} reconnection successful"}
+        
+        @self.router.post("/room/{room_id}/cleanup")
+        async def cleanup_room_bots(room_id: str):
+            """Clean up all bots in a specific room."""
+            if not self.bot_server:
+                raise HTTPException(status_code=503, detail="Bot server not initialized")
+            
+            cleanup_count = await self.bot_server.cleanup_room_bots(room_id, "manual_cleanup")
+            
+            return {
+                "message": f"Cleaned up {cleanup_count} bots from room {room_id}",
+                "cleanup_count": cleanup_count
+            }
+        
+        @self.router.get("/room/{room_id}/human_players")
+        async def check_room_human_players(room_id: str):
+            """Check if a room has human players."""
+            if not self.bot_server:
+                raise HTTPException(status_code=503, detail="Bot server not initialized")
+            
+            has_humans = await self.bot_server.check_room_human_players(room_id)
+            
+            return {
+                "room_id": room_id,
+                "has_human_players": has_humans
+            }
     
     async def _on_bot_status_change(self, bot_id: str, status: BotStatus) -> None:
         """Handle bot status changes."""
