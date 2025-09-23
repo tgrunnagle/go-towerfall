@@ -197,15 +197,20 @@
 
 - [ ] 7. Implement training spectator interface
 - [x] 7.1 Create spectator room management
-
-
-
-
-
   - Implement spectator session creation for training rooms
   - Add room code generation and access control for training sessions
   - Create training metrics overlay for spectator UI
   - Implement real-time performance graphs and bot decision visualization
+  - _Requirements: 3.1, 5.1_
+
+- [ ] 7.1.1 Implement frontend training metrics overlay UI
+  - Create TrainingMetricsOverlay React component for real-time training data display
+  - Implement PerformanceGraphs component with Chart.js for reward/win rate visualization
+  - Build BotDecisionVisualization component for action probabilities and Q-values
+  - Add SpectatorControls component for overlay toggles and room management
+  - Integrate WebSocket message handling for training_metrics, bot_decision, and graph_update messages
+  - Enhance GameWrapper and GamePage components with spectator-specific UI elements
+  - Add CSS styling for overlay positioning and responsive design
   - _Requirements: 3.1, 5.1_
 
 - [ ] 7.2 Add episode replay and comparison features
