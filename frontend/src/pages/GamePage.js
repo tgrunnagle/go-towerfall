@@ -16,6 +16,7 @@ const GamePage = () => {
   const queryPlayerId = queryParams.get('playerId');
   const queryPlayerToken = queryParams.get('playerToken');
   const queryIsSpectator = queryParams.get('isSpectator') === 'true';
+  const queryIsTrainingRoom = queryParams.get('isTrainingRoom') === 'true';
   const queryCanvasSizeX = parseInt(queryParams.get('canvasSizeX'), 10);
   const queryCanvasSizeY = parseInt(queryParams.get('canvasSizeY'), 10);
   
@@ -62,6 +63,7 @@ const GamePage = () => {
         playerId={queryPlayerId}
         playerToken={queryPlayerToken}
         isSpectator={queryIsSpectator}
+        isTrainingRoom={queryIsTrainingRoom}
         canvasSizeX={queryCanvasSizeX}
         canvasSizeY={queryCanvasSizeY}
         setPlayerName={setPlayerName}
@@ -82,6 +84,14 @@ const GamePage = () => {
         {queryIsSpectator && (
           <div className="spectator-instructions">
             <p>You are spectating</p>
+            {queryIsTrainingRoom && (
+              <p><strong>Training Room:</strong> Press <kbd>H</kbd> to toggle training metrics overlay</p>
+            )}
+          </div>
+        )}
+        {queryIsTrainingRoom && !queryIsSpectator && (
+          <div className="training-instructions">
+            <p><strong>Training Mode:</strong> Press <kbd>H</kbd> to show/hide training metrics</p>
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import TrainingMetricsOverlay from './training/TrainingMetricsOverlay';
 
 const GameWrapper = ({
   roomId,
@@ -6,6 +7,8 @@ const GameWrapper = ({
   playerToken,
   canvasSizeX,
   canvasSizeY,
+  isSpectator,
+  isTrainingRoom,
   setPlayerName,
   setRoomName,
   setRoomCode,
@@ -15,6 +18,8 @@ const GameWrapper = ({
   const canvasRef = useRef(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState(null);
+  const [showTrainingOverlay, setShowTrainingOverlay] = useState(false);
+  const [websocketConnection, setWebsocketConnection] = useState(null);
 
   // Initialize the game
   useEffect(() => {
@@ -46,9 +51,17 @@ const GameWrapper = ({
           setRoomCode && setRoomCode(info.roomCode);
           setRoomPassword && setRoomPassword(info.roomPassword);
           setPlayerName && setPlayerName(info.playerName);
+          
+          // Check if this is a training room and enable overlay
+          if (info.isTrainingRoom || isTrainingRoom) {
+            setShowTrainingOverlay(true);
+          }
         },
         onError: (errorMessage) => {
           setError(errorMessage);
+        },
+        onWebSocketReady: (ws) => {
+          setWebsocketConnection(ws);
         }
       }
     );
@@ -67,8 +80,39 @@ const GameWrapper = ({
     setRoomName,
     setRoomCode,
     setRoomPassword,
-    setError
+    setError,
+    isTrainingRoom
   ]);
+
+  // Keyboard shortcuts for training overlay
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      // Only handle shortcuts if we're in a training room or spectating
+      if (!isSpectator && !isTrainingRoom && !showTrainingOverlay) return;
+      
+      switch (event.key.toLowerCase()) {
+        case 'h':
+          setShowTrainingOverlay(prev => !prev);
+          break;
+        case 'm':
+          // Toggle metrics - this would be handled by the overlay component
+          break;
+        case 'g':
+          // Toggle graphs - this would be handled by the overlay component
+          break;
+        case 'd':
+          // Toggle decisions - this would be handled by the overlay component
+          break;
+        default:
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [isSpectator, isTrainingRoom, showTrainingOverlay]);
 
   // Handle exit game
   const handleExitGame = () => {
@@ -111,6 +155,16 @@ const GameWrapper = ({
           Exit Game
         </button>
       </div>
+
+      {/* Training Metrics Overlay for spectators and training rooms */}
+      {(isSpectator || isTrainingRoom || showTrainingOverlay) && (
+        <TrainingMetricsOverlay
+          roomId={roomId}
+          isVisible={showTrainingOverlay}
+          onToggleVisibility={() => setShowTrainingOverlay(prev => !prev)}
+          websocketConnection={websocketConnection}
+        />
+      )}
     </div>
   );
 };

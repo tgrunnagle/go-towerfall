@@ -1,4 +1,1 @@
-window.APP_CONFIG = {
-  "BACKEND_WS_URL": "ws://localhost:4000",
-  "BACKEND_API_URL": "http://localhost:4000"
-};
+window.APP_CONFIG = {};
