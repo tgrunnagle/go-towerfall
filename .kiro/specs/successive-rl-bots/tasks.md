@@ -213,6 +213,17 @@
   - Add CSS styling for overlay positioning and responsive design
   - _Requirements: 3.1, 5.1_
 
+- [ ] 7.1.2 Implement FastAPI server for training metrics data
+  - Create FastAPI server to serve training metrics data to frontend overlay
+  - Implement WebSocket endpoints for real-time training_metrics, bot_decision, and graph_update messages
+  - Build REST API endpoints for training session management and historical data retrieval
+  - Integrate with existing training engine and spectator manager to collect metrics
+  - Add data models for training metrics, bot decisions, and performance graphs
+  - Implement connection management for multiple spectator clients
+  - Create configuration system for server settings and training room integration
+  - Add comprehensive error handling and logging for server operations
+  - _Requirements: 3.1, 5.1_
+
 - [ ] 7.2 Add episode replay and comparison features
   - Implement episode replay with pause/rewind controls
   - Create side-by-side model comparison mode for spectators
