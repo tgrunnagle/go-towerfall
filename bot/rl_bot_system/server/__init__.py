@@ -49,14 +49,7 @@ from rl_bot_system.server.bot_server import (
 # Import bot integration components
 from rl_bot_system.server.bot_server_api import (
     BotServerApi,
-    initialize_bot_integration,
-    cleanup_bot_integration,
-    get_bot_integration,
-    get_bot_router,
-    add_bot_to_room,
-    remove_bot_from_room,
-    get_available_bots,
-    get_room_bot_status
+    BotServerConfig
 )
 
 __all__ = [
@@ -99,12 +92,5 @@ __all__ = [
     
     # Bot integration components
     'BotServerApi',
-    'initialize_bot_integration',
-    'cleanup_bot_integration',
-    'get_bot_integration',
-    'get_bot_router',
-    'add_bot_to_room',
-    'remove_bot_from_room',
-    'get_available_bots',
-    'get_room_bot_status'
+    'BotServerConfig'
 ]

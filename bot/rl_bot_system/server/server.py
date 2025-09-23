@@ -82,8 +82,8 @@ logger = logging.getLogger(__name__)
 class ServerConfig(BaseModel):
     """Configuration for the unified server."""
     host: str = "localhost"
-    port: int = 8000
-    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:4000"]
+    port: int = 4002
+    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:4000", "http://localhost:4001"]
     max_connections_per_session: int = 50
     metrics_history_size: int = 10000
     cleanup_interval_seconds: int = 300
@@ -131,7 +131,7 @@ class UnifiedServer:
             CORSMiddleware,
             allow_origins=config.cors_origins,
             allow_credentials=True,
-            allow_methods=["*"],
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             allow_headers=["*"],
         )
         

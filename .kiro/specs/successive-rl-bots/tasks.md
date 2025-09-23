@@ -247,11 +247,6 @@
   - _Requirements: 4.1, 4.2, 4.3_
 
 - [x] 8.3 Integrate with game server APIs
-
-
-
-
-
   - Create REST API endpoints for bot management
   - Implement bot registration and room assignment coordination
   - Add bot status tracking and reporting

@@ -150,9 +150,10 @@ cd backend
 go run main.go
 ```
 
-### 2. Start the Python Bot Server
+### 2. Start the Python Server
 ```bash
-python bot/run_bot_server.py
+cd bot
+python run_server.py
 ```
 
 ### 3. Start the Frontend

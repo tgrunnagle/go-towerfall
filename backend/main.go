@@ -24,10 +24,8 @@ func main() {
 	http.HandleFunc("/api/training/joinRoom", server.HandleJoinTrainingRoom)
 	http.HandleFunc("/api/training/rooms/", server.HandleTrainingRoomRequests)
 
-	// Bot management API endpoints
-	http.HandleFunc("/api/bots/available", server.HandleGetAvailableBots)
-	http.HandleFunc("/api/bots/status", server.HandleGetBotServerStatus)
-	http.HandleFunc("/api/rooms/", server.HandleRoomBotRequests)
+	// Room details endpoint
+	http.HandleFunc("/api/rooms/", server.HandleRoomDetails)
 
 	if err := http.ListenAndServe(":4000", nil); err != nil {
 		log.Fatal("ListenAndServe: ", err)

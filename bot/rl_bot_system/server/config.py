@@ -53,7 +53,7 @@ class SecurityConfig:
     jwt_secret_key: Optional[str] = None
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
-    cors_origins: List[str] = field(default_factory=lambda: ["http://localhost:3000", "http://localhost:4000"])
+    cors_origins: List[str] = field(default_factory=lambda: ["http://localhost:3000", "http://localhost:4000", "http://localhost:4001"])
     max_connections_per_ip: int = 100
 
 

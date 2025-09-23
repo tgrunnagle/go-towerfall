@@ -1,141 +1,170 @@
 """
-Integration module for BotServer with the main server infrastructure.
+Bot Server API integration for the unified server.
 
-This module provides integration between the BotServer and the main FastAPI server,
-enabling REST API endpoints for bot management and coordination with game rooms.
+This module provides bot management endpoints that integrate with the unified server.
 """
 
 import asyncio
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Optional, Any
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
-from rl_bot_system.server.bot_server import (
-    BotServer, BotServerConfig, BotConfig, BotType, BotStatus, DifficultyLevel
-)
+from rl_bot_system.server.bot_server import BotServer, BotServerConfig, BotConfig, BotType
+from rl_bot_system.rules_based.rules_based_bot import DifficultyLevel
 
 
 # Pydantic models for API requests/responses
 
-class SpawnBotRequest(BaseModel):
-    """Request model for spawning a bot."""
-    bot_type: str
-    difficulty: str
-    name: str
-    room_code: str
-    room_password: Optional[str] = ""
-    generation: Optional[int] = None
-    training_mode: bool = False
-    auto_cleanup: bool = True
-
-
-class SpawnBotResponse(BaseModel):
-    """Response model for bot spawning."""
-    bot_id: str
-    status: str
-    message: str
-
-
-class ConfigureBotRequest(BaseModel):
-    """Request model for configuring a bot."""
-    difficulty: str
-
-
-class BotStatusResponse(BaseModel):
-    """Response model for bot status."""
-    bot_id: str
-    config: Dict[str, Any]
-    status: str
-    room_id: Optional[str]
-    created_at: str
-    last_activity: str
-    performance_stats: Dict[str, Any]
-    error_message: Optional[str] = None
-
-
-class ServerStatusResponse(BaseModel):
-    """Response model for server status."""
-    running: bool
-    total_bots: int
-    max_total_bots: int
-    active_rooms: int
-    bots_by_status: Dict[str, int]
-    bots_by_type: Dict[str, int]
-    client_pool_stats: Dict[str, int]
-    uptime_seconds: float
-
-
 class BotTypeInfo(BaseModel):
-    """Information about available bot types."""
     type: str
     name: str
     description: str
-    difficulties: Optional[List[str]] = None
+    difficulties: List[str]
     available_generations: Optional[List[int]] = None
-    supports_training_mode: bool = False
+    supports_training_mode: bool
+
+class AvailableBotsResponse(BaseModel):
+    success: bool
+    bot_types: List[BotTypeInfo]
+    error: Optional[str] = None
+
+class SpawnBotRequest(BaseModel):
+    bot_type: str
+    difficulty: str
+    bot_name: str
+    room_code: Optional[str] = None
+    room_id: Optional[str] = None
+    room_password: str = ""
+    generation: Optional[int] = None
+    training_mode: bool = False
+
+class SpawnBotResponse(BaseModel):
+    success: bool
+    bot_id: Optional[str] = None
+    message: Optional[str] = None
+    error: Optional[str] = None
+
+class TerminateBotRequest(BaseModel):
+    bot_id: str
+
+class TerminateBotResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+    error: Optional[str] = None
+
+class ConfigureBotRequest(BaseModel):
+    difficulty: str
+
+class ConfigureBotResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+    error: Optional[str] = None
+
+class BotStatusInfo(BaseModel):
+    bot_id: str
+    bot_type: str
+    difficulty: str
+    name: str
+    generation: Optional[int] = None
+    status: str
+    room_id: Optional[str] = None
+    created_at: str
+    performance: Dict[str, Any]
+
+class RoomBotsResponse(BaseModel):
+    success: bool
+    bots: List[BotStatusInfo]
+    error: Optional[str] = None
+
+class ServerStatusResponse(BaseModel):
+    success: bool
+    server_running: bool
+    total_bots: int
+    active_rooms: int
+    server_stats: Dict[str, Any]
+    error: Optional[str] = None
 
 
 class BotServerApi:
     """
-    Integration class that manages BotServer and provides API endpoints.
+    Bot Server API integration for the unified server.
     """
     
-    def __init__(self, bot_server_config: Optional[BotServerConfig] = None):
+    def __init__(self, config: BotServerConfig):
         """
-        Initialize bot integration.
+        Initialize the Bot Server API.
         
         Args:
-            bot_server_config: Configuration for the bot server
+            config: Bot server configuration
         """
-        self.config = bot_server_config or BotServerConfig()
-        self.bot_server: Optional[BotServer] = None
+        self.config = config
+        self.bot_server = BotServer(config)
         self.logger = logging.getLogger(__name__)
         
-        # Create API router
+        # Create router
         self.router = APIRouter(prefix="/api/bots", tags=["bots"])
         self._setup_routes()
     
-    async def initialize(self) -> None:
-        """Initialize the bot server and start it."""
-        if self.bot_server is None:
-            self.bot_server = BotServer(self.config)
-            
-            # Register callbacks for integration
-            self.bot_server.register_bot_status_callback(self._on_bot_status_change)
-            self.bot_server.register_room_empty_callback(self._on_room_empty)
-            
-            await self.bot_server.start()
-            self.logger.info("Bot integration initialized")
+    async def initialize(self):
+        """Initialize the bot server."""
+        await self.bot_server.start()
+        self.logger.info("Bot server API initialized")
     
-    async def cleanup(self) -> None:
-        """Clean up bot server resources."""
-        if self.bot_server:
-            await self.bot_server.stop()
-            self.bot_server = None
-            self.logger.info("Bot integration cleaned up")
+    async def cleanup(self):
+        """Clean up the bot server."""
+        await self.bot_server.stop()
+        self.logger.info("Bot server API cleaned up")
     
-    def _setup_routes(self) -> None:
-        """Set up API routes for bot management."""
+    def _setup_routes(self):
+        """Setup API routes."""
+        
+        @self.router.get("/available", response_model=AvailableBotsResponse)
+        async def get_available_bots():
+            """Get available bot types and configurations."""
+            try:
+                bot_types = self.bot_server.get_available_bot_types()
+                
+                # Convert to API format
+                api_bot_types = []
+                for bot_type in bot_types:
+                    api_bot_types.append(BotTypeInfo(
+                        type=bot_type['type'],
+                        name=bot_type['name'],
+                        description=bot_type['description'],
+                        difficulties=bot_type['difficulties'],
+                        available_generations=bot_type.get('available_generations'),
+                        supports_training_mode=bot_type['supports_training_mode']
+                    ))
+                
+                return AvailableBotsResponse(
+                    success=True,
+                    bot_types=api_bot_types
+                )
+                
+            except Exception as e:
+                self.logger.error(f"Error getting available bots: {e}")
+                return AvailableBotsResponse(
+                    success=False,
+                    bot_types=[],
+                    error=str(e)
+                )
         
         @self.router.post("/spawn", response_model=SpawnBotResponse)
         async def spawn_bot(request: SpawnBotRequest, background_tasks: BackgroundTasks):
             """Spawn a new bot instance."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
             try:
-                # Validate and convert request
+                # Convert request to bot config
                 bot_type = BotType(request.bot_type)
                 difficulty = DifficultyLevel(request.difficulty)
                 
                 bot_config = BotConfig(
                     bot_type=bot_type,
                     difficulty=difficulty,
-                    name=request.name,
+                    name=request.bot_name,
                     generation=request.generation,
-                    training_mode=request.training_mode,
-                    auto_cleanup=request.auto_cleanup
+                    training_mode=request.training_mode
                 )
                 
                 room_info = {
@@ -143,340 +172,130 @@ class BotServerApi:
                     'room_password': request.room_password
                 }
                 
-                # Spawn the bot
+                # Spawn bot
                 bot_id = await self.bot_server.spawn_bot(bot_config, room_info)
                 
                 return SpawnBotResponse(
+                    success=True,
                     bot_id=bot_id,
-                    status="spawning",
-                    message=f"Bot {request.name} spawning in room {request.room_code}"
+                    message="Bot spawned successfully"
                 )
                 
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid request: {e}")
-            except RuntimeError as e:
-                raise HTTPException(status_code=409, detail=str(e))
             except Exception as e:
                 self.logger.error(f"Error spawning bot: {e}")
-                raise HTTPException(status_code=500, detail="Internal server error")
+                return SpawnBotResponse(
+                    success=False,
+                    error=str(e)
+                )
         
-        @self.router.delete("/{bot_id}")
+        @self.router.post("/{bot_id}/terminate", response_model=TerminateBotResponse)
         async def terminate_bot(bot_id: str):
             """Terminate a bot instance."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            success = await self.bot_server.terminate_bot(bot_id)
-            
-            if not success:
-                raise HTTPException(status_code=404, detail="Bot not found")
-            
-            return {"message": f"Bot {bot_id} terminated"}
+            try:
+                success = await self.bot_server.terminate_bot(bot_id)
+                
+                if success:
+                    return TerminateBotResponse(
+                        success=True,
+                        message="Bot terminated successfully"
+                    )
+                else:
+                    return TerminateBotResponse(
+                        success=False,
+                        error="Failed to terminate bot"
+                    )
+                    
+            except Exception as e:
+                self.logger.error(f"Error terminating bot {bot_id}: {e}")
+                return TerminateBotResponse(
+                    success=False,
+                    error=str(e)
+                )
         
-        @self.router.put("/{bot_id}/difficulty", response_model=Dict[str, str])
-        async def configure_bot_difficulty(bot_id: str, request: ConfigureBotRequest):
-            """Configure bot difficulty level."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
+        @self.router.put("/{bot_id}/configure", response_model=ConfigureBotResponse)
+        async def configure_bot(bot_id: str, request: ConfigureBotRequest):
+            """Configure bot difficulty."""
             try:
                 difficulty = DifficultyLevel(request.difficulty)
                 success = await self.bot_server.configure_bot_difficulty(bot_id, difficulty)
                 
-                if not success:
-                    raise HTTPException(status_code=404, detail="Bot not found")
-                
-                return {"message": f"Bot {bot_id} difficulty updated to {difficulty.value}"}
-                
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid difficulty: {e}")
+                if success:
+                    return ConfigureBotResponse(
+                        success=True,
+                        message="Bot configured successfully"
+                    )
+                else:
+                    return ConfigureBotResponse(
+                        success=False,
+                        error="Failed to configure bot"
+                    )
+                    
+            except Exception as e:
+                self.logger.error(f"Error configuring bot {bot_id}: {e}")
+                return ConfigureBotResponse(
+                    success=False,
+                    error=str(e)
+                )
         
-        @self.router.get("/{bot_id}/status", response_model=BotStatusResponse)
-        async def get_bot_status(bot_id: str):
-            """Get status of a specific bot."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            status = self.bot_server.get_bot_status(bot_id)
-            
-            if not status:
-                raise HTTPException(status_code=404, detail="Bot not found")
-            
-            return BotStatusResponse(**status)
-        
-        @self.router.get("/room/{room_id}")
+        @self.router.get("/rooms/{room_id}/bots", response_model=RoomBotsResponse)
         async def get_room_bots(room_id: str):
-            """Get all bots in a specific room."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            bots = self.bot_server.get_room_bots(room_id)
-            return {"room_id": room_id, "bots": bots}
+            """Get bots in a specific room."""
+            try:
+                bots = self.bot_server.get_room_bots(room_id)
+                
+                # Convert to API format
+                api_bots = []
+                for bot in bots:
+                    api_bots.append(BotStatusInfo(
+                        bot_id=bot['bot_id'],
+                        bot_type=bot['config']['bot_type'],
+                        difficulty=bot['config']['difficulty'],
+                        name=bot['config']['name'],
+                        generation=bot['config'].get('generation'),
+                        status=bot['status'],
+                        room_id=bot.get('room_id'),
+                        created_at=bot['created_at'],
+                        performance=bot['performance_stats']
+                    ))
+                
+                return RoomBotsResponse(
+                    success=True,
+                    bots=api_bots
+                )
+                
+            except Exception as e:
+                self.logger.error(f"Error getting room bots for {room_id}: {e}")
+                return RoomBotsResponse(
+                    success=False,
+                    bots=[],
+                    error=str(e)
+                )
         
         @self.router.get("/status", response_model=ServerStatusResponse)
         async def get_server_status():
-            """Get bot server status and statistics."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            status = self.bot_server.get_server_status()
-            return ServerStatusResponse(**status)
-        
-        @self.router.get("/types", response_model=List[BotTypeInfo])
-        async def get_available_bot_types():
-            """Get list of available bot types."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            bot_types = self.bot_server.get_available_bot_types()
-            return [BotTypeInfo(**bt) for bt in bot_types]
-        
-        @self.router.post("/cleanup")
-        async def cleanup_inactive_bots():
-            """Manually trigger cleanup of inactive bots."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            # This would trigger the cleanup process
-            # For now, just return success
-            return {"message": "Cleanup triggered"}
-        
-        @self.router.get("/{bot_id}/health")
-        async def get_bot_health(bot_id: str):
-            """Get health status of a specific bot."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            health_status = await self.bot_server.monitor_bot_health(bot_id)
-            
-            if health_status["status"] == "not_found":
-                raise HTTPException(status_code=404, detail="Bot not found")
-            
-            return health_status
-        
-        @self.router.get("/health/all")
-        async def get_all_bot_health():
-            """Get health status of all bots."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            health_statuses = await self.bot_server.get_all_bot_health()
-            return {"bot_health": health_statuses}
-        
-        @self.router.post("/{bot_id}/reconnect")
-        async def reconnect_bot(bot_id: str):
-            """Attempt to reconnect a bot."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            success = await self.bot_server.attempt_bot_reconnection(bot_id)
-            
-            if not success:
-                raise HTTPException(status_code=400, detail="Reconnection failed")
-            
-            return {"message": f"Bot {bot_id} reconnection successful"}
-        
-        @self.router.post("/room/{room_id}/cleanup")
-        async def cleanup_room_bots(room_id: str):
-            """Clean up all bots in a specific room."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            cleanup_count = await self.bot_server.cleanup_room_bots(room_id, "manual_cleanup")
-            
-            return {
-                "message": f"Cleaned up {cleanup_count} bots from room {room_id}",
-                "cleanup_count": cleanup_count
-            }
-        
-        @self.router.get("/room/{room_id}/human_players")
-        async def check_room_human_players(room_id: str):
-            """Check if a room has human players."""
-            if not self.bot_server:
-                raise HTTPException(status_code=503, detail="Bot server not initialized")
-            
-            has_humans = await self.bot_server.check_room_human_players(room_id)
-            
-            return {
-                "room_id": room_id,
-                "has_human_players": has_humans
-            }
-    
-    async def _on_bot_status_change(self, bot_id: str, status: BotStatus) -> None:
-        """Handle bot status changes."""
-        self.logger.info(f"Bot {bot_id} status changed to {status.value}")
-        
-        # Here you could integrate with other systems, send notifications, etc.
-        # For example, notify the main server about bot status changes
-    
-    async def _on_room_empty(self, room_id: str) -> None:
-        """Handle room becoming empty of bots."""
-        self.logger.info(f"Room {room_id} is now empty of bots")
-        
-        # Here you could integrate with the game server to handle empty rooms
-        # For example, notify the game server that a room has no more bots
+            """Get bot server status."""
+            try:
+                status = self.bot_server.get_server_status()
+                
+                return ServerStatusResponse(
+                    success=True,
+                    server_running=status['running'],
+                    total_bots=status['total_bots'],
+                    active_rooms=status['active_rooms'],
+                    server_stats=status
+                )
+                
+            except Exception as e:
+                self.logger.error(f"Error getting server status: {e}")
+                return ServerStatusResponse(
+                    success=False,
+                    server_running=False,
+                    total_bots=0,
+                    active_rooms=0,
+                    server_stats={},
+                    error=str(e)
+                )
 
 
-# Global integration instance
-_bot_integration: Optional[BotServerApi] = None
-
-
-def get_bot_integration() -> Optional[BotServerApi]:
-    """Get the global bot integration instance."""
-    return _bot_integration
-
-
-async def initialize_bot_integration(config: Optional[BotServerConfig] = None) -> BotServerApi:
-    """
-    Initialize the global bot integration instance.
-    
-    Args:
-        config: Optional bot server configuration
-        
-    Returns:
-        BotServerApi instance
-    """
-    global _bot_integration
-    
-    if _bot_integration is None:
-        _bot_integration = BotServerApi(config)
-        await _bot_integration.initialize()
-    
-    return _bot_integration
-
-
-async def cleanup_bot_integration() -> None:
-    """Clean up the global bot integration instance."""
-    global _bot_integration
-    
-    if _bot_integration:
-        await _bot_integration.cleanup()
-        _bot_integration = None
-
-
-def get_bot_router() -> APIRouter:
-    """
-    Get the API router for bot endpoints.
-    
-    Returns:
-        APIRouter for bot management endpoints
-        
-    Raises:
-        RuntimeError: If bot integration not initialized
-    """
-    if _bot_integration is None:
-        raise RuntimeError("Bot integration not initialized")
-    
-    return _bot_integration.router
-
-
-# Convenience functions for integration with main server
-
-async def add_bot_to_room(room_code: str, bot_config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Add a bot to a game room.
-    
-    Args:
-        room_code: Code of the room to join
-        bot_config: Bot configuration dictionary
-        
-    Returns:
-        Dict with bot information
-        
-    Raises:
-        RuntimeError: If bot integration not available
-    """
-    integration = get_bot_integration()
-    if not integration or not integration.bot_server:
-        raise RuntimeError("Bot integration not available")
-    
-    # Convert dict to BotConfig
-    bot_type = BotType(bot_config.get('bot_type', 'rules_based'))
-    difficulty = DifficultyLevel(bot_config.get('difficulty', 'intermediate'))
-    
-    config = BotConfig(
-        bot_type=bot_type,
-        difficulty=difficulty,
-        name=bot_config.get('name', 'Bot'),
-        generation=bot_config.get('generation'),
-        training_mode=bot_config.get('training_mode', False),
-        auto_cleanup=bot_config.get('auto_cleanup', True)
-    )
-    
-    room_info = {
-        'room_code': room_code,
-        'room_password': bot_config.get('room_password', '')
-    }
-    
-    bot_id = await integration.bot_server.spawn_bot(config, room_info)
-    
-    return {
-        'bot_id': bot_id,
-        'name': config.name,
-        'type': config.bot_type.value,
-        'difficulty': config.difficulty.value
-    }
-
-
-async def remove_bot_from_room(room_id: str, bot_id: str) -> bool:
-    """
-    Remove a bot from a game room.
-    
-    Args:
-        room_id: ID of the room
-        bot_id: ID of the bot to remove
-        
-    Returns:
-        bool: True if removal successful
-        
-    Raises:
-        RuntimeError: If bot integration not available
-    """
-    integration = get_bot_integration()
-    if not integration or not integration.bot_server:
-        raise RuntimeError("Bot integration not available")
-    
-    return await integration.bot_server.terminate_bot(bot_id)
-
-
-def get_available_bots() -> List[Dict[str, Any]]:
-    """
-    Get list of available bot types and configurations.
-    
-    Returns:
-        List of available bot configurations
-        
-    Raises:
-        RuntimeError: If bot integration not available
-    """
-    integration = get_bot_integration()
-    if not integration or not integration.bot_server:
-        raise RuntimeError("Bot integration not available")
-    
-    return integration.bot_server.get_available_bot_types()
-
-
-def get_room_bot_status(room_id: str) -> Dict[str, Any]:
-    """
-    Get status of all bots in a room.
-    
-    Args:
-        room_id: ID of the room
-        
-    Returns:
-        Dict with room bot information
-        
-    Raises:
-        RuntimeError: If bot integration not available
-    """
-    integration = get_bot_integration()
-    if not integration or not integration.bot_server:
-        raise RuntimeError("Bot integration not available")
-    
-    bots = integration.bot_server.get_room_bots(room_id)
-    
-    return {
-        'room_id': room_id,
-        'bot_count': len(bots),
-        'bots': bots
-    }
+# Alias for backward compatibility
+BotServerConfig = BotServerConfig

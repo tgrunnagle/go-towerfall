@@ -12,16 +12,23 @@ import logging
 import argparse
 import json
 from pathlib import Path
+from datetime import datetime
 
-# Add the bot directory to Python path for imports
+# Add the bot directory and parent directory to Python path for imports
 bot_dir = Path(__file__).parent
+parent_dir = bot_dir.parent
+
+# Add both directories to support both relative and absolute imports
 if str(bot_dir) not in sys.path:
     sys.path.insert(0, str(bot_dir))
+if str(parent_dir) not in sys.path:
+    sys.path.insert(0, str(parent_dir))
 
 # Check for required dependencies
 try:
     import uvicorn
-    from fastapi import FastAPI
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
     FASTAPI_AVAILABLE = True
 except ImportError as e:
     print(f"FastAPI dependencies not available: {e}")
@@ -73,7 +80,7 @@ class SimpleServerConfig:
     def __init__(self, **kwargs):
         self.host = kwargs.get('host', 'localhost')
         self.port = kwargs.get('port', 4002)
-        self.cors_origins = kwargs.get('cors_origins', ["http://localhost:3000", "http://localhost:4000"])
+        self.cors_origins = kwargs.get('cors_origins', ["http://localhost:3000", "http://localhost:4000", "http://localhost:4001"])
         self.max_connections_per_session = kwargs.get('max_connections_per_session', 50)
         self.metrics_history_size = kwargs.get('metrics_history_size', 10000)
         self.cleanup_interval_seconds = kwargs.get('cleanup_interval_seconds', 300)
@@ -103,7 +110,7 @@ class SimpleTrainingMetricsServer:
             CORSMiddleware,
             allow_origins=config.cors_origins,
             allow_credentials=True,
-            allow_methods=["*"],
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             allow_headers=["*"],
         )
         
@@ -366,9 +373,11 @@ def main():
     # Use unified server if available and not forced to use simple
     if UNIFIED_SERVER_AVAILABLE and not args.simple:
         try:
+            # Enable bot server by default
+            config_kwargs['enable_bot_server'] = config_kwargs.get('enable_bot_server', True)
             config = ServerConfig(**config_kwargs)
             print(f"Starting unified server on {config.host}:{config.port}")
-            print("Features: Training Metrics, Episode Replay, Spectator Integration")
+            print("Features: Training Metrics, Episode Replay, Spectator Integration, Bot Management")
             run_server(config)
         except KeyboardInterrupt:
             print("\nServer stopped by user")

@@ -15,9 +15,9 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
 
-from bot.game_client import GameClient, TrainingMode
-from bot.rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
-from bot.rl_bot_system.training.model_manager import ModelManager
+from game_client import GameClient, TrainingMode
+from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
+from rl_bot_system.training.model_manager import ModelManager
 
 
 class BotType(Enum):

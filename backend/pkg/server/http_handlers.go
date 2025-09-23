@@ -281,3 +281,87 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Player %s joined game room %s via HTTP API", player.ID, room.ID)
 }
+
+// RoomDetailsResponse represents the response for room details
+type RoomDetailsResponse struct {
+	Success      bool   `json:"success"`
+	RoomID       string `json:"roomId,omitempty"`
+	RoomCode     string `json:"roomCode,omitempty"`
+	RoomName     string `json:"roomName,omitempty"`
+	RoomPassword string `json:"roomPassword,omitempty"`
+	Error        string `json:"error,omitempty"`
+}
+
+// HandleGetRoomDetails handles HTTP requests to get room details by room ID
+func (s *Server) HandleGetRoomDetails(w http.ResponseWriter, r *http.Request) {
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow GET requests
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(RoomDetailsResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract room ID from URL path
+	roomID := extractRoomIDFromPath(r.URL.Path, "/api/rooms/", "/details")
+	if roomID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(RoomDetailsResponse{
+			Success: false,
+			Error:   "Invalid room ID in URL",
+		})
+		return
+	}
+
+	// Find room
+	room, exists := s.roomManager.GetGameRoom(roomID)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(RoomDetailsResponse{
+			Success: false,
+			Error:   "Room not found",
+		})
+		return
+	}
+
+	// Return room details
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(RoomDetailsResponse{
+		Success:      true,
+		RoomID:       room.ID,
+		RoomCode:     room.RoomCode,
+		RoomName:     room.Name,
+		RoomPassword: room.Password,
+	})
+}
+
+// HandleRoomDetails routes room detail requests to appropriate handlers
+func (s *Server) HandleRoomDetails(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+
+	// Route based on path pattern
+	if strings.Contains(path, "/details") && r.Method == "GET" {
+		// GET /api/rooms/{roomId}/details - Get room details
+		s.HandleGetRoomDetails(w, r)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Endpoint not found",
+		})
+	}
+}
