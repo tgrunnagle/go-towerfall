@@ -428,8 +428,9 @@ class Game {
   }
 
   handleCanvasMouseMove(e) {
-    const relativeX = e.clientX - this.canvas.offsetLeft;
-    const relativeY = e.clientY - this.canvas.offsetTop;
+    const rect = this.canvas.getBoundingClientRect();
+    const relativeX = e.clientX - rect.left;
+    const relativeY = e.clientY - rect.top;
     this.gameStateManager.handleMouseMove(relativeX, relativeY);
   }
 
@@ -438,8 +439,9 @@ class Game {
     // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
     if (e.button !== 0 && e.button !== 2) return;
     
-    const relativeX = e.clientX - this.canvas.offsetLeft;
-    const relativeY = e.clientY - this.canvas.offsetTop;
+    const rect = this.canvas.getBoundingClientRect();
+    const relativeX = e.clientX - rect.left;
+    const relativeY = e.clientY - rect.top;
     this.sendMessage('Click', { x: relativeX, y: relativeY, isDown: true, button: e.button });
   }
 
@@ -447,8 +449,9 @@ class Game {
     // Only handle left (0) and right (2) clicks
     if (e.button !== 0 && e.button !== 2) return;
     
-    const relativeX = e.clientX - this.canvas.offsetLeft;
-    const relativeY = e.clientY - this.canvas.offsetTop;
+    const rect = this.canvas.getBoundingClientRect();
+    const relativeX = e.clientX - rect.left;
+    const relativeY = e.clientY - rect.top;
     this.sendMessage('Click', { x: relativeX, y: relativeY, isDown: false, button: e.button });
   }
 
