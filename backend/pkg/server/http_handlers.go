@@ -294,6 +294,8 @@ type RoomDetailsResponse struct {
 
 // HandleGetRoomDetails handles HTTP requests to get room details by room ID
 func (s *Server) HandleGetRoomDetails(w http.ResponseWriter, r *http.Request) {
+	log.Printf("HandleGetRoomDetails called with path: %s", r.URL.Path)
+
 	// Set response headers
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -308,6 +310,7 @@ func (s *Server) HandleGetRoomDetails(w http.ResponseWriter, r *http.Request) {
 
 	// Only allow GET requests
 	if r.Method != "GET" {
+		log.Printf("Method not allowed: %s", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		json.NewEncoder(w).Encode(RoomDetailsResponse{
 			Success: false,
@@ -318,7 +321,10 @@ func (s *Server) HandleGetRoomDetails(w http.ResponseWriter, r *http.Request) {
 
 	// Extract room ID from URL path
 	roomID := extractRoomIDFromPath(r.URL.Path, "/api/rooms/", "/details")
+	log.Printf("Extracted room ID: %s", roomID)
+
 	if roomID == "" {
+		log.Printf("Invalid room ID extracted from path: %s", r.URL.Path)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(RoomDetailsResponse{
 			Success: false,
@@ -330,6 +336,7 @@ func (s *Server) HandleGetRoomDetails(w http.ResponseWriter, r *http.Request) {
 	// Find room
 	room, exists := s.roomManager.GetGameRoom(roomID)
 	if !exists {
+		log.Printf("Room not found: %s", roomID)
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(RoomDetailsResponse{
 			Success: false,
@@ -337,6 +344,8 @@ func (s *Server) HandleGetRoomDetails(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	log.Printf("Found room: %s, returning details", roomID)
 
 	// Return room details
 	w.WriteHeader(http.StatusOK)
@@ -351,13 +360,28 @@ func (s *Server) HandleGetRoomDetails(w http.ResponseWriter, r *http.Request) {
 
 // HandleRoomDetails routes room detail requests to appropriate handlers
 func (s *Server) HandleRoomDetails(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers for all room detail requests
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	path := r.URL.Path
+	log.Printf("HandleRoomDetails called with path: %s, method: %s", path, r.Method)
 
 	// Route based on path pattern
 	if strings.Contains(path, "/details") && r.Method == "GET" {
 		// GET /api/rooms/{roomId}/details - Get room details
+		log.Printf("Routing to HandleGetRoomDetails")
 		s.HandleGetRoomDetails(w, r)
 	} else {
+		log.Printf("No matching route found for path: %s", path)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,

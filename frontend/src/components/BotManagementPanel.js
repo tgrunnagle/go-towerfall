@@ -32,9 +32,9 @@ const BotManagementPanel = ({ roomId, playerToken, isVisible, onClose }) => {
       ]);
       
       if (availableResponse.success) {
-        setAvailableBots(availableResponse.botTypes || []);
-        if (availableResponse.botTypes.length > 0) {
-          setSelectedBotType(availableResponse.botTypes[0].type);
+        setAvailableBots(availableResponse.bot_types || []);
+        if (availableResponse.bot_types.length > 0) {
+          setSelectedBotType(availableResponse.bot_types[0].type);
         }
       } else {
         setError(availableResponse.error || 'Failed to load available bots');
@@ -46,6 +46,7 @@ const BotManagementPanel = ({ roomId, playerToken, isVisible, onClose }) => {
         setError(roomBotsResponse.error || 'Failed to load room bots');
       }
     } catch (err) {
+      console.error(err)
       setError('Failed to load bot data: ' + err.message);
     } finally {
       setLoading(false);
