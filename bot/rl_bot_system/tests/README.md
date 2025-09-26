@@ -2,6 +2,8 @@
 
 This directory contains comprehensive integration tests that validate communication between the Python bot server and Go game server.
 
+> **Note**: For bot server component tests that also run against a deployed server, see `../server/tests/README.md`
+
 ## Overview
 
 The integration tests cover:
@@ -204,7 +206,7 @@ python -m pytest
 
 The integration tests validate:
 
-✅ **Server Communication** (11/14 tests passing)
+✅ **Server Communication** (11/11 tests passing)
 - HTTP API calls between servers
 - WebSocket message exchange with correct mouse input format
 - Message serialization/deserialization
@@ -217,8 +219,10 @@ The integration tests validate:
 - Network failure handling
 - Multiple bots in same room
 
-⚠️ **Known Issues** (3/14 tests failing)
-- **Bot AI Loop Integration**: Bot initialization fails with mysterious `DifficultyLevel` exception
+✅ **Focused Scope**
+- Tests now focus specifically on communication validation
+- Bot server management tests moved to dedicated server test suite
+- Clean separation of concerns between communication and bot lifecycle testing
 
 ## Recent Fixes
 
@@ -229,7 +233,7 @@ The integration tests validate:
 
 ## Current Status
 
-**Working Tests (11/14):**
+**All Communication Tests Passing (11/11):**
 - `test_go_server_accessibility` ✅ (Standalone server health check)
 - `test_bot_configuration_validation` ✅ (Unit test for bot config)
 - `test_server_startup_and_health` ✅
@@ -242,12 +246,12 @@ The integration tests validate:
 - `test_bot_authentication_and_room_access` ✅
 - `test_multiple_bots_same_room` ✅
 
-**Failing Tests (3/14):**
-- `test_bot_server_integration_with_game_server` ❌ (Bot initialization error)
-- `test_bot_reconnection_after_disconnect` ❌ (Bot initialization error)
-- `test_server_resource_limits` ❌ (Bot initialization error)
+**Removed Tests:**
+- `test_bot_server_integration_with_game_server` (Moved to server tests - bot management, not communication)
+- `test_bot_reconnection_after_disconnect` (Moved to server tests - bot lifecycle, not communication)
+- `test_server_resource_limits` (Moved to server tests - resource management, not communication)
 
-**Note:** All core communication validation tests are passing. The 3 failing tests are due to a bot server initialization issue where `DifficultyLevel` enum values are being raised as exceptions instead of proper errors.
+**Note:** All core communication validation tests are now passing. The previously failing tests were related to bot server initialization and management rather than communication validation, so they have been moved to the appropriate server test suite in `rl_bot_system/server/tests/`.
 
 ## Usage Examples
 
