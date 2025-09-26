@@ -311,3 +311,117 @@
   - Implement A/B testing framework for comparing training configurations
   - Add integration with existing model management and evaluation systems
   - _Requirements: 2.1, 2.2, 5.1, 5.2_
+
+- [ ] 12. Create comprehensive bot-game server integration tests
+
+- [ ] 12.1 Implement bot-game server communication validation tests
+  - Create test framework that starts both Go game server and Python bot server
+  - Implement tests for bot spawning through API calls and WebSocket connections
+  - Test bot action execution and game state response validation
+  - Verify proper message serialization/deserialization between servers
+  - Test error handling for network failures and server disconnections
+  - Add tests for bot authentication and room access control
+  - _Requirements: 6.1, 6.2, 7.1, 7.2_
+
+- [ ] 12.2 Create game state consistency and physics validation tests
+  - Implement tests that verify bot actions produce reasonable game state changes
+  - Test collision detection accuracy when bots interact with environment and other players
+  - Validate combat mechanics including projectile trajectories and damage calculations
+  - Test boundary conditions and edge cases in game physics
+  - Verify game state synchronization across multiple connected clients
+  - Add tests for game timing and tick rate consistency at different speeds
+  - _Requirements: 6.2, 6.3, 6.5_
+
+- [ ] 12.3 Build multi-bot interaction and room management tests
+  - Create tests with multiple bots in the same game room
+  - Test bot-to-bot combat scenarios and team-based interactions
+  - Validate room capacity limits and bot spawning restrictions
+  - Test bot removal and cleanup when players leave rooms
+  - Verify spectator mode functionality with active bot games
+  - Add tests for room state persistence and recovery scenarios
+  - _Requirements: 6.3, 6.4, 7.3_
+
+- [ ] 12.4 Implement bot performance and decision-making validation tests
+  - Create tests that measure bot response time and action execution speed
+  - Test bot decision-making accuracy against known game scenarios
+  - Validate bot behavior consistency across different difficulty levels
+  - Test bot adaptation to changing game conditions and opponent strategies
+  - Verify bot memory usage and resource cleanup during extended gameplay
+  - Add performance benchmarks for bot training and evaluation modes
+  - _Requirements: 6.6, 7.6_
+
+- [ ] 12.5 Create extended stability and stress testing suite
+  - Implement long-running tests that validate system stability over hours
+  - Test resource cleanup and memory management during extended bot sessions
+  - Create stress tests with maximum concurrent bots and game rooms
+  - Test server recovery and reconnection after network interruptions
+  - Validate bot server health monitoring and automatic recovery mechanisms
+  - Add tests for graceful shutdown and restart scenarios
+  - _Requirements: 6.7, 7.6_
+
+- [ ] 13. Build end-to-end workflow and user scenario tests
+
+- [ ] 13.1 Create complete user workflow integration tests
+  - Implement tests that simulate real user scenarios from browser UI to game completion
+  - Test the complete player workflow: room creation, bot addition, gameplay, bot removal
+  - Validate frontend-to-backend integration including UI interactions and API calls
+  - Test training session workflow including spectator access and metrics collection
+  - Create tests for bot configuration changes during active gameplay
+  - Add tests for user error scenarios and recovery (invalid inputs, network issues)
+  - _Requirements: 7.1, 7.2, 7.3_
+
+- [ ] 13.2 Implement cross-system API integration testing
+  - Create tests for all REST API endpoints between Go and Python servers
+  - Test API authentication, authorization, and input validation across system boundaries
+  - Validate API response formats, error codes, and error messages between different services
+  - Test API rate limiting and concurrent request handling across multiple services
+  - Create tests for API versioning and backward compatibility between Go and Python servers
+  - Add tests for API timeout handling and retry logic between services
+  - _Requirements: 7.2, 7.5_
+
+- [ ] 13.3 Build real-time multi-system communication tests
+  - Implement tests for WebSocket message handling between frontend, Go server, and Python server
+  - Test game state broadcasting and synchronization across all system components
+  - Validate message ordering and delivery guarantees in multi-hop communication
+  - Test WebSocket reconnection and message recovery across system boundaries
+  - Create tests for training metrics streaming from Python server through Go server to frontend
+  - Add tests for real-time bot configuration updates propagating through all systems
+  - _Requirements: 7.3, 7.5_
+
+- [ ] 13.4 Create system-wide error handling and recovery tests
+  - Test graceful degradation when individual system components become unavailable
+  - Validate error propagation and user notification across system boundaries
+  - Test data consistency during partial system failures (Go server up, Python server down)
+  - Create tests for cascading failure scenarios and system recovery
+  - Test user experience during system maintenance and rolling updates
+  - Add tests for emergency scenarios like complete system restart and data recovery
+  - _Requirements: 7.5, 7.7_
+
+- [ ] 14. Create test infrastructure, automation, and operational support
+
+- [ ] 14.1 Build automated test environment and CI/CD integration
+  - Create Docker Compose configuration for complete multi-service test environment
+  - Implement automated server startup sequencing and health checking for all services
+  - Create test data seeding and cleanup automation across Go and Python servers
+  - Add test environment isolation and parallel test execution capabilities
+  - Implement automated test result collection and reporting across all test types
+  - Create CI/CD pipeline integration for automated test execution on code changes
+  - _Requirements: 6.1, 7.1_
+
+- [ ] 14.2 Implement test monitoring, diagnostics, and performance tracking
+  - Create comprehensive logging and monitoring infrastructure for integration tests
+  - Implement test failure analysis and diagnostic data collection from all system components
+  - Add performance metrics collection during test execution (latency, throughput, resource usage)
+  - Create test result visualization dashboards and trend analysis over time
+  - Implement automated alerting for test failures and performance regressions
+  - Add test coverage analysis and reporting for integration scenarios across all services
+  - _Requirements: 6.5, 7.5, 7.6_
+
+- [ ] 14.3 Create test documentation, maintenance procedures, and operational runbooks
+  - Document integration test setup, execution, and troubleshooting procedures for all services
+  - Create test case documentation with expected behaviors and validation criteria
+  - Implement test maintenance procedures for system updates and dependency changes
+  - Add integration test best practices and development guidelines for the team
+  - Create operational runbooks for common integration test failures and system issues
+  - Document performance baselines, SLA requirements, and acceptance criteria for production readiness
+  - _Requirements: All integration testing requirements_
