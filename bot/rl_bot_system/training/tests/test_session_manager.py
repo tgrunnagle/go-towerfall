@@ -7,13 +7,13 @@ import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from bot.rl_bot_system.training.session_manager import (
+from rl_bot_system.training.session_manager import (
     SessionManager,
     ResourceLimits,
     ResourceStatus,
     SessionRequest
 )
-from bot.rl_bot_system.training.training_session import (
+from rl_bot_system.training.training_session import (
     TrainingConfig,
     TrainingMode,
     SessionMetrics
@@ -259,7 +259,7 @@ class TestSessionManager:
     @pytest.mark.asyncio
     async def test_episode_and_metrics_handlers(self, session_manager):
         """Test episode and metrics handler methods."""
-        from bot.rl_bot_system.training.training_session import EpisodeResult
+        from rl_bot_system.training.training_session import EpisodeResult
         
         # Test episode completion handler (should be no-op)
         result = EpisodeResult(

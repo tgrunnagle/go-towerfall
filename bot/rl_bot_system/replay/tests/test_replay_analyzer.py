@@ -7,10 +7,10 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from bot.rl_bot_system.replay.replay_analyzer import (
+from rl_bot_system.replay.replay_analyzer import (
     ReplayAnalyzer, AnalysisConfig, BehaviorPattern
 )
-from bot.rl_bot_system.evaluation.evaluator import GameEpisode
+from rl_bot_system.evaluation.evaluator import GameEpisode
 
 
 class TestReplayAnalyzer(unittest.TestCase):

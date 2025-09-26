@@ -9,7 +9,7 @@ import asyncio
 import logging
 from datetime import datetime
 
-from bot.rl_bot_system.training import (
+from rl_bot_system.training import (
     TrainingSession,
     TrainingConfig,
     TrainingMode,

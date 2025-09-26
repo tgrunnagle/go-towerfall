@@ -5,7 +5,7 @@ Tests for reward function implementations.
 import pytest
 import numpy as np
 
-from bot.rl_bot_system.environment.reward_functions import (
+from rl_bot_system.environment.reward_functions import (
     RewardType,
     SparseRewardFunction,
     DenseRewardFunction,

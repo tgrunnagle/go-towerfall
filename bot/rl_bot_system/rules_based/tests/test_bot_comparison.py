@@ -12,7 +12,7 @@ from datetime import datetime
 from unittest.mock import Mock, AsyncMock, patch
 
 try:
-    from bot.game_client import GameClient
+    from game_client import GameClient
     GAME_CLIENT_AVAILABLE = True
 except ImportError:
     GAME_CLIENT_AVAILABLE = False
@@ -38,7 +38,7 @@ except ImportError:
             pass
 
 try:
-    from bot.rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
+    from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
     RULES_BOT_AVAILABLE = True
 except ImportError:
     RULES_BOT_AVAILABLE = False

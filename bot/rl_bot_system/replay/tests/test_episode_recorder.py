@@ -10,8 +10,8 @@ import pickle
 from pathlib import Path
 from unittest.mock import patch
 
-from bot.rl_bot_system.replay.episode_recorder import EpisodeRecorder, RecordingConfig
-from bot.rl_bot_system.evaluation.evaluator import GameEpisode
+from rl_bot_system.replay.episode_recorder import EpisodeRecorder, RecordingConfig
+from rl_bot_system.evaluation.evaluator import GameEpisode
 
 
 class TestEpisodeRecorder(unittest.TestCase):

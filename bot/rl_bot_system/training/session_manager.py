@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any, Callable, Awaitable
 from dataclasses import dataclass
 from enum import Enum
 
-from bot.rl_bot_system.training.training_session import (
+from rl_bot_system.training.training_session import (
     TrainingSession,
     TrainingConfig,
     SessionStatus,

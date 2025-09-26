@@ -11,11 +11,11 @@ import pytest_asyncio
 import aiohttp
 import logging
 
-from bot.rl_bot_system.server.bot_server_api import BotServerApi
-from bot.rl_bot_system.server.bot_server import (
+from rl_bot_system.server.bot_server_api import BotServerApi
+from rl_bot_system.server.bot_server import (
     BotServerConfig, BotConfig, BotType, BotStatus, DifficultyLevel
 )
-from bot.rl_bot_system.tests.test_utils import ServerHealthChecker, GameRoomManager
+from rl_bot_system.tests.test_utils import ServerHealthChecker, GameRoomManager
 
 
 @pytest_asyncio.fixture(scope="class")

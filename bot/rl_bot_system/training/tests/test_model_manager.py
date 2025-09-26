@@ -15,7 +15,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from bot.rl_bot_system.training.model_manager import ModelManager, RLModel
+from rl_bot_system.training.model_manager import ModelManager, RLModel
 
 
 class SimpleTestModel(nn.Module):

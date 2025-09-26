@@ -16,12 +16,12 @@ from pathlib import Path
 import json
 import time
 
-from bot.rl_bot_system.models import DQNAgent, PPOAgent, A2CAgent
-from bot.rl_bot_system.environment import GameEnvironment, TrainingMode
-from bot.rl_bot_system.training.model_manager import ModelManager, RLModel
-from bot.rl_bot_system.training.cohort_training import CohortTrainingSystem, CohortConfig
-from bot.rl_bot_system.rules_based.rules_based_bot import RulesBasedBot
-from bot.game_client import GameClient
+from rl_bot_system.models import DQNAgent, PPOAgent, A2CAgent
+from rl_bot_system.environment import GameEnvironment, TrainingMode
+from rl_bot_system.training.model_manager import ModelManager, RLModel
+from rl_bot_system.training.cohort_training import CohortTrainingSystem, CohortConfig
+from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot
+from game_client import GameClient
 
 logger = logging.getLogger(__name__)
 

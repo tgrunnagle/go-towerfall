@@ -12,8 +12,8 @@ This example demonstrates:
 import logging
 from pathlib import Path
 
-from bot.rl_bot_system.evaluation import EvaluationManager
-from bot.rl_bot_system.training.model_manager import ModelManager
+from rl_bot_system.evaluation import EvaluationManager
+from rl_bot_system.training.model_manager import ModelManager
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

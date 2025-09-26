@@ -12,9 +12,9 @@ from typing import Dict, Any, List, Optional, Callable, Awaitable
 from dataclasses import dataclass
 from enum import Enum
 
-from bot.rl_bot_system.evaluation.evaluator import GameEpisode
-from bot.rl_bot_system.replay.replay_manager import ReplayManager
-from bot.rl_bot_system.spectator.spectator_manager import SpectatorManager, SpectatorMode
+from rl_bot_system.evaluation.evaluator import GameEpisode
+from rl_bot_system.replay.replay_manager import ReplayManager
+from rl_bot_system.spectator.spectator_manager import SpectatorManager, SpectatorMode
 
 logger = logging.getLogger(__name__)
 

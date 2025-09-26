@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, AsyncMock, patch
 from typing import Dict, Any
 
-from bot.rl_bot_system.training.cohort_training import (
+from rl_bot_system.training.cohort_training import (
     CohortTrainingSystem,
     CohortConfig,
     OpponentConfig,
@@ -17,8 +17,8 @@ from bot.rl_bot_system.training.cohort_training import (
     EpisodeOpponentSetup,
     CohortMetrics
 )
-from bot.rl_bot_system.training.model_manager import ModelManager, RLModel
-from bot.rl_bot_system.rules_based.rules_based_bot import DifficultyLevel
+from rl_bot_system.training.model_manager import ModelManager, RLModel
+from rl_bot_system.rules_based.rules_based_bot import DifficultyLevel
 
 
 class TestCohortTrainingSystem:

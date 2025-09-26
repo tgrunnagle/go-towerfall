@@ -13,7 +13,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any
 
-from bot.rl_bot_system.spectator import (
+from rl_bot_system.spectator import (
     SpectatorManager, SpectatorSession, SpectatorMode,
     TrainingMetricsOverlay, MetricsData,
     SpectatorRoomManager, RoomAccessControl, AccessLevel

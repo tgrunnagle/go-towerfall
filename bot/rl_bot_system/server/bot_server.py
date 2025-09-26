@@ -287,64 +287,129 @@ class BotServer:
         Raises:
             RuntimeError: If bot cannot be spawned due to limits or errors
         """
+        spawn_start_time = datetime.now()
+        correlation_id = str(uuid.uuid4())
+        
+        # Log spawn request with detailed context
+        self.logger.info(f"Bot spawn requested - Type: {bot_config.bot_type.value}, "
+                        f"Difficulty: {bot_config.difficulty.value}, Name: {bot_config.name}, "
+                        f"Room: {room_info.get('room_id', 'unknown')}, "
+                        f"Training: {bot_config.training_mode}")
+        
         async with self._bot_creation_lock:
-            # Check limits
-            if len(self._bots) >= self.config.max_total_bots:
-                raise RuntimeError(f"Maximum total bots ({self.config.max_total_bots}) exceeded")
-            
-            room_id = room_info.get('room_id')
-            if room_id:
-                room_bot_count = len(self._room_bots.get(room_id, set()))
-                if room_bot_count >= self.config.max_bots_per_room:
-                    raise RuntimeError(f"Maximum bots per room ({self.config.max_bots_per_room}) exceeded")
-            
-            # Generate bot ID
-            bot_id = str(uuid.uuid4())
-            
-            # Create bot instance
-            bot_instance = BotInstance(
-                bot_id=bot_id,
-                config=bot_config,
-                status=BotStatus.INITIALIZING,
-                room_id=room_id,
-                game_client=None,
-                bot_ai=None,
-                created_at=datetime.now(),
-                last_activity=datetime.now(),
-                performance_stats={
-                    'games_played': 0,
-                    'wins': 0,
-                    'losses': 0,
-                    'kills': 0,
-                    'deaths': 0,
-                    'accuracy': 0.0,
-                    'total_playtime': 0.0
-                }
-            )
-            
-            self._bots[bot_id] = bot_instance
-            
-            # Track room assignment
-            if room_id:
-                if room_id not in self._room_bots:
-                    self._room_bots[room_id] = set()
-                self._room_bots[room_id].add(bot_id)
-            
-            # Register bot with diagnostic tracker
-            self.diagnostic_tracker.register_bot(
-                bot_id=bot_id,
-                bot_name=bot_config.name,
-                bot_type=bot_config.bot_type.value,
-                difficulty=bot_config.difficulty.value,
-                room_id=room_id
-            )
-            
-            self.logger.info(f"Created bot {bot_id} ({bot_config.bot_type.value}) for room {room_id}")
-            
-            # Initialize bot in background
-            asyncio.create_task(self._initialize_bot(bot_id, room_info))
-            
-            return bot_id
+            try:
+                # Detailed limit checking with diagnostic logging
+                current_bot_count = len(self._bots)
+                self.logger.debug(f"Current bot count: {current_bot_count}/{self.config.max_total_bots}")
+                
+                if current_bot_count >= self.config.max_total_bots:
+                    error_msg = f"Maximum total bots ({self.config.max_total_bots}) exceeded. Current: {current_bot_count}"
+                    self.logger.error(f"Bot spawn failed - {error_msg}")
+                    raise RuntimeError(error_msg)
+                
+                room_id = room_info.get('room_id')
+                if room_id:
+                    room_bot_count = len(self._room_bots.get(room_id, set()))
+                    self.logger.debug(f"Room {room_id} bot count: {room_bot_count}/{self.config.max_bots_per_room}")
+                    
+                    if room_bot_count >= self.config.max_bots_per_room:
+                        error_msg = f"Maximum bots per room ({self.config.max_bots_per_room}) exceeded for room {room_id}. Current: {room_bot_count}"
+                        self.logger.error(f"Bot spawn failed - {error_msg}")
+                        raise RuntimeError(error_msg)
+                
+                # Generate bot ID and log creation step
+                bot_id = str(uuid.uuid4())
+                self.logger.info(f"Generated bot ID: {bot_id} for spawn request")
+                
+                # Validate bot configuration before creation
+                validation_result = self._validate_bot_config(bot_config, room_info)
+                if not validation_result['valid']:
+                    error_msg = f"Bot configuration validation failed: {validation_result['error']}"
+                    self.logger.error(f"Bot spawn failed - {error_msg}")
+                    raise RuntimeError(error_msg)
+                
+                self.logger.debug(f"Bot configuration validated successfully for {bot_id}")
+                
+                # Create bot instance with detailed logging
+                self.logger.debug(f"Creating bot instance for {bot_id}")
+                bot_instance = BotInstance(
+                    bot_id=bot_id,
+                    config=bot_config,
+                    status=BotStatus.INITIALIZING,
+                    room_id=room_id,
+                    game_client=None,
+                    bot_ai=None,
+                    created_at=datetime.now(),
+                    last_activity=datetime.now(),
+                    performance_stats={
+                        'games_played': 0,
+                        'wins': 0,
+                        'losses': 0,
+                        'kills': 0,
+                        'deaths': 0,
+                        'accuracy': 0.0,
+                        'total_playtime': 0.0
+                    }
+                )
+                
+                self._bots[bot_id] = bot_instance
+                self.logger.debug(f"Bot instance created and stored for {bot_id}")
+                
+                # Track room assignment with logging
+                if room_id:
+                    if room_id not in self._room_bots:
+                        self._room_bots[room_id] = set()
+                        self.logger.debug(f"Created new room tracking for {room_id}")
+                    
+                    self._room_bots[room_id].add(bot_id)
+                    self.logger.debug(f"Added bot {bot_id} to room {room_id} tracking")
+                
+                # Register bot with diagnostic tracker
+                self.diagnostic_tracker.register_bot(
+                    bot_id=bot_id,
+                    bot_name=bot_config.name,
+                    bot_type=bot_config.bot_type.value,
+                    difficulty=bot_config.difficulty.value,
+                    room_id=room_id
+                )
+                
+                # Log detailed spawn success metrics
+                spawn_duration = (datetime.now() - spawn_start_time).total_seconds()
+                self.logger.info(f"Bot spawn setup completed successfully - ID: {bot_id}, "
+                               f"Type: {bot_config.bot_type.value}, Duration: {spawn_duration:.3f}s")
+                
+                # Log spawn completion event with correlation ID
+                self.diagnostic_tracker.log_event(
+                    bot_id=bot_id,
+                    event_type=BotLifecycleEvent.BOT_SPAWN_REQUESTED,
+                    level=DiagnosticLevel.INFO,
+                    message=f"Bot spawn setup completed, starting initialization",
+                    details={
+                        'bot_type': bot_config.bot_type.value,
+                        'difficulty': bot_config.difficulty.value,
+                        'training_mode': bot_config.training_mode,
+                        'room_id': room_id,
+                        'room_code': room_info.get('room_code'),
+                        'spawn_duration_ms': spawn_duration * 1000,
+                        'total_bots_after': len(self._bots),
+                        'room_bots_after': len(self._room_bots.get(room_id, set())) if room_id else 0
+                    },
+                    correlation_id=correlation_id
+                )
+                
+                # Initialize bot in background with correlation tracking
+                asyncio.create_task(self._initialize_bot(bot_id, room_info, correlation_id))
+                
+                return bot_id
+                
+            except Exception as e:
+                # Log detailed spawn failure
+                spawn_duration = (datetime.now() - spawn_start_time).total_seconds()
+                self.logger.error(f"Bot spawn failed after {spawn_duration:.3f}s - "
+                                f"Type: {bot_config.bot_type.value}, "
+                                f"Name: {bot_config.name}, "
+                                f"Error: {str(e)}")
+                raise
     
     async def terminate_bot(self, bot_id: str) -> bool:
         """
@@ -816,78 +881,162 @@ class BotServer:
             except Exception as e:
                 self.logger.error(f"Error in bot status callback: {e}")
     
-    async def _initialize_bot(self, bot_id: str, room_info: Dict[str, Any]) -> None:
-        """Initialize a bot instance in the background."""
+    async def _initialize_bot(self, bot_id: str, room_info: Dict[str, Any], correlation_id: Optional[str] = None) -> None:
+        """Initialize a bot instance in the background with detailed diagnostic tracking."""
         if bot_id not in self._bots:
+            self.logger.error(f"Bot {bot_id} not found in _bots during initialization")
             return
         
         bot_instance = self._bots[bot_id]
+        init_start_time = datetime.now()
         
         try:
-            # Load bot AI
+            # Log initialization start with detailed context
+            self.logger.info(f"Starting bot initialization - ID: {bot_id}, "
+                           f"Type: {bot_instance.config.bot_type.value}, "
+                           f"Room: {room_info.get('room_code', 'unknown')}")
+            
             self.diagnostic_tracker.log_event(
                 bot_id=bot_id,
                 event_type=BotLifecycleEvent.BOT_INITIALIZING,
                 level=DiagnosticLevel.INFO,
-                message="Starting bot initialization"
+                message="Starting bot initialization process",
+                details={
+                    'room_code': room_info.get('room_code'),
+                    'room_password_provided': bool(room_info.get('room_password')),
+                    'training_mode': bot_instance.config.training_mode,
+                    'auto_cleanup': bot_instance.config.auto_cleanup
+                },
+                correlation_id=correlation_id
             )
             await self._update_bot_status(bot_id, BotStatus.INITIALIZING)
             
-            # Update AI status to loading
+            # Step 1: Load bot AI with detailed tracking
+            ai_load_start = datetime.now()
+            self.logger.debug(f"Loading AI for bot {bot_id} - Type: {bot_instance.config.bot_type.value}")
+            
             self.diagnostic_tracker.update_ai_status(bot_id, AIStatus.LOADING)
+            self.diagnostic_tracker.log_event(
+                bot_id=bot_id,
+                event_type=BotLifecycleEvent.BOT_AI_LOADING,
+                level=DiagnosticLevel.INFO,
+                message=f"Loading {bot_instance.config.bot_type.value} AI",
+                details={
+                    'bot_type': bot_instance.config.bot_type.value,
+                    'difficulty': bot_instance.config.difficulty.value,
+                    'generation': bot_instance.config.generation
+                },
+                correlation_id=correlation_id
+            )
             
             try:
-                bot_instance.bot_ai = await self._load_bot_ai(bot_instance.config)
+                bot_instance.bot_ai = await self._load_bot_ai(bot_instance.config, bot_id, correlation_id)
+                ai_load_duration = (datetime.now() - ai_load_start).total_seconds()
+                
                 self.diagnostic_tracker.update_ai_status(bot_id, AIStatus.LOADED)
                 self.diagnostic_tracker.log_event(
                     bot_id=bot_id,
                     event_type=BotLifecycleEvent.BOT_AI_LOADED,
                     level=DiagnosticLevel.INFO,
-                    message=f"Bot AI loaded successfully ({bot_instance.config.bot_type.value})"
+                    message=f"Bot AI loaded successfully ({bot_instance.config.bot_type.value})",
+                    details={
+                        'load_duration_ms': ai_load_duration * 1000,
+                        'ai_type': type(bot_instance.bot_ai).__name__
+                    },
+                    correlation_id=correlation_id
                 )
+                
+                self.logger.info(f"AI loaded for bot {bot_id} in {ai_load_duration:.3f}s")
+                
             except Exception as ai_error:
-                self.diagnostic_tracker.update_ai_status(bot_id, AIStatus.ERROR, str(ai_error))
+                ai_load_duration = (datetime.now() - ai_load_start).total_seconds()
+                error_msg = f"Failed to load AI: {str(ai_error)}"
+                
+                self.diagnostic_tracker.update_ai_status(bot_id, AIStatus.ERROR, error_msg)
+                self.diagnostic_tracker.log_event(
+                    bot_id=bot_id,
+                    event_type=BotLifecycleEvent.BOT_AI_LOAD_FAILED,
+                    level=DiagnosticLevel.ERROR,
+                    message=error_msg,
+                    details={
+                        'error_type': type(ai_error).__name__,
+                        'error_message': str(ai_error),
+                        'load_duration_ms': ai_load_duration * 1000,
+                        'bot_type': bot_instance.config.bot_type.value,
+                        'difficulty': bot_instance.config.difficulty.value
+                    },
+                    correlation_id=correlation_id
+                )
+                
+                self.logger.error(f"AI loading failed for bot {bot_id} after {ai_load_duration:.3f}s: {ai_error}")
                 raise ai_error
             
-            # Get game client
+            # Step 2: Get game client with detailed tracking
+            client_start = datetime.now()
+            self.logger.debug(f"Acquiring game client for bot {bot_id}")
+            
             self.diagnostic_tracker.log_event(
                 bot_id=bot_id,
                 event_type=BotLifecycleEvent.BOT_CONNECTING,
                 level=DiagnosticLevel.INFO,
-                message="Starting game client connection"
+                message="Starting game client acquisition",
+                details={
+                    'game_server_url': self.config.game_server_url,
+                    'client_pool_stats': self.client_pool.get_pool_stats()
+                },
+                correlation_id=correlation_id
             )
             await self._update_bot_status(bot_id, BotStatus.CONNECTING)
             
             # Update connection status
+            websocket_url = self.config.game_server_url.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
             self.diagnostic_tracker.update_connection_status(
                 bot_id=bot_id,
                 connection_status=ConnectionStatus.CONNECTING,
-                websocket_url=self.config.game_server_url.replace("http://", "ws://") + "/ws"
+                websocket_url=websocket_url
             )
             
             try:
                 bot_instance.game_client = await self.client_pool.get_client(
                     bot_id, self.config.game_server_url
                 )
+                client_duration = (datetime.now() - client_start).total_seconds()
                 
-                # Configure training mode if needed
+                self.logger.info(f"Game client acquired for bot {bot_id} in {client_duration:.3f}s")
+                
+                # Step 3: Configure training mode if needed
                 if bot_instance.config.training_mode:
+                    training_start = datetime.now()
+                    self.logger.debug(f"Enabling training mode for bot {bot_id}")
+                    
                     await bot_instance.game_client.enable_training_mode(
                         speed_multiplier=10.0,
                         headless=True
                     )
+                    
+                    training_duration = (datetime.now() - training_start).total_seconds()
+                    self.logger.debug(f"Training mode enabled for bot {bot_id} in {training_duration:.3f}s")
                 
-                # Connect to game room
+                # Step 4: Connect to game room with detailed tracking
                 room_code = room_info.get('room_code')
                 room_password = room_info.get('room_password', '')
                 
                 if room_code:
+                    connect_start = datetime.now()
+                    self.logger.info(f"Connecting bot {bot_id} to room {room_code}")
+                    
                     self.diagnostic_tracker.log_event(
                         bot_id=bot_id,
                         event_type=BotLifecycleEvent.BOT_WEBSOCKET_CONNECTING,
                         level=DiagnosticLevel.INFO,
                         message=f"Connecting to game room {room_code}",
-                        details={'room_code': room_code, 'has_password': bool(room_password)}
+                        details={
+                            'room_code': room_code, 
+                            'has_password': bool(room_password),
+                            'player_name': bot_instance.config.name,
+                            'websocket_url': websocket_url
+                        },
+                        correlation_id=correlation_id
                     )
                     
                     await bot_instance.game_client.connect(
@@ -896,38 +1045,62 @@ class BotServer:
                         room_password=room_password
                     )
                     
+                    connect_duration = (datetime.now() - connect_start).total_seconds()
+                    
                     self.diagnostic_tracker.log_event(
                         bot_id=bot_id,
                         event_type=BotLifecycleEvent.BOT_GAME_JOINED,
                         level=DiagnosticLevel.INFO,
-                        message=f"Successfully joined game room {room_code}"
+                        message=f"Successfully joined game room {room_code}",
+                        details={
+                            'connect_duration_ms': connect_duration * 1000,
+                            'player_id': getattr(bot_instance.game_client, 'player_id', None),
+                            'room_id': getattr(bot_instance.game_client, 'room_id', None)
+                        },
+                        correlation_id=correlation_id
                     )
+                    
+                    self.logger.info(f"Bot {bot_id} joined room {room_code} in {connect_duration:.3f}s")
                 
                 # Update connection status to connected
                 self.diagnostic_tracker.update_connection_status(
                     bot_id=bot_id,
                     connection_status=ConnectionStatus.CONNECTED,
                     websocket_connected=True,
-                    websocket_url=self.config.game_server_url.replace("http://", "ws://") + "/ws"
+                    websocket_url=websocket_url
                 )
                 
             except Exception as conn_error:
+                client_duration = (datetime.now() - client_start).total_seconds()
+                error_msg = f"Game client connection failed: {str(conn_error)}"
+                
                 self.diagnostic_tracker.update_connection_status(
                     bot_id=bot_id,
                     connection_status=ConnectionStatus.FAILED,
-                    error_message=str(conn_error)
+                    error_message=error_msg
                 )
                 self.diagnostic_tracker.log_event(
                     bot_id=bot_id,
                     event_type=BotLifecycleEvent.BOT_GAME_JOIN_FAILED,
                     level=DiagnosticLevel.ERROR,
-                    message=f"Failed to join game room: {conn_error}",
-                    details={'error': str(conn_error)}
+                    message=error_msg,
+                    details={
+                        'error_type': type(conn_error).__name__,
+                        'error_message': str(conn_error),
+                        'connection_duration_ms': client_duration * 1000,
+                        'room_code': room_info.get('room_code'),
+                        'websocket_url': websocket_url,
+                        'game_server_url': self.config.game_server_url
+                    },
+                    correlation_id=correlation_id
                 )
+                
+                self.logger.error(f"Connection failed for bot {bot_id} after {client_duration:.3f}s: {conn_error}")
                 raise conn_error
             
-            # Start bot AI loop
-            asyncio.create_task(self._run_bot_ai_loop(bot_id))
+            # Step 5: Start bot AI loop with tracking
+            self.logger.debug(f"Starting AI loop for bot {bot_id}")
+            asyncio.create_task(self._run_bot_ai_loop(bot_id, correlation_id))
             
             # Update AI status to active
             self.diagnostic_tracker.update_ai_status(bot_id, AIStatus.ACTIVE)
@@ -935,17 +1108,50 @@ class BotServer:
             await self._update_bot_status(bot_id, BotStatus.ACTIVE)
             bot_instance.last_activity = datetime.now()
             
+            # Log successful initialization with comprehensive metrics
+            total_init_duration = (datetime.now() - init_start_time).total_seconds()
+            
             self.diagnostic_tracker.log_event(
                 bot_id=bot_id,
                 event_type=BotLifecycleEvent.BOT_ACTIVE,
                 level=DiagnosticLevel.INFO,
-                message="Bot initialization completed successfully"
+                message="Bot initialization completed successfully",
+                details={
+                    'total_init_duration_ms': total_init_duration * 1000,
+                    'final_status': BotStatus.ACTIVE.value,
+                    'ai_status': AIStatus.ACTIVE.value,
+                    'connection_status': ConnectionStatus.CONNECTED.value,
+                    'websocket_connected': True,
+                    'player_id': getattr(bot_instance.game_client, 'player_id', None),
+                    'room_id': getattr(bot_instance.game_client, 'room_id', None)
+                },
+                correlation_id=correlation_id
             )
             
-            self.logger.info(f"Bot {bot_id} initialized and connected successfully")
+            self.logger.info(f"Bot {bot_id} initialization completed successfully in {total_init_duration:.3f}s")
             
         except Exception as e:
-            self.logger.error(f"Failed to initialize bot {bot_id}: {e}")
+            # Log detailed initialization failure
+            total_init_duration = (datetime.now() - init_start_time).total_seconds()
+            error_msg = f"Bot initialization failed: {str(e)}"
+            
+            self.diagnostic_tracker.log_event(
+                bot_id=bot_id,
+                event_type=BotLifecycleEvent.BOT_ERROR,
+                level=DiagnosticLevel.ERROR,
+                message=error_msg,
+                details={
+                    'error_type': type(e).__name__,
+                    'error_message': str(e),
+                    'init_duration_ms': total_init_duration * 1000,
+                    'final_status': BotStatus.ERROR.value,
+                    'room_code': room_info.get('room_code'),
+                    'bot_type': bot_instance.config.bot_type.value
+                },
+                correlation_id=correlation_id
+            )
+            
+            self.logger.error(f"Bot {bot_id} initialization failed after {total_init_duration:.3f}s: {e}")
             await self._update_bot_status(bot_id, BotStatus.ERROR, str(e))
             
             self.diagnostic_tracker.log_event(
@@ -960,34 +1166,145 @@ class BotServer:
             if bot_instance.game_client:
                 await self.client_pool.return_client(bot_id)
     
-    async def _load_bot_ai(self, config: BotConfig) -> Any:
-        """Load the appropriate AI for a bot configuration."""
-        if config.bot_type == BotType.RULES_BASED:
-            return RulesBasedBot(config.difficulty)
+    async def _load_bot_ai(self, config: BotConfig, bot_id: str, correlation_id: Optional[str] = None) -> Any:
+        """Load the appropriate AI for a bot configuration with detailed diagnostic tracking."""
+        load_start = datetime.now()
         
-        elif config.bot_type == BotType.RL_GENERATION:
-            if config.generation is None:
-                raise ValueError("Generation required for RL bot")
-            
-            # Load from cache or model manager
-            if config.generation not in self._model_cache:
+        try:
+            if config.bot_type == BotType.RULES_BASED:
+                self.logger.debug(f"Loading rules-based AI for bot {bot_id} with difficulty {config.difficulty.value}")
+                
+                # Create rules-based bot with validation
                 try:
-                    # This would need to be implemented based on the actual RL model structure
-                    # For now, return a placeholder
-                    self.logger.warning(f"RL model loading not fully implemented for generation {config.generation}")
-                    # Fallback to rules-based for now
-                    return RulesBasedBot(config.difficulty)
-                except Exception as e:
-                    self.logger.error(f"Failed to load RL model generation {config.generation}: {e}")
-                    # Fallback to rules-based
-                    return RulesBasedBot(config.difficulty)
+                    bot_ai = RulesBasedBot(config.difficulty)
+                    
+                    # Validate the bot AI was created successfully
+                    if not hasattr(bot_ai, 'difficulty_level'):
+                        raise RuntimeError("Rules-based bot creation failed - missing difficulty_level attribute")
+                    
+                    load_duration = (datetime.now() - load_start).total_seconds()
+                    self.logger.debug(f"Rules-based AI loaded successfully for bot {bot_id} in {load_duration:.3f}s")
+                    
+                    return bot_ai
+                    
+                except Exception as rules_error:
+                    load_duration = (datetime.now() - load_start).total_seconds()
+                    error_msg = f"Failed to create rules-based bot: {str(rules_error)}"
+                    self.logger.error(f"Rules-based AI loading failed for bot {bot_id} after {load_duration:.3f}s: {rules_error}")
+                    raise RuntimeError(error_msg) from rules_error
             
-            return self._model_cache[config.generation]
-        
-        else:
-            raise ValueError(f"Unsupported bot type: {config.bot_type}")
+            elif config.bot_type == BotType.RL_GENERATION:
+                if config.generation is None:
+                    raise ValueError("Generation required for RL bot")
+                
+                self.logger.debug(f"Loading RL generation {config.generation} AI for bot {bot_id}")
+                
+                # Load from cache or model manager
+                if config.generation not in self._model_cache:
+                    try:
+                        self.logger.debug(f"RL generation {config.generation} not in cache, attempting to load from model manager")
+                        
+                        # Check if model exists
+                        available_models = self.model_manager.list_models()
+                        available_generations = [gen for gen, _ in available_models]
+                        
+                        if config.generation not in available_generations:
+                            self.logger.warning(f"RL generation {config.generation} not found in available models: {available_generations}")
+                            self.logger.info(f"Falling back to rules-based bot for bot {bot_id}")
+                            return RulesBasedBot(config.difficulty)
+                        
+                        # This would need to be implemented based on the actual RL model structure
+                        # For now, return a placeholder with detailed logging
+                        self.logger.warning(f"RL model loading not fully implemented for generation {config.generation}")
+                        self.logger.info(f"Falling back to rules-based bot for bot {bot_id}")
+                        
+                        # Fallback to rules-based for now
+                        fallback_bot = RulesBasedBot(config.difficulty)
+                        load_duration = (datetime.now() - load_start).total_seconds()
+                        self.logger.debug(f"Fallback rules-based AI loaded for bot {bot_id} in {load_duration:.3f}s")
+                        
+                        return fallback_bot
+                        
+                    except Exception as e:
+                        load_duration = (datetime.now() - load_start).total_seconds()
+                        self.logger.error(f"Failed to load RL model generation {config.generation} for bot {bot_id} after {load_duration:.3f}s: {e}")
+                        self.logger.info(f"Falling back to rules-based bot for bot {bot_id}")
+                        
+                        # Fallback to rules-based
+                        fallback_bot = RulesBasedBot(config.difficulty)
+                        return fallback_bot
+                
+                # Return cached model
+                cached_model = self._model_cache[config.generation]
+                load_duration = (datetime.now() - load_start).total_seconds()
+                self.logger.debug(f"Cached RL model loaded for bot {bot_id} in {load_duration:.3f}s")
+                
+                return cached_model
+            
+            else:
+                error_msg = f"Unsupported bot type: {config.bot_type}"
+                self.logger.error(f"AI loading failed for bot {bot_id}: {error_msg}")
+                raise ValueError(error_msg)
+                
+        except Exception as e:
+            load_duration = (datetime.now() - load_start).total_seconds()
+            self.logger.error(f"AI loading failed for bot {bot_id} after {load_duration:.3f}s: {e}")
+            raise
     
-    async def _run_bot_ai_loop(self, bot_id: str) -> None:
+    def _validate_bot_config(self, config: BotConfig, room_info: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate bot configuration before spawning.
+        
+        Args:
+            config: Bot configuration to validate
+            room_info: Room information for validation
+            
+        Returns:
+            Dict with 'valid' boolean and 'error' message if invalid
+        """
+        try:
+            # Validate bot type
+            if not isinstance(config.bot_type, BotType):
+                return {'valid': False, 'error': f'Invalid bot type: {config.bot_type}'}
+            
+            # Validate difficulty
+            if not isinstance(config.difficulty, DifficultyLevel):
+                return {'valid': False, 'error': f'Invalid difficulty level: {config.difficulty}'}
+            
+            # Validate bot name
+            if not config.name or not isinstance(config.name, str) or len(config.name.strip()) == 0:
+                return {'valid': False, 'error': 'Bot name is required and must be a non-empty string'}
+            
+            if len(config.name) > 50:
+                return {'valid': False, 'error': 'Bot name must be 50 characters or less'}
+            
+            # Validate RL generation if applicable
+            if config.bot_type == BotType.RL_GENERATION:
+                if config.generation is None:
+                    return {'valid': False, 'error': 'Generation is required for RL bots'}
+                
+                if not isinstance(config.generation, int) or config.generation < 0:
+                    return {'valid': False, 'error': 'Generation must be a non-negative integer'}
+            
+            # Validate room information
+            room_code = room_info.get('room_code')
+            if room_code and (not isinstance(room_code, str) or len(room_code.strip()) == 0):
+                return {'valid': False, 'error': 'Room code must be a non-empty string if provided'}
+            
+            # Validate training mode settings
+            if config.training_mode and not isinstance(config.training_mode, bool):
+                return {'valid': False, 'error': 'Training mode must be a boolean'}
+            
+            # Validate auto cleanup settings
+            if not isinstance(config.auto_cleanup, bool):
+                return {'valid': False, 'error': 'Auto cleanup must be a boolean'}
+            
+            return {'valid': True, 'error': None}
+            
+        except Exception as e:
+            return {'valid': False, 'error': f'Configuration validation error: {str(e)}'}
+
+    async def _run_bot_ai_loop(self, bot_id: str, correlation_id: Optional[str] = None) -> None:
         """Run the main AI decision loop for a bot."""
         if bot_id not in self._bots:
             return
@@ -1013,7 +1330,8 @@ class BotServer:
                         ).total_seconds()
                     
                     # Record game state update for diagnostics
-                    self.diagnostic_tracker.get_activity_metrics(bot_id).game_state_updates += 1
+                    if bot_id in self.diagnostic_tracker._activity_metrics:
+                        self.diagnostic_tracker._activity_metrics[bot_id].game_state_updates += 1
                 
                 if game_state and isinstance(bot_instance.bot_ai, RulesBasedBot):
                     # Analyze game state and select action

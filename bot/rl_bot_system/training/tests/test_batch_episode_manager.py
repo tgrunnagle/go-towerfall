@@ -7,13 +7,13 @@ import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from bot.rl_bot_system.training.batch_episode_manager import (
+from rl_bot_system.training.batch_episode_manager import (
     BatchEpisodeManager,
     EpisodeBatch,
     EpisodeTask,
     EpisodeStatus
 )
-from bot.rl_bot_system.training.training_session import EpisodeResult
+from rl_bot_system.training.training_session import EpisodeResult
 
 
 class TestBatchEpisodeManager:

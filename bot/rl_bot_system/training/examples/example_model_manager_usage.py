@@ -13,7 +13,7 @@ import numpy as np
 import random
 from datetime import datetime
 from typing import Tuple, List, Dict, Any
-from bot.rl_bot_system.training.model_manager import ModelManager, RLModel
+from rl_bot_system.training.model_manager import ModelManager, RLModel
 
 
 class ExampleRLModel(nn.Module):

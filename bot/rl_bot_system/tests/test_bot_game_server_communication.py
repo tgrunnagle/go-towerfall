@@ -27,12 +27,12 @@ import pytest_asyncio
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from bot.game_client import GameClient, TrainingMode
-from bot.rl_bot_system.server.bot_server import (
+from game_client import GameClient, TrainingMode
+from rl_bot_system.server.bot_server import (
     BotServer, BotServerConfig, BotConfig, BotType, BotStatus
 )
-from bot.rl_bot_system.server.bot_server_api import BotServerApi
-from bot.rl_bot_system.rules_based.rules_based_bot import DifficultyLevel
+from rl_bot_system.server.bot_server_api import BotServerApi
+from rl_bot_system.rules_based.rules_based_bot import DifficultyLevel
 
 
 class ServerManager:
@@ -319,7 +319,7 @@ class TestBotGameServerCommunication:
     @pytest.mark.asyncio
     async def test_bot_action_execution_and_state_validation(self, server_manager, test_room):
         """Test bot action execution and game state response validation."""
-        from bot.rl_bot_system.tests.test_utils import EnhancedGameClient
+        from rl_bot_system.tests.test_utils import EnhancedGameClient
         
         # Create game client with state tracking
         client = EnhancedGameClient(
@@ -375,7 +375,7 @@ class TestBotGameServerCommunication:
     @pytest.mark.asyncio
     async def test_message_serialization_deserialization(self, server_manager, test_room):
         """Test proper message serialization/deserialization between servers."""
-        from bot.rl_bot_system.tests.test_utils import EnhancedGameClient
+        from rl_bot_system.tests.test_utils import EnhancedGameClient
         
         client = EnhancedGameClient(
             ws_url=server_manager.ws_url,

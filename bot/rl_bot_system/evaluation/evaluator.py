@@ -32,8 +32,8 @@ except ImportError:
     stats = None
     SCIPY_AVAILABLE = False
 
-from bot.rl_bot_system.training.model_manager import ModelManager, RLModel
-from bot.game_client import GameClient
+from rl_bot_system.training.model_manager import ModelManager, RLModel
+from game_client import GameClient
 
 logger = logging.getLogger(__name__)
 

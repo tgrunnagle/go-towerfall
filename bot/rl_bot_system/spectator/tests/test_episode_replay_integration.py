@@ -11,14 +11,14 @@ import json
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 
-from bot.rl_bot_system.spectator.episode_replay import (
+from rl_bot_system.spectator.episode_replay import (
     EpisodeReplayManager,
     ReplayControls,
     ReplayState
 )
-from bot.rl_bot_system.spectator.spectator_manager import SpectatorManager
-from bot.rl_bot_system.replay.replay_manager import ReplayManager
-from bot.rl_bot_system.evaluation.evaluator import GameEpisode
+from rl_bot_system.spectator.spectator_manager import SpectatorManager
+from rl_bot_system.replay.replay_manager import ReplayManager
+from rl_bot_system.evaluation.evaluator import GameEpisode
 
 
 class TestEpisodeReplayIntegration:
@@ -294,7 +294,7 @@ class TestReplayAPIIntegration:
     
     def test_api_initialization(self, mock_managers):
         """Test API initialization with managers."""
-        from bot.rl_bot_system.server.replay_api import initialize_replay_api
+        from rl_bot_system.server.replay_api import initialize_replay_api
         
         replay_manager, spectator_manager, episode_replay_manager = mock_managers
         

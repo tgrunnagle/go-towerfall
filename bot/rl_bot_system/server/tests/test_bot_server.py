@@ -10,13 +10,13 @@ import aiohttp
 import logging
 from datetime import datetime, timedelta
 
-from bot.rl_bot_system.server.bot_server import (
+from rl_bot_system.server.bot_server import (
     BotServer, BotServerConfig, BotConfig, BotType, BotStatus, DifficultyLevel,
     GameClientPool, BotInstance
 )
-from bot.rl_bot_system.rules_based.rules_based_bot import RulesBasedBot
-from bot.rl_bot_system.tests.test_utils import ServerHealthChecker, GameRoomManager
-from bot.game_client import GameClient
+from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot
+from rl_bot_system.tests.test_utils import ServerHealthChecker, GameRoomManager
+from game_client import GameClient
 
 
 class TestGameClientPool:
@@ -182,7 +182,7 @@ class TestBotServer:
         server = server_manager
         
         # We need to create multiple rooms since we have a per-room limit
-        from bot.rl_bot_system.tests.test_utils import GameRoomManager
+        from rl_bot_system.tests.test_utils import GameRoomManager
         room_manager = GameRoomManager(server_config["go_server_url"])
         
         bot_ids = []

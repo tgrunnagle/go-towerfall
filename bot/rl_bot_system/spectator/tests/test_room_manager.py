@@ -7,7 +7,7 @@ import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import Mock, AsyncMock, patch
 
-from bot.rl_bot_system.spectator.room_manager import (
+from rl_bot_system.spectator.room_manager import (
     SpectatorRoomManager, RoomAccessControl, AccessLevel, SpectatorRoomInfo
 )
 

@@ -17,11 +17,11 @@ import aiohttp
 import logging
 from datetime import datetime, timedelta
 
-from bot.rl_bot_system.server.bot_server import (
+from rl_bot_system.server.bot_server import (
     BotServer, BotServerConfig, BotConfig, BotType, BotStatus, DifficultyLevel
 )
-from bot.rl_bot_system.rules_based.rules_based_bot import RulesBasedBot
-from bot.rl_bot_system.tests.test_utils import ServerHealthChecker, GameRoomManager
+from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot
+from rl_bot_system.tests.test_utils import ServerHealthChecker, GameRoomManager
 
 @pytest_asyncio.fixture(scope="class")
 async def server_manager(server_config):

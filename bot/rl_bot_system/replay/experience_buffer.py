@@ -8,7 +8,7 @@ from collections import deque
 from typing import List, Dict, Any, Tuple, Optional, Iterator
 from dataclasses import dataclass
 
-from bot.rl_bot_system.evaluation.evaluator import GameEpisode
+from rl_bot_system.evaluation.evaluator import GameEpisode
 
 
 @dataclass

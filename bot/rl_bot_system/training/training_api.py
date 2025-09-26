@@ -12,9 +12,9 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from dataclasses import asdict
 
-from bot.rl_bot_system.training.session_manager import SessionManager, ResourceLimits
-from bot.rl_bot_system.training.training_session import TrainingConfig, TrainingMode
-from bot.rl_bot_system.training.batch_episode_manager import BatchEpisodeManager
+from rl_bot_system.training.session_manager import SessionManager, ResourceLimits
+from rl_bot_system.training.training_session import TrainingConfig, TrainingMode
+from rl_bot_system.training.batch_episode_manager import BatchEpisodeManager
 
 
 class TrainingAPI:

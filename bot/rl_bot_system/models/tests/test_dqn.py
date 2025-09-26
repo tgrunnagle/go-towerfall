@@ -11,7 +11,7 @@ import tempfile
 import os
 from unittest.mock import Mock
 
-from bot.rl_bot_system.models.dqn import DQNAgent, DQNNetwork, ExperienceReplay
+from rl_bot_system.models.dqn import DQNAgent, DQNNetwork, ExperienceReplay
 
 
 class TestDQNNetwork:

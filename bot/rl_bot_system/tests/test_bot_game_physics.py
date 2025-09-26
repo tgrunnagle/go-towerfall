@@ -21,8 +21,8 @@ import pytest_asyncio
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from bot.game_client import GameClient
-from bot.rl_bot_system.tests.test_utils import EnhancedGameClient
+from game_client import GameClient
+from rl_bot_system.tests.test_utils import EnhancedGameClient
 
 
 class PhysicsValidationClient(EnhancedGameClient):
@@ -398,7 +398,7 @@ class TestBotGamePhysicsValidation:
     @pytest_asyncio.fixture(scope="class")
     async def server_manager(self):
         """Fixture to manage test servers."""
-        from bot.rl_bot_system.tests.test_bot_game_server_communication import ServerManager
+        from rl_bot_system.tests.test_bot_game_server_communication import ServerManager
         
         manager = ServerManager()
         

@@ -10,10 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from bot.rl_bot_system.evaluation.evaluator import (
+from rl_bot_system.evaluation.evaluator import (
     EvaluationManager, EvaluationResult, GameEpisode
 )
-from bot.rl_bot_system.training.model_manager import ModelManager, RLModel
+from rl_bot_system.training.model_manager import ModelManager, RLModel
 
 
 class TestEvaluationResult(unittest.TestCase):

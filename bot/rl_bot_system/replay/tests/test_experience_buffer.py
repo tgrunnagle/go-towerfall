@@ -6,10 +6,10 @@ import unittest
 import random
 from unittest.mock import patch
 
-from bot.rl_bot_system.replay.experience_buffer import (
+from rl_bot_system.replay.experience_buffer import (
     ExperienceBuffer, BufferConfig, ExperienceTransition
 )
-from bot.rl_bot_system.evaluation.evaluator import GameEpisode
+from rl_bot_system.evaluation.evaluator import GameEpisode
 
 
 class TestExperienceBuffer(unittest.TestCase):

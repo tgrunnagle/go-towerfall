@@ -5,10 +5,10 @@ Unit tests for TrainingAPI class.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from bot.rl_bot_system.training.training_api import TrainingAPI
-from bot.rl_bot_system.training.session_manager import SessionManager
-from bot.rl_bot_system.training.batch_episode_manager import BatchEpisodeManager
-from bot.rl_bot_system.training.training_session import TrainingConfig, TrainingMode
+from rl_bot_system.training.training_api import TrainingAPI
+from rl_bot_system.training.session_manager import SessionManager
+from rl_bot_system.training.batch_episode_manager import BatchEpisodeManager
+from rl_bot_system.training.training_session import TrainingConfig, TrainingMode
 
 
 class TestTrainingAPI:

@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Any, Callable, Awaitable
 from concurrent.futures import ThreadPoolExecutor
 import aiohttp
 
-from bot.game_client import GameClient
+from game_client import GameClient
 
 
 class TrainingMode(Enum):

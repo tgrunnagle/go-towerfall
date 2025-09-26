@@ -5,7 +5,7 @@ Tests for state processor implementations.
 import pytest
 import numpy as np
 
-from bot.rl_bot_system.environment.state_processors import (
+from rl_bot_system.environment.state_processors import (
     StateRepresentationType,
     RawCoordinateProcessor,
     GridBasedProcessor,

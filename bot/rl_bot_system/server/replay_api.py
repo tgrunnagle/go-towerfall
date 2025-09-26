@@ -12,13 +12,13 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 
-from bot.rl_bot_system.spectator.episode_replay import (
+from rl_bot_system.spectator.episode_replay import (
     EpisodeReplayManager,
     ReplayControls,
     ReplayState
 )
-from bot.rl_bot_system.spectator.spectator_manager import SpectatorManager
-from bot.rl_bot_system.replay.replay_manager import ReplayManager
+from rl_bot_system.spectator.spectator_manager import SpectatorManager
+from rl_bot_system.replay.replay_manager import ReplayManager
 
 logger = logging.getLogger(__name__)
 

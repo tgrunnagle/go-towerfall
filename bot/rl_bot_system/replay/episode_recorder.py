@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass, asdict
 
-from bot.rl_bot_system.evaluation.evaluator import GameEpisode
+from rl_bot_system.evaluation.evaluator import GameEpisode
 
 
 @dataclass

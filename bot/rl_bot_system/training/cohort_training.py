@@ -15,8 +15,8 @@ from enum import Enum
 from typing import Dict, List, Optional, Any, Tuple, Callable, Set
 import numpy as np
 
-from bot.rl_bot_system.training.model_manager import ModelManager, RLModel
-from bot.rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
+from rl_bot_system.training.model_manager import ModelManager, RLModel
+from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
 
 
 class OpponentSelectionStrategy(Enum):

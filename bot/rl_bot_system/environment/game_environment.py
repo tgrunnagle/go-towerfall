@@ -16,8 +16,8 @@ from enum import Enum
 import gymnasium as gym
 from gymnasium import spaces
 
-from bot.rl_bot_system.utils.async_env import AsyncEnvWrapper
-from bot.game_client import GameClient
+from rl_bot_system.utils.async_env import AsyncEnvWrapper
+from game_client import GameClient
 
 
 class TrainingMode(Enum):
@@ -413,15 +413,15 @@ class GameEnvironment(gym.Env):
     
     def _create_default_state_processor(self):
         """Create default state processor."""
-        from bot.rl_bot_system.environment.state_processors import RawCoordinateProcessor
+        from rl_bot_system.environment.state_processors import RawCoordinateProcessor
         return RawCoordinateProcessor()
     
     def _create_default_action_space(self):
         """Create default action space configuration."""
-        from bot.rl_bot_system.environment.action_spaces import DiscreteActionSpace
+        from rl_bot_system.environment.action_spaces import DiscreteActionSpace
         return DiscreteActionSpace()
     
     def _create_default_reward_function(self):
         """Create default reward function."""
-        from bot.rl_bot_system.environment.reward_functions import SparseRewardFunction
+        from rl_bot_system.environment.reward_functions import SparseRewardFunction
         return SparseRewardFunction()

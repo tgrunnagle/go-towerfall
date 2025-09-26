@@ -7,10 +7,10 @@ import asyncio
 import numpy as np
 from unittest.mock import Mock, AsyncMock
 
-from bot.rl_bot_system.environment.game_environment import GameEnvironment, TrainingMode
-from bot.rl_bot_system.environment.state_processors import StateProcessorFactory, StateRepresentationType
-from bot.rl_bot_system.environment.action_spaces import ActionSpaceFactory, ActionSpaceType
-from bot.rl_bot_system.environment.reward_functions import RewardFunctionFactory, RewardType
+from rl_bot_system.environment.game_environment import GameEnvironment, TrainingMode
+from rl_bot_system.environment.state_processors import StateProcessorFactory, StateRepresentationType
+from rl_bot_system.environment.action_spaces import ActionSpaceFactory, ActionSpaceType
+from rl_bot_system.environment.reward_functions import RewardFunctionFactory, RewardType
 
 
 @pytest.fixture

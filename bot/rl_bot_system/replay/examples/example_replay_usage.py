@@ -5,11 +5,11 @@ Example usage of the replay system for episode recording, analysis, and experien
 import random
 from pathlib import Path
 
-from bot.rl_bot_system.replay.replay_manager import ReplayManager
-from bot.rl_bot_system.replay.episode_recorder import RecordingConfig
-from bot.rl_bot_system.replay.experience_buffer import BufferConfig
-from bot.rl_bot_system.replay.replay_analyzer import AnalysisConfig
-from bot.rl_bot_system.evaluation.evaluator import GameEpisode
+from rl_bot_system.replay.replay_manager import ReplayManager
+from rl_bot_system.replay.episode_recorder import RecordingConfig
+from rl_bot_system.replay.experience_buffer import BufferConfig
+from rl_bot_system.replay.replay_analyzer import AnalysisConfig
+from rl_bot_system.evaluation.evaluator import GameEpisode
 
 
 def create_sample_episode(episode_id: str, model_generation: int, episode_length: int = 10) -> GameEpisode:

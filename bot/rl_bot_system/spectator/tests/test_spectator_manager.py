@@ -7,10 +7,10 @@ import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import Mock, AsyncMock, patch
 
-from bot.rl_bot_system.spectator.spectator_manager import (
+from rl_bot_system.spectator.spectator_manager import (
     SpectatorManager, SpectatorSession, SpectatorMode
 )
-from bot.rl_bot_system.spectator.training_metrics_overlay import MetricsData
+from rl_bot_system.spectator.training_metrics_overlay import MetricsData
 
 
 @pytest.fixture

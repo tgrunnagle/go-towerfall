@@ -1,17 +1,17 @@
 """Environment module for RL training."""
 
-from bot.rl_bot_system.environment.game_environment import GameEnvironment, TrainingMode
-from bot.rl_bot_system.environment.state_processors import (
+from rl_bot_system.environment.game_environment import GameEnvironment, TrainingMode
+from rl_bot_system.environment.state_processors import (
     StateProcessor, StateRepresentationType, StateProcessorFactory,
     RawCoordinateProcessor, GridBasedProcessor, FeatureVectorProcessor,
     ABTestingFramework
 )
-from bot.rl_bot_system.environment.action_spaces import (
+from rl_bot_system.environment.action_spaces import (
     ActionSpaceConfig, ActionSpaceType, ActionSpaceFactory,
     DiscreteActionSpace, ContinuousActionSpace, HybridActionSpace,
     MultiDiscreteActionSpace, ActionTimingController
 )
-from bot.rl_bot_system.environment.reward_functions import (
+from rl_bot_system.environment.reward_functions import (
     RewardFunction, RewardType, RewardFunctionFactory,
     SparseRewardFunction, DenseRewardFunction, ShapedRewardFunction,
     MultiObjectiveRewardFunction, HorizonBasedRewardFunction,

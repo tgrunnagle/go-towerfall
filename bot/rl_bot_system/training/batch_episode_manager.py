@@ -14,8 +14,8 @@ from typing import Dict, List, Optional, Any, Callable, Awaitable
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 
-from bot.game_client import GameClient
-from bot.rl_bot_system.training.training_session import EpisodeResult
+from game_client import GameClient
+from rl_bot_system.training.training_session import EpisodeResult
 
 
 class EpisodeStatus(Enum):

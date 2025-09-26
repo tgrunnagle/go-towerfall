@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 from gymnasium import spaces
 
-from bot.rl_bot_system.environment.action_spaces import (
+from rl_bot_system.environment.action_spaces import (
     ActionSpaceType,
     DiscreteActionSpace,
     ContinuousActionSpace,

@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Tuple, Optional, Set
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
-from bot.rl_bot_system.evaluation.evaluator import GameEpisode
+from rl_bot_system.evaluation.evaluator import GameEpisode
 
 
 @dataclass

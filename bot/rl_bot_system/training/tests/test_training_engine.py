@@ -13,13 +13,13 @@ import shutil
 from unittest.mock import Mock, MagicMock, patch
 from pathlib import Path
 
-from bot.rl_bot_system.training.training_engine import (
+from rl_bot_system.training.training_engine import (
     TrainingEngine, TrainingConfig, TrainingMetrics, EvaluationResult
 )
-from bot.rl_bot_system.training.model_manager import ModelManager, RLModel
-from bot.rl_bot_system.training.cohort_training import CohortTrainingSystem
-from bot.rl_bot_system.models import DQNAgent, PPOAgent, A2CAgent
-from bot.rl_bot_system.environment import GameEnvironment, TrainingMode
+from rl_bot_system.training.model_manager import ModelManager, RLModel
+from rl_bot_system.training.cohort_training import CohortTrainingSystem
+from rl_bot_system.models import DQNAgent, PPOAgent, A2CAgent
+from rl_bot_system.environment import GameEnvironment, TrainingMode
 
 
 class MockGameEnvironment:

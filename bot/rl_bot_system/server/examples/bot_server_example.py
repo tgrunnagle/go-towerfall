@@ -11,7 +11,7 @@ Prerequisites:
 import asyncio
 import logging
 import aiohttp
-from bot.rl_bot_system.server.bot_server import (
+from rl_bot_system.server.bot_server import (
     BotServer, BotServerConfig, BotConfig, BotType, DifficultyLevel
 )
 

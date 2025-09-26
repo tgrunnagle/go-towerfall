@@ -11,14 +11,14 @@ import logging
 from datetime import datetime
 from typing import Dict, Any
 
-from bot.rl_bot_system.training.cohort_training import (
+from rl_bot_system.training.cohort_training import (
     CohortTrainingSystem,
     CohortConfig,
     OpponentSelectionStrategy,
     DifficultyProgression
 )
-from bot.rl_bot_system.training.model_manager import ModelManager
-from bot.rl_bot_system.training.training_session import TrainingSession, TrainingConfig
+from rl_bot_system.training.model_manager import ModelManager
+from rl_bot_system.training.training_session import TrainingSession, TrainingConfig
 
 
 # Configure logging

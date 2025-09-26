@@ -10,12 +10,12 @@ import logging
 import numpy as np
 from pathlib import Path
 
-from bot.rl_bot_system.training.training_engine import TrainingEngine, TrainingConfig
-from bot.rl_bot_system.training.model_manager import ModelManager
-from bot.rl_bot_system.training.cohort_training import CohortTrainingSystem, CohortConfig
-from bot.rl_bot_system.training.hyperparameter_tuning import HyperparameterTuner
-from bot.rl_bot_system.environment import GameEnvironment, TrainingMode
-from bot.game_client import GameClient
+from rl_bot_system.training.training_engine import TrainingEngine, TrainingConfig
+from rl_bot_system.training.model_manager import ModelManager
+from rl_bot_system.training.cohort_training import CohortTrainingSystem, CohortConfig
+from rl_bot_system.training.hyperparameter_tuning import HyperparameterTuner
+from rl_bot_system.environment import GameEnvironment, TrainingMode
+from game_client import GameClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

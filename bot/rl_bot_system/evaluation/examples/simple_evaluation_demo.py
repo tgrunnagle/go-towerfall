@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 def create_mock_evaluation_system():
     """Create a mock evaluation system for demonstration."""
     # Import here to avoid path issues
-    from bot.rl_bot_system.evaluation.evaluator import EvaluationManager, EvaluationResult
-    from bot.rl_bot_system.training.model_manager import RLModel
+    from rl_bot_system.evaluation.evaluator import EvaluationManager, EvaluationResult
+    from rl_bot_system.training.model_manager import RLModel
     
     # Create temporary directory for demo
     temp_dir = tempfile.mkdtemp()
