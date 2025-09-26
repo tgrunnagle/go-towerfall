@@ -16,9 +16,9 @@ func GetExtrapolatedPosition(p GameObject) (float64, float64, float64, float64, 
 	deltaTime := time.Since(lastUpdateTIme.(time.Time)).Seconds()
 
 	// Cap deltaTime to prevent extreme calculations
-	if deltaTime > 1.0 { // Cap at 1 second
-		log.Printf("GetExtrapolatedPosition: Capping excessive deltaTime from %v to 1.0 seconds", deltaTime)
-		deltaTime = 1.0
+	if deltaTime > 5.0 { // Cap at 5 second
+		log.Printf("GetExtrapolatedPosition: Capping excessive deltaTime from %v to 5.0 seconds", deltaTime)
+		deltaTime = 5.0
 	}
 	if deltaTime < 0 {
 		log.Printf("GetExtrapolatedPosition: Negative deltaTime %v detected, resetting to 0", deltaTime)
