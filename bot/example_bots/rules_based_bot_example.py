@@ -9,7 +9,7 @@ import argparse
 import logging
 import sys
 import websockets
-from game_client import GameClient
+from core.game_client import GameClient
 from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
 
 

@@ -27,11 +27,11 @@ import pytest_asyncio
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from game_client import GameClient, TrainingMode
-from rl_bot_system.server.bot_server import (
+from core.game_client import GameClient, TrainingMode
+from server.bot_server import (
     BotServer, BotServerConfig, BotConfig, BotType, BotStatus
 )
-from rl_bot_system.server.bot_server_api import BotServerApi
+from server.bot_server_api import BotServerApi
 from rl_bot_system.rules_based.rules_based_bot import DifficultyLevel
 
 

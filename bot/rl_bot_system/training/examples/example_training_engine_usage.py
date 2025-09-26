@@ -15,7 +15,7 @@ from rl_bot_system.training.model_manager import ModelManager
 from rl_bot_system.training.cohort_training import CohortTrainingSystem, CohortConfig
 from rl_bot_system.training.hyperparameter_tuning import HyperparameterTuner
 from rl_bot_system.environment import GameEnvironment, TrainingMode
-from game_client import GameClient
+from core.game_client import GameClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

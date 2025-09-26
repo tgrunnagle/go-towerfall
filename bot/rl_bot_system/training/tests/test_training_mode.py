@@ -15,7 +15,7 @@ import pytest
 # Add the bot directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from game_client import GameClient, TrainingMode
+from core.game_client import GameClient, TrainingMode
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

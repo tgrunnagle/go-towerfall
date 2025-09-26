@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Any, Callable, Awaitable
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 
-from game_client import GameClient
+from core.game_client import GameClient
 from rl_bot_system.training.training_session import EpisodeResult
 
 

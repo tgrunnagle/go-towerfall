@@ -11,7 +11,7 @@ import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import Mock, AsyncMock
 
-from rl_bot_system.server.diagnostics import (
+from server.diagnostics import (
     BotDiagnosticTracker, BotLifecycleEvent, DiagnosticLevel,
     ConnectionStatus, AIStatus, BotDiagnosticInfo, ConnectionHealth,
     BotActivityMetrics, DiagnosticEvent

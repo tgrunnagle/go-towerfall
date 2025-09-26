@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional, List, Set, Callable, Awaitable
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-from game_client import GameClient, TrainingMode
+from core.game_client import GameClient, TrainingMode
 from rl_bot_system.spectator.training_metrics_overlay import TrainingMetricsOverlay, MetricsData
 
 logger = logging.getLogger(__name__)

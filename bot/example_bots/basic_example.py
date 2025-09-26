@@ -3,7 +3,7 @@ import argparse
 import logging
 import sys
 import websockets
-from game_client import GameClient
+from core.game_client import GameClient
 
 
 class ExampleBot:

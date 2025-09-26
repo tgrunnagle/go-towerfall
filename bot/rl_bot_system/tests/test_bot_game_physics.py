@@ -21,7 +21,7 @@ import pytest_asyncio
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from game_client import GameClient
+from core.game_client import GameClient
 from rl_bot_system.tests.test_utils import EnhancedGameClient
 
 

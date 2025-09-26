@@ -11,7 +11,7 @@ Prerequisites:
 import asyncio
 import logging
 import aiohttp
-from rl_bot_system.server.bot_server import (
+from server.bot_server import (
     BotServer, BotServerConfig, BotConfig, BotType, DifficultyLevel
 )
 
@@ -205,7 +205,7 @@ async def main():
     
     finally:
         # Clean up
-        logger.info("Stopping bot server...")
+        logger.info("Stopping bot server..")
         await bot_server.stop()
         logger.info("Bot server stopped ✓")
 

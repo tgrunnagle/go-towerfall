@@ -17,7 +17,7 @@ import aiohttp
 import logging
 from datetime import datetime, timedelta
 
-from rl_bot_system.server.bot_server import (
+from server.bot_server import (
     BotServer, BotServerConfig, BotConfig, BotType, BotStatus, DifficultyLevel
 )
 from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot

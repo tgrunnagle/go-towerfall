@@ -11,7 +11,7 @@ import logging
 import sys
 import os
 
-from game_client import GameClient, TrainingMode
+from core.game_client import GameClient, TrainingMode
 from rl_bot_system.environment.game_environment import GameEnvironment
 
 # Configure logging

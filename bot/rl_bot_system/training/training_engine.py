@@ -21,7 +21,7 @@ from rl_bot_system.environment import GameEnvironment, TrainingMode
 from rl_bot_system.training.model_manager import ModelManager, RLModel
 from rl_bot_system.training.cohort_training import CohortTrainingSystem, CohortConfig
 from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot
-from game_client import GameClient
+from core.game_client import GameClient
 
 logger = logging.getLogger(__name__)
 

@@ -15,13 +15,16 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
 
-from game_client import GameClient, TrainingMode
+from core.game_client import GameClient, TrainingMode
 from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
 from rl_bot_system.training.model_manager import ModelManager
-from rl_bot_system.server.diagnostics import (
+from server.diagnostics import (
     BotDiagnosticTracker, BotLifecycleEvent, DiagnosticLevel, 
     ConnectionStatus, AIStatus, get_diagnostic_tracker
 )
+from server.monitored_game_client import MonitoredGameClient
+from server.websocket_monitor import get_websocket_monitor
+from server.connection_diagnostics import get_connection_diagnostics
 
 
 class BotType(Enum):
@@ -105,25 +108,25 @@ class BotServerConfig:
 
 
 class GameClientPool:
-    """Pool manager for GameClient connections."""
+    """Pool manager for MonitoredGameClient connections with WebSocket monitoring."""
     
     def __init__(self, max_connections: int = 50):
         self.max_connections = max_connections
-        self._available_clients: List[GameClient] = []
-        self._active_clients: Dict[str, GameClient] = {}  # bot_id -> client
+        self._available_clients: List[MonitoredGameClient] = []
+        self._active_clients: Dict[str, MonitoredGameClient] = {}  # bot_id -> client
         self._client_creation_lock = asyncio.Lock()
         self.logger = logging.getLogger(__name__)
     
-    async def get_client(self, bot_id: str, game_server_url: str) -> GameClient:
+    async def get_client(self, bot_id: str, game_server_url: str) -> MonitoredGameClient:
         """
-        Get a GameClient for a bot, either from pool or create new one.
+        Get a MonitoredGameClient for a bot, either from pool or create new one.
         
         Args:
             bot_id: ID of the bot requesting the client
             game_server_url: URL of the game server
             
         Returns:
-            GameClient instance
+            MonitoredGameClient instance
             
         Raises:
             RuntimeError: If max connections exceeded
@@ -135,19 +138,21 @@ class GameClientPool:
             # Try to reuse an available client
             if self._available_clients:
                 client = self._available_clients.pop()
-                self.logger.debug(f"Reusing pooled client for bot {bot_id}")
+                # Update bot_id for monitoring
+                client.bot_id = bot_id
+                self.logger.debug(f"Reusing pooled monitored client for bot {bot_id}")
             else:
-                # Create new client
+                # Create new monitored client
                 ws_url = game_server_url.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
-                client = GameClient(ws_url=ws_url, http_url=game_server_url)
-                self.logger.debug(f"Created new client for bot {bot_id}")
+                client = MonitoredGameClient(bot_id=bot_id, ws_url=ws_url, http_url=game_server_url)
+                self.logger.debug(f"Created new monitored client for bot {bot_id}")
             
             self._active_clients[bot_id] = client
             return client
     
     async def return_client(self, bot_id: str) -> None:
         """
-        Return a GameClient to the pool for reuse.
+        Return a MonitoredGameClient to the pool for reuse.
         
         Args:
             bot_id: ID of the bot returning the client
@@ -159,7 +164,7 @@ class GameClientPool:
                 # Clean up client state
                 await client.close()
                 
-                # Reset client for reuse
+                # Reset GameClient state for reuse (now inherited)
                 client.game_state = {}
                 client.player_id = None
                 client.player_token = None
@@ -171,15 +176,20 @@ class GameClientPool:
                 client._training_session_id = None
                 client._state_update_callbacks.clear()
                 
+                # Reset monitoring state
+                client._connection_established = False
+                client._connection_start_time = None
+                client._last_message_time = None
+                
                 # Return to pool if not at capacity
                 if len(self._available_clients) < self.max_connections // 2:
                     self._available_clients.append(client)
-                    self.logger.debug(f"Returned client to pool from bot {bot_id}")
+                    self.logger.debug(f"Returned monitored client to pool from bot {bot_id}")
                 else:
-                    self.logger.debug(f"Discarded client from bot {bot_id} (pool full)")
+                    self.logger.debug(f"Discarded monitored client from bot {bot_id} (pool full)")
                     
             except Exception as e:
-                self.logger.error(f"Error returning client from bot {bot_id}: {e}")
+                self.logger.error(f"Error returning monitored client from bot {bot_id}: {e}")
     
     def get_pool_stats(self) -> Dict[str, int]:
         """Get statistics about the client pool."""
@@ -222,6 +232,10 @@ class BotServer:
         # Diagnostic tracking
         self.diagnostic_tracker = get_diagnostic_tracker()
         
+        # WebSocket monitoring
+        self.websocket_monitor = get_websocket_monitor()
+        self.connection_diagnostics = get_connection_diagnostics()
+        
         # Background tasks
         self._cleanup_task: Optional[asyncio.Task] = None
         self._running = False
@@ -242,6 +256,10 @@ class BotServer:
         
         # Start diagnostic tracker
         await self.diagnostic_tracker.start()
+        
+        # Start WebSocket monitoring
+        await self.websocket_monitor.start()
+        await self.connection_diagnostics.start()
         
         # Start cleanup task
         self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
@@ -270,6 +288,10 @@ class BotServer:
         
         # Stop diagnostic tracker
         await self.diagnostic_tracker.stop()
+        
+        # Stop WebSocket monitoring
+        await self.websocket_monitor.stop()
+        await self.connection_diagnostics.stop()
         
         self.logger.info("BotServer stopped")
     
@@ -579,6 +601,17 @@ class BotServer:
         for bot in self._bots.values():
             type_counts[bot.config.bot_type.value] += 1
         
+        # Get WebSocket monitoring stats
+        websocket_connections = self.websocket_monitor.get_all_connections()
+        connection_stats = {
+            'total_monitored_connections': len(websocket_connections),
+            'healthy_connections': len([c for c in websocket_connections.values() if c.is_healthy]),
+            'failed_connections': len([c for c in websocket_connections.values() 
+                                     if c.connection_state.value == 'failed']),
+            'connecting_connections': len([c for c in websocket_connections.values() 
+                                         if c.connection_state.value == 'connecting'])
+        }
+        
         return {
             'running': self._running,
             'total_bots': len(self._bots),
@@ -587,6 +620,7 @@ class BotServer:
             'bots_by_status': status_counts,
             'bots_by_type': type_counts,
             'client_pool_stats': self.client_pool.get_pool_stats(),
+            'websocket_stats': connection_stats,
             'uptime_seconds': (datetime.now() - self._start_time).total_seconds() if hasattr(self, '_start_time') else 0
         }
     
@@ -629,6 +663,109 @@ class BotServer:
     def register_room_empty_callback(self, callback: Callable[[str], Awaitable[None]]) -> None:
         """Register a callback for when rooms become empty of bots."""
         self._room_empty_callbacks.append(callback)
+    
+    # WebSocket Connection Monitoring Methods
+    
+    def get_bot_connection_health(self, bot_id: str) -> Dict[str, Any]:
+        """
+        Get WebSocket connection health for a specific bot.
+        
+        Args:
+            bot_id: Bot identifier
+            
+        Returns:
+            Dictionary with connection health information
+        """
+        return self.websocket_monitor.get_connection_health(bot_id)
+    
+    def get_bot_connection_info(self, bot_id: str) -> Optional[Any]:
+        """
+        Get detailed WebSocket connection information for a bot.
+        
+        Args:
+            bot_id: Bot identifier
+            
+        Returns:
+            WebSocketConnectionInfo or None if not found
+        """
+        return self.websocket_monitor.get_connection_info(bot_id)
+    
+    def get_bot_message_history(self, bot_id: str, limit: Optional[int] = None) -> List[Any]:
+        """
+        Get WebSocket message history for a bot.
+        
+        Args:
+            bot_id: Bot identifier
+            limit: Maximum number of messages to return
+            
+        Returns:
+            List of WebSocket messages
+        """
+        return self.websocket_monitor.get_message_history(bot_id, limit)
+    
+    def get_all_connection_health(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get connection health for all bots.
+        
+        Returns:
+            Dictionary mapping bot_id to health information
+        """
+        result = {}
+        connections = self.websocket_monitor.get_all_connections()
+        for bot_id in connections.keys():
+            result[bot_id] = self.websocket_monitor.get_connection_health(bot_id)
+        return result
+    
+    def get_connection_issues(self, bot_id: str) -> List[Dict[str, Any]]:
+        """
+        Get connection issues detected for a specific bot.
+        
+        Args:
+            bot_id: Bot identifier
+            
+        Returns:
+            List of connection issues
+        """
+        issues = self.connection_diagnostics.get_bot_issues(bot_id)
+        return [issue.to_dict() for issue in issues]
+    
+    def get_all_connection_issues(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get connection issues for all bots.
+        
+        Returns:
+            Dictionary mapping bot_id to list of issues
+        """
+        all_issues = self.connection_diagnostics.get_all_issues()
+        result = {}
+        for bot_id, issues in all_issues.items():
+            result[bot_id] = [issue.to_dict() for issue in issues]
+        return result
+    
+    def generate_connection_report(self, bot_id: str) -> Dict[str, Any]:
+        """
+        Generate comprehensive connection report for a bot.
+        
+        Args:
+            bot_id: Bot identifier
+            
+        Returns:
+            Detailed connection report
+        """
+        return self.connection_diagnostics.generate_connection_report(bot_id)
+    
+    def resolve_connection_issue(self, bot_id: str, issue_id: str) -> bool:
+        """
+        Mark a connection issue as resolved.
+        
+        Args:
+            bot_id: Bot identifier
+            issue_id: Issue identifier
+            
+        Returns:
+            True if issue was found and resolved
+        """
+        return self.connection_diagnostics.resolve_issue(bot_id, issue_id)
     
     async def check_room_human_players(self, room_id: str) -> bool:
         """

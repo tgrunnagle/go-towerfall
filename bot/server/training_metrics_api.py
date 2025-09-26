@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
-from rl_bot_system.server.data_models import (
+from server.data_models import (
     TrainingMetricsData,
     BotDecisionData,
     PerformanceGraphData,
@@ -24,7 +24,7 @@ from rl_bot_system.server.data_models import (
     TrainingStatus,
     MessageType
 )
-from rl_bot_system.server.websocket_manager import WebSocketManager
+from server.websocket_manager import WebSocketManager
 
 logger = logging.getLogger(__name__)
 

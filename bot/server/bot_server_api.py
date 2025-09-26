@@ -11,9 +11,9 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
-from rl_bot_system.server.bot_server import BotServer, BotServerConfig, BotConfig, BotType
+from server.bot_server import BotServer, BotServerConfig, BotConfig, BotType
 from rl_bot_system.rules_based.rules_based_bot import DifficultyLevel
-from rl_bot_system.server.diagnostics import BotLifecycleEvent, DiagnosticLevel
+from server.diagnostics import BotLifecycleEvent, DiagnosticLevel
 
 
 # Pydantic models for API requests/responses

@@ -10,13 +10,13 @@ import aiohttp
 import logging
 from datetime import datetime, timedelta
 
-from rl_bot_system.server.bot_server import (
+from server.bot_server import (
     BotServer, BotServerConfig, BotConfig, BotType, BotStatus, DifficultyLevel,
     GameClientPool, BotInstance
 )
 from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot
 from rl_bot_system.tests.test_utils import ServerHealthChecker, GameRoomManager
-from game_client import GameClient
+from core.game_client import GameClient
 
 
 class TestGameClientPool:

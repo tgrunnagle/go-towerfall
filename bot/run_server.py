@@ -46,7 +46,7 @@ except ImportError:
 
 # Try to import the unified server
 try:
-    from rl_bot_system.server.server import UnifiedServer, ServerConfig, run_server
+    from server.server import UnifiedServer, ServerConfig, run_server
     UNIFIED_SERVER_AVAILABLE = True
     print("Using unified server with full functionality")
 except ImportError as e:
@@ -56,7 +56,7 @@ except ImportError as e:
     
     # Import components for fallback server
     try:
-        from rl_bot_system.server.data_models import (
+        from server.data_models import (
             TrainingMetricsData,
             BotDecisionData,
             PerformanceGraphData,
@@ -67,7 +67,7 @@ except ImportError as e:
             TrainingStatus,
             MessageType
         )
-        from rl_bot_system.server.websocket_manager import ConnectionManager, WebSocketManager
+        from server.websocket_manager import ConnectionManager, WebSocketManager
     except ImportError as e:
         print(f"Failed to import core server components: {e}")
         print("Make sure you're running this script from the bot/ directory")
@@ -283,7 +283,7 @@ class SimpleTrainingMetricsServer:
         @self.app.on_event("startup")
         async def startup_event():
             """Initialize server components on startup."""
-            print("Starting Training Metrics Server...")
+            print("Starting Training Metrics server..")
             
             # Create data storage directory
             if self.config.enable_data_persistence:
@@ -297,7 +297,7 @@ class SimpleTrainingMetricsServer:
         @self.app.on_event("shutdown")
         async def shutdown_event():
             """Clean up resources on shutdown."""
-            print("Shutting down Training Metrics Server...")
+            print("Shutting down Training Metrics server..")
             
             # Cancel cleanup task
             if self._cleanup_task:
@@ -383,7 +383,7 @@ def main():
             print("\nServer stopped by user")
         except Exception as e:
             print(f"Unified server error: {e}")
-            print("Falling back to simple server...")
+            print("Falling back to simple server..")
             # Fall through to simple server
         else:
             return  # Successfully ran unified server

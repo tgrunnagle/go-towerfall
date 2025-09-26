@@ -10,12 +10,12 @@ import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from rl_bot_system.server.websocket_manager import (
+from server.websocket_manager import (
     ConnectionManager,
     WebSocketManager,
     Connection
 )
-from rl_bot_system.server.data_models import (
+from server.data_models import (
     TrainingMetricsData,
     BotDecisionData,
     PerformanceGraphData,

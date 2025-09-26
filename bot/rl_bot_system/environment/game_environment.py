@@ -17,7 +17,7 @@ import gymnasium as gym
 from gymnasium import spaces
 
 from rl_bot_system.utils.async_env import AsyncEnvWrapper
-from game_client import GameClient
+from core.game_client import GameClient
 
 
 class TrainingMode(Enum):

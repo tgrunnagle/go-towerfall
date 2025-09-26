@@ -16,7 +16,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from rl_bot_system.server.data_models import (
+from server.data_models import (
     TrainingMetricsData,
     BotDecisionData,
     PerformanceGraphData,
@@ -25,17 +25,17 @@ from rl_bot_system.server.data_models import (
     TrainingStatus,
     MessageType
 )
-from rl_bot_system.server.websocket_manager import ConnectionManager, WebSocketManager
+from server.websocket_manager import ConnectionManager, WebSocketManager
 
 # Import API routers
-from rl_bot_system.server.training_metrics_api import (
+from server.training_metrics_api import (
     router as training_router,
     initialize_training_metrics_api
 )
 
 # Optional imports for replay functionality
 try:
-    from rl_bot_system.server.replay_api import (
+    from server.replay_api import (
         router as replay_router,
         initialize_replay_api
     )
@@ -67,7 +67,7 @@ except ImportError:
 
 # Optional imports for bot server
 try:
-    from rl_bot_system.server.bot_server_api import (
+    from server.bot_server_api import (
         BotServerApi, BotServerConfig as BotConfig
     )
     BOT_SERVER_AVAILABLE = True
@@ -323,7 +323,7 @@ class UnifiedServer:
         @self.app.on_event("startup")
         async def startup_event():
             """Initialize server components on startup."""
-            logger.info("Starting Unified Server...")
+            logger.info("Starting Unified server..")
             
             # Create data storage directories
             if self.config.enable_data_persistence:
@@ -358,7 +358,7 @@ class UnifiedServer:
         @self.app.on_event("shutdown")
         async def shutdown_event():
             """Clean up resources on shutdown."""
-            logger.info("Shutting down Unified Server...")
+            logger.info("Shutting down Unified server..")
             
             # Cancel cleanup task
             if self._cleanup_task:

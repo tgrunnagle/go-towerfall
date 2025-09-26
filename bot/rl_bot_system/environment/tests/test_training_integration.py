@@ -10,7 +10,7 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 
 from rl_bot_system.environment.game_environment import GameEnvironment, TrainingMode
-from game_client import GameClient, TrainingMode as ClientTrainingMode
+from core.game_client import GameClient, TrainingMode as ClientTrainingMode
 
 
 class TestTrainingIntegration:

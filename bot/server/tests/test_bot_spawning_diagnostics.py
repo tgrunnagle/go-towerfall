@@ -12,9 +12,9 @@ import logging
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 
-from rl_bot_system.server.bot_server import BotServer, BotServerConfig, BotConfig, BotType
+from server.bot_server import BotServer, BotServerConfig, BotConfig, BotType
 from rl_bot_system.rules_based.rules_based_bot import DifficultyLevel
-from rl_bot_system.server.diagnostics import (
+from server.diagnostics import (
     BotLifecycleEvent, DiagnosticLevel, ConnectionStatus, AIStatus
 )
 

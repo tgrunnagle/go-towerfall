@@ -9,7 +9,7 @@ import pytest
 from datetime import datetime
 from typing import Dict, Any
 
-from rl_bot_system.server.data_models import (
+from server.data_models import (
     TrainingMetricsData,
     BotDecisionData,
     PerformanceGraphData,

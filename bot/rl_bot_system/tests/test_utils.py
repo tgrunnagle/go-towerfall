@@ -22,7 +22,7 @@ bot_dir = Path(__file__).parent.parent.parent
 if str(bot_dir) not in sys.path:
     sys.path.insert(0, str(bot_dir))
 
-from game_client import GameClient
+from core.game_client import GameClient
 
 
 class EnhancedGameClient(GameClient):

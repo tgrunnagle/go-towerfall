@@ -11,8 +11,8 @@ import pytest_asyncio
 import aiohttp
 import logging
 
-from rl_bot_system.server.bot_server_api import BotServerApi
-from rl_bot_system.server.bot_server import (
+from server.bot_server_api import BotServerApi
+from server.bot_server import (
     BotServerConfig, BotConfig, BotType, BotStatus, DifficultyLevel
 )
 from rl_bot_system.tests.test_utils import ServerHealthChecker, GameRoomManager

@@ -12,7 +12,7 @@ from datetime import datetime
 from unittest.mock import Mock, AsyncMock, patch
 
 try:
-    from game_client import GameClient
+    from core.game_client import GameClient
     GAME_CLIENT_AVAILABLE = True
 except ImportError:
     GAME_CLIENT_AVAILABLE = False

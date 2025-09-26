@@ -7,13 +7,13 @@ and handles AI bot instances for game integration.
 """
 
 # Import unified server components
-from rl_bot_system.server.server import UnifiedServer, ServerConfig, create_server, run_server
+from server.server import UnifiedServer, ServerConfig, create_server, run_server
 
 # Legacy server class alias for backward compatibility
 TrainingMetricsServer = UnifiedServer  # Use UnifiedServer as replacement
 
 # Import data models
-from rl_bot_system.server.data_models import (
+from server.data_models import (
     TrainingMetricsData,
     BotDecisionData,
     PerformanceGraphData,
@@ -25,17 +25,17 @@ from rl_bot_system.server.data_models import (
 )
 
 # Import WebSocket components
-from rl_bot_system.server.websocket_manager import WebSocketManager, ConnectionManager
+from server.websocket_manager import WebSocketManager, ConnectionManager
 
 # Import API routers
-from rl_bot_system.server.training_metrics_api import router as training_metrics_router
+from server.training_metrics_api import router as training_metrics_router
 try:
-    from rl_bot_system.server.replay_api import router as replay_router
+    from server.replay_api import router as replay_router
 except ImportError:
     replay_router = None
 
 # Import bot server components
-from rl_bot_system.server.bot_server import (
+from server.bot_server import (
     BotServer,
     BotServerConfig,
     BotConfig,
@@ -47,7 +47,7 @@ from rl_bot_system.server.bot_server import (
 )
 
 # Import bot integration components
-from rl_bot_system.server.bot_server_api import (
+from server.bot_server_api import (
     BotServerApi,
     BotServerConfig
 )

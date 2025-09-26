@@ -294,7 +294,7 @@ class TestReplayAPIIntegration:
     
     def test_api_initialization(self, mock_managers):
         """Test API initialization with managers."""
-        from rl_bot_system.server.replay_api import initialize_replay_api
+        from server.replay_api import initialize_replay_api
         
         replay_manager, spectator_manager, episode_replay_manager = mock_managers
         

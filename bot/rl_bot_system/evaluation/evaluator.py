@@ -33,7 +33,7 @@ except ImportError:
     SCIPY_AVAILABLE = False
 
 from rl_bot_system.training.model_manager import ModelManager, RLModel
-from game_client import GameClient
+from core.game_client import GameClient
 
 logger = logging.getLogger(__name__)
 

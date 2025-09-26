@@ -14,7 +14,7 @@ from dataclasses import dataclass, asdict
 from collections import deque
 import numpy as np
 
-from game_client import GameClient
+from core.game_client import GameClient
 
 logger = logging.getLogger(__name__)
 

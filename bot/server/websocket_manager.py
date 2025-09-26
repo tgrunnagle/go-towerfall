@@ -15,7 +15,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from fastapi import WebSocket, WebSocketDisconnect
-from rl_bot_system.server.data_models import (
+from server.data_models import (
     WebSocketMessage,
     MessageType,
     SpectatorConnectionInfo,
