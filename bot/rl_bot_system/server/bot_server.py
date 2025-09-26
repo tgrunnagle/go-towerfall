@@ -18,6 +18,10 @@ import json
 from game_client import GameClient, TrainingMode
 from rl_bot_system.rules_based.rules_based_bot import RulesBasedBot, DifficultyLevel
 from rl_bot_system.training.model_manager import ModelManager
+from rl_bot_system.server.diagnostics import (
+    BotDiagnosticTracker, BotLifecycleEvent, DiagnosticLevel, 
+    ConnectionStatus, AIStatus, get_diagnostic_tracker
+)
 
 
 class BotType(Enum):
@@ -215,6 +219,9 @@ class BotServer:
         self.model_manager = ModelManager(config.models_dir)
         self._model_cache: Dict[int, Any] = {}  # generation -> loaded model
         
+        # Diagnostic tracking
+        self.diagnostic_tracker = get_diagnostic_tracker()
+        
         # Background tasks
         self._cleanup_task: Optional[asyncio.Task] = None
         self._running = False
@@ -232,6 +239,9 @@ class BotServer:
         
         self._running = True
         self._start_time = datetime.now()
+        
+        # Start diagnostic tracker
+        await self.diagnostic_tracker.start()
         
         # Start cleanup task
         self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
@@ -257,6 +267,9 @@ class BotServer:
         bot_ids = list(self._bots.keys())
         for bot_id in bot_ids:
             await self.terminate_bot(bot_id)
+        
+        # Stop diagnostic tracker
+        await self.diagnostic_tracker.stop()
         
         self.logger.info("BotServer stopped")
     
@@ -317,6 +330,15 @@ class BotServer:
                     self._room_bots[room_id] = set()
                 self._room_bots[room_id].add(bot_id)
             
+            # Register bot with diagnostic tracker
+            self.diagnostic_tracker.register_bot(
+                bot_id=bot_id,
+                bot_name=bot_config.name,
+                bot_type=bot_config.bot_type.value,
+                difficulty=bot_config.difficulty.value,
+                room_id=room_id
+            )
+            
             self.logger.info(f"Created bot {bot_id} ({bot_config.bot_type.value}) for room {room_id}")
             
             # Initialize bot in background
@@ -375,6 +397,9 @@ class BotServer:
             
             # Remove from active bots
             del self._bots[bot_id]
+            
+            # Unregister from diagnostic tracker
+            self.diagnostic_tracker.unregister_bot(bot_id)
             
             self.logger.info(f"Terminated bot {bot_id}")
             return True
@@ -606,63 +631,88 @@ class BotServer:
         if bot_id not in self._bots:
             return {"status": "not_found", "healthy": False}
         
+        # Get comprehensive diagnostic information
+        diagnostic_info = self.diagnostic_tracker.get_bot_diagnostics(bot_id)
+        connection_health = self.diagnostic_tracker.get_connection_health(bot_id)
+        activity_metrics = self.diagnostic_tracker.get_activity_metrics(bot_id)
+        
+        if not diagnostic_info:
+            return {"status": "not_found", "healthy": False}
+        
         bot_instance = self._bots[bot_id]
         current_time = datetime.now()
         
         # Calculate time since last activity
         time_since_activity = (current_time - bot_instance.last_activity).total_seconds()
         
-        # Check various health indicators
+        # Build comprehensive health status using diagnostic data
         health_status = {
             "bot_id": bot_id,
-            "status": bot_instance.status.value,
+            "bot_name": diagnostic_info.bot_name,
+            "bot_type": diagnostic_info.bot_type,
+            "difficulty": diagnostic_info.difficulty,
+            "status": diagnostic_info.status,
             "healthy": True,
             "last_activity_seconds": time_since_activity,
-            "connection_status": "unknown",
-            "ai_status": "unknown",
-            "performance_issues": []
+            "connection_status": diagnostic_info.connection_status.value,
+            "ai_status": diagnostic_info.ai_status.value,
+            "websocket_connected": diagnostic_info.websocket_connected,
+            "websocket_url": diagnostic_info.websocket_url,
+            "actions_sent": diagnostic_info.actions_sent,
+            "decisions_made": diagnostic_info.decisions_made,
+            "game_state_updates_received": diagnostic_info.game_state_updates_received,
+            "reconnection_attempts": diagnostic_info.reconnection_attempts,
+            "uptime_seconds": diagnostic_info.uptime_seconds,
+            "performance_issues": diagnostic_info.performance_issues.copy(),
+            "error_messages": diagnostic_info.error_messages.copy(),
+            "connection_errors": diagnostic_info.connection_errors.copy()
         }
+        
+        # Add activity metrics if available
+        if activity_metrics:
+            health_status.update({
+                "activity_metrics": {
+                    "decisions_made": activity_metrics.decisions_made,
+                    "actions_executed": activity_metrics.actions_executed,
+                    "actions_failed": activity_metrics.actions_failed,
+                    "errors_encountered": activity_metrics.errors_encountered,
+                    "decision_success_rate": activity_metrics.decision_success_rate,
+                    "action_success_rate": activity_metrics.action_success_rate,
+                    "average_decision_time_ms": activity_metrics.average_decision_time_ms,
+                    "last_decision_time": activity_metrics.last_decision_time.isoformat() if activity_metrics.last_decision_time else None,
+                    "last_action_time": activity_metrics.last_action_time.isoformat() if activity_metrics.last_action_time else None
+                }
+            })
+        
+        # Add connection health if available
+        if connection_health:
+            health_status["connection_health"] = {
+                "websocket_connected": connection_health.websocket_connected,
+                "connection_status": connection_health.connection_status.value,
+                "reconnection_attempts": connection_health.reconnection_attempts,
+                "messages_sent": connection_health.messages_sent,
+                "messages_received": connection_health.messages_received,
+                "connection_duration": str(connection_health.connection_duration) if connection_health.connection_duration else None
+            }
+        
+        # Determine overall health based on diagnostic data
+        health_status["healthy"] = len(diagnostic_info.performance_issues) == 0 and len(diagnostic_info.error_messages) == 0
         
         # Check if bot is responsive
         if time_since_activity > self.config.bot_timeout_seconds:
             health_status["healthy"] = False
-            health_status["performance_issues"].append("inactive_timeout")
+            if "inactive_timeout" not in health_status["performance_issues"]:
+                health_status["performance_issues"].append("inactive_timeout")
         
-        # Check connection status
-        if bot_instance.game_client:
-            try:
-                # Check if WebSocket connection is still alive
-                if hasattr(bot_instance.game_client, 'websocket') and bot_instance.game_client.websocket:
-                    if bot_instance.game_client.websocket.client_state.name == 'CONNECTED':
-                        health_status["connection_status"] = "connected"
-                    else:
-                        health_status["connection_status"] = "disconnected"
-                        health_status["healthy"] = False
-                        health_status["performance_issues"].append("connection_lost")
-                else:
-                    health_status["connection_status"] = "no_websocket"
-            except Exception as e:
-                health_status["connection_status"] = f"error: {e}"
-                health_status["performance_issues"].append("connection_check_failed")
-        else:
-            health_status["connection_status"] = "no_client"
+        # Check for critical issues
+        if diagnostic_info.connection_status in [ConnectionStatus.FAILED, ConnectionStatus.DISCONNECTED]:
             health_status["healthy"] = False
-            health_status["performance_issues"].append("no_game_client")
         
-        # Check AI status
-        if bot_instance.bot_ai:
-            health_status["ai_status"] = "loaded"
-        else:
-            health_status["ai_status"] = "not_loaded"
+        if diagnostic_info.ai_status in [AIStatus.ERROR, AIStatus.NOT_LOADED]:
             health_status["healthy"] = False
-            health_status["performance_issues"].append("no_ai_loaded")
         
-        # Check for error status
-        if bot_instance.status == BotStatus.ERROR:
+        if diagnostic_info.status == "error":
             health_status["healthy"] = False
-            health_status["performance_issues"].append("bot_error_status")
-            if bot_instance.error_message:
-                health_status["error_message"] = bot_instance.error_message
         
         return health_status
     
@@ -740,6 +790,32 @@ class BotServer:
     
     # Private methods
     
+    async def _update_bot_status(self, bot_id: str, status: BotStatus, error_message: Optional[str] = None) -> None:
+        """Update bot status and notify diagnostic tracker."""
+        if bot_id not in self._bots:
+            return
+        
+        old_status = self._bots[bot_id].status
+        self._bots[bot_id].status = status
+        self._bots[bot_id].last_activity = datetime.now()
+        
+        if error_message:
+            self._bots[bot_id].error_message = error_message
+        
+        # Update diagnostic tracker
+        self.diagnostic_tracker.update_bot_status(
+            bot_id=bot_id,
+            status=status.value,
+            error_message=error_message
+        )
+        
+        # Notify callbacks
+        for callback in self._bot_status_callbacks:
+            try:
+                await callback(bot_id, status)
+            except Exception as e:
+                self.logger.error(f"Error in bot status callback: {e}")
+    
     async def _initialize_bot(self, bot_id: str, room_info: Dict[str, Any]) -> None:
         """Initialize a bot instance in the background."""
         if bot_id not in self._bots:
@@ -749,45 +825,136 @@ class BotServer:
         
         try:
             # Load bot AI
+            self.diagnostic_tracker.log_event(
+                bot_id=bot_id,
+                event_type=BotLifecycleEvent.BOT_INITIALIZING,
+                level=DiagnosticLevel.INFO,
+                message="Starting bot initialization"
+            )
             await self._update_bot_status(bot_id, BotStatus.INITIALIZING)
-            bot_instance.bot_ai = await self._load_bot_ai(bot_instance.config)
+            
+            # Update AI status to loading
+            self.diagnostic_tracker.update_ai_status(bot_id, AIStatus.LOADING)
+            
+            try:
+                bot_instance.bot_ai = await self._load_bot_ai(bot_instance.config)
+                self.diagnostic_tracker.update_ai_status(bot_id, AIStatus.LOADED)
+                self.diagnostic_tracker.log_event(
+                    bot_id=bot_id,
+                    event_type=BotLifecycleEvent.BOT_AI_LOADED,
+                    level=DiagnosticLevel.INFO,
+                    message=f"Bot AI loaded successfully ({bot_instance.config.bot_type.value})"
+                )
+            except Exception as ai_error:
+                self.diagnostic_tracker.update_ai_status(bot_id, AIStatus.ERROR, str(ai_error))
+                raise ai_error
             
             # Get game client
+            self.diagnostic_tracker.log_event(
+                bot_id=bot_id,
+                event_type=BotLifecycleEvent.BOT_CONNECTING,
+                level=DiagnosticLevel.INFO,
+                message="Starting game client connection"
+            )
             await self._update_bot_status(bot_id, BotStatus.CONNECTING)
-            bot_instance.game_client = await self.client_pool.get_client(
-                bot_id, self.config.game_server_url
+            
+            # Update connection status
+            self.diagnostic_tracker.update_connection_status(
+                bot_id=bot_id,
+                connection_status=ConnectionStatus.CONNECTING,
+                websocket_url=self.config.game_server_url.replace("http://", "ws://") + "/ws"
             )
             
-            # Configure training mode if needed
-            if bot_instance.config.training_mode:
-                await bot_instance.game_client.enable_training_mode(
-                    speed_multiplier=10.0,
-                    headless=True
+            try:
+                bot_instance.game_client = await self.client_pool.get_client(
+                    bot_id, self.config.game_server_url
                 )
-            
-            # Connect to game room
-            room_code = room_info.get('room_code')
-            room_password = room_info.get('room_password', '')
-            
-            if room_code:
-                await bot_instance.game_client.connect(
-                    room_code=room_code,
-                    player_name=bot_instance.config.name,
-                    room_password=room_password
+                
+                # Configure training mode if needed
+                if bot_instance.config.training_mode:
+                    await bot_instance.game_client.enable_training_mode(
+                        speed_multiplier=10.0,
+                        headless=True
+                    )
+                
+                # Connect to game room
+                room_code = room_info.get('room_code')
+                room_password = room_info.get('room_password', '')
+                
+                if room_code:
+                    self.diagnostic_tracker.log_event(
+                        bot_id=bot_id,
+                        event_type=BotLifecycleEvent.BOT_WEBSOCKET_CONNECTING,
+                        level=DiagnosticLevel.INFO,
+                        message=f"Connecting to game room {room_code}",
+                        details={'room_code': room_code, 'has_password': bool(room_password)}
+                    )
+                    
+                    await bot_instance.game_client.connect(
+                        room_code=room_code,
+                        player_name=bot_instance.config.name,
+                        room_password=room_password
+                    )
+                    
+                    self.diagnostic_tracker.log_event(
+                        bot_id=bot_id,
+                        event_type=BotLifecycleEvent.BOT_GAME_JOINED,
+                        level=DiagnosticLevel.INFO,
+                        message=f"Successfully joined game room {room_code}"
+                    )
+                
+                # Update connection status to connected
+                self.diagnostic_tracker.update_connection_status(
+                    bot_id=bot_id,
+                    connection_status=ConnectionStatus.CONNECTED,
+                    websocket_connected=True,
+                    websocket_url=self.config.game_server_url.replace("http://", "ws://") + "/ws"
                 )
+                
+            except Exception as conn_error:
+                self.diagnostic_tracker.update_connection_status(
+                    bot_id=bot_id,
+                    connection_status=ConnectionStatus.FAILED,
+                    error_message=str(conn_error)
+                )
+                self.diagnostic_tracker.log_event(
+                    bot_id=bot_id,
+                    event_type=BotLifecycleEvent.BOT_GAME_JOIN_FAILED,
+                    level=DiagnosticLevel.ERROR,
+                    message=f"Failed to join game room: {conn_error}",
+                    details={'error': str(conn_error)}
+                )
+                raise conn_error
             
             # Start bot AI loop
             asyncio.create_task(self._run_bot_ai_loop(bot_id))
             
+            # Update AI status to active
+            self.diagnostic_tracker.update_ai_status(bot_id, AIStatus.ACTIVE)
+            
             await self._update_bot_status(bot_id, BotStatus.ACTIVE)
             bot_instance.last_activity = datetime.now()
+            
+            self.diagnostic_tracker.log_event(
+                bot_id=bot_id,
+                event_type=BotLifecycleEvent.BOT_ACTIVE,
+                level=DiagnosticLevel.INFO,
+                message="Bot initialization completed successfully"
+            )
             
             self.logger.info(f"Bot {bot_id} initialized and connected successfully")
             
         except Exception as e:
             self.logger.error(f"Failed to initialize bot {bot_id}: {e}")
-            bot_instance.status = BotStatus.ERROR
-            bot_instance.error_message = str(e)
+            await self._update_bot_status(bot_id, BotStatus.ERROR, str(e))
+            
+            self.diagnostic_tracker.log_event(
+                bot_id=bot_id,
+                event_type=BotLifecycleEvent.BOT_ERROR,
+                level=DiagnosticLevel.ERROR,
+                message=f"Bot initialization failed: {e}",
+                details={'error': str(e), 'error_type': type(e).__name__}
+            )
             
             # Clean up on failure
             if bot_instance.game_client:
@@ -838,10 +1005,32 @@ class BotServer:
                 else:
                     game_state = bot_instance.game_client.game_state
                 
+                # Track game state updates
+                if game_state:
+                    if bot_id in self._bots:
+                        self._bots[bot_id].performance_stats['total_playtime'] = (
+                            datetime.now() - bot_instance.created_at
+                        ).total_seconds()
+                    
+                    # Record game state update for diagnostics
+                    self.diagnostic_tracker.get_activity_metrics(bot_id).game_state_updates += 1
+                
                 if game_state and isinstance(bot_instance.bot_ai, RulesBasedBot):
                     # Analyze game state and select action
+                    decision_start = datetime.now()
                     analysis = bot_instance.bot_ai.analyze_game_state(game_state)
                     action = bot_instance.bot_ai.select_action(analysis)
+                    decision_time = (datetime.now() - decision_start).total_seconds() * 1000  # ms
+                    
+                    # Record decision for diagnostics
+                    self.diagnostic_tracker.record_bot_decision(
+                        bot_id=bot_id,
+                        decision_details={
+                            'decision_time_ms': decision_time,
+                            'has_action': action is not None,
+                            'analysis_summary': str(analysis) if hasattr(analysis, '__str__') else 'analysis_completed'
+                        }
+                    )
                     
                     # Execute action
                     if action:
@@ -860,8 +1049,15 @@ class BotServer:
                 
         except Exception as e:
             self.logger.error(f"Error in bot AI loop for {bot_id}: {e}")
-            bot_instance.status = BotStatus.ERROR
-            bot_instance.error_message = str(e)
+            await self._update_bot_status(bot_id, BotStatus.ERROR, str(e))
+            
+            self.diagnostic_tracker.log_event(
+                bot_id=bot_id,
+                event_type=BotLifecycleEvent.BOT_ERROR,
+                level=DiagnosticLevel.ERROR,
+                message=f"Bot AI loop error: {e}",
+                details={'error': str(e), 'error_type': type(e).__name__}
+            )
     
     async def _execute_bot_action(self, bot_id: str, action: Any) -> None:
         """Execute a bot action through the game client."""
@@ -872,9 +1068,12 @@ class BotServer:
         if not bot_instance.game_client:
             return
         
+        action_success = False
+        error_message = None
+        action_type = getattr(action, 'action_type', 'unknown')
+        
         try:
-            action_type = action.action_type
-            params = action.parameters
+            params = getattr(action, 'parameters', {})
             
             if action_type in ['move_left', 'move_right', 'jump', 'crouch']:
                 # Keyboard actions
@@ -882,6 +1081,7 @@ class BotServer:
                 pressed = params.get('pressed', True)
                 if key:
                     await bot_instance.game_client.send_keyboard_input(key, pressed)
+                    action_success = True
             
             elif action_type == 'shoot_at_enemy':
                 # Mouse actions
@@ -890,9 +1090,10 @@ class BotServer:
                 x = params.get('x', 0)
                 y = params.get('y', 0)
                 await bot_instance.game_client.send_mouse_input(button, pressed, x, y)
+                action_success = True
             
             # Hold action for specified duration
-            if action.duration and action.duration > 0:
+            if hasattr(action, 'duration') and action.duration and action.duration > 0:
                 await asyncio.sleep(action.duration)
                 
                 # Release action if it was a press
@@ -906,24 +1107,27 @@ class BotServer:
                     y = params.get('y', 0)
                     await bot_instance.game_client.send_mouse_input(button, False, x, y)
             
+            if not action_success:
+                error_message = f"Unknown action type: {action_type}"
+            
         except Exception as e:
             self.logger.error(f"Error executing action for bot {bot_id}: {e}")
+            action_success = False
+            error_message = str(e)
+        
+        # Record action execution for diagnostics
+        self.diagnostic_tracker.record_bot_action(
+            bot_id=bot_id,
+            action_type=action_type,
+            success=action_success,
+            action_details={
+                'parameters': getattr(action, 'parameters', {}),
+                'duration': getattr(action, 'duration', None)
+            },
+            error_message=error_message
+        )
     
-    async def _update_bot_status(self, bot_id: str, status: BotStatus) -> None:
-        """Update bot status and notify callbacks."""
-        if bot_id not in self._bots:
-            return
-        
-        old_status = self._bots[bot_id].status
-        self._bots[bot_id].status = status
-        
-        if old_status != status:
-            # Notify callbacks
-            for callback in self._bot_status_callbacks:
-                try:
-                    await callback(bot_id, status)
-                except Exception as e:
-                    self.logger.error(f"Error in bot status callback: {e}")
+
     
     async def _apply_realtime_difficulty_changes(self, bot_id: str, old_difficulty: DifficultyLevel, new_difficulty: DifficultyLevel) -> None:
         """

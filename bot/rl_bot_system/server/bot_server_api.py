@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from rl_bot_system.server.bot_server import BotServer, BotServerConfig, BotConfig, BotType
 from rl_bot_system.rules_based.rules_based_bot import DifficultyLevel
+from rl_bot_system.server.diagnostics import BotLifecycleEvent, DiagnosticLevel
 
 
 # Pydantic models for API requests/responses
@@ -84,6 +85,26 @@ class ServerStatusResponse(BaseModel):
     total_bots: int
     active_rooms: int
     server_stats: Dict[str, Any]
+    error: Optional[str] = None
+
+class BotHealthResponse(BaseModel):
+    success: bool
+    bot_health: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+class BotDiagnosticsResponse(BaseModel):
+    success: bool
+    diagnostics: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+class AllBotHealthResponse(BaseModel):
+    success: bool
+    bot_health_status: Dict[str, Dict[str, Any]] = {}
+    error: Optional[str] = None
+
+class DiagnosticEventsResponse(BaseModel):
+    success: bool
+    events: List[Dict[str, Any]] = []
     error: Optional[str] = None
 
 
@@ -293,6 +314,125 @@ class BotServerApi:
                     total_bots=0,
                     active_rooms=0,
                     server_stats={},
+                    error=str(e)
+                )
+        
+        @self.router.get("/{bot_id}/health", response_model=BotHealthResponse)
+        async def get_bot_health(bot_id: str):
+            """Get health status for a specific bot."""
+            try:
+                health_status = await self.bot_server.monitor_bot_health(bot_id)
+                
+                return BotHealthResponse(
+                    success=True,
+                    bot_health=health_status
+                )
+                
+            except Exception as e:
+                self.logger.error(f"Error getting bot health for {bot_id}: {e}")
+                return BotHealthResponse(
+                    success=False,
+                    error=str(e)
+                )
+        
+        @self.router.get("/{bot_id}/diagnostics", response_model=BotDiagnosticsResponse)
+        async def get_bot_diagnostics(bot_id: str):
+            """Get comprehensive diagnostic information for a specific bot."""
+            try:
+                diagnostic_info = self.bot_server.diagnostic_tracker.get_bot_diagnostics(bot_id)
+                connection_health = self.bot_server.diagnostic_tracker.get_connection_health(bot_id)
+                activity_metrics = self.bot_server.diagnostic_tracker.get_activity_metrics(bot_id)
+                
+                if not diagnostic_info:
+                    return BotDiagnosticsResponse(
+                        success=False,
+                        error="Bot not found"
+                    )
+                
+                diagnostics = {
+                    "bot_info": diagnostic_info.to_dict(),
+                    "connection_health": connection_health.to_dict() if connection_health else None,
+                    "activity_metrics": activity_metrics.to_dict() if activity_metrics else None
+                }
+                
+                return BotDiagnosticsResponse(
+                    success=True,
+                    diagnostics=diagnostics
+                )
+                
+            except Exception as e:
+                self.logger.error(f"Error getting bot diagnostics for {bot_id}: {e}")
+                return BotDiagnosticsResponse(
+                    success=False,
+                    error=str(e)
+                )
+        
+        @self.router.get("/{bot_id}/events", response_model=DiagnosticEventsResponse)
+        async def get_bot_diagnostic_events(
+            bot_id: str, 
+            limit: Optional[int] = 50,
+            event_type: Optional[str] = None,
+            level: Optional[str] = None
+        ):
+            """Get diagnostic events for a specific bot."""
+            try:
+                # Convert string parameters to enums if provided
+                event_type_enum = None
+                if event_type:
+                    try:
+                        event_type_enum = BotLifecycleEvent(event_type)
+                    except ValueError:
+                        return DiagnosticEventsResponse(
+                            success=False,
+                            error=f"Invalid event type: {event_type}"
+                        )
+                
+                level_enum = None
+                if level:
+                    try:
+                        level_enum = DiagnosticLevel(level)
+                    except ValueError:
+                        return DiagnosticEventsResponse(
+                            success=False,
+                            error=f"Invalid diagnostic level: {level}"
+                        )
+                
+                events = self.bot_server.diagnostic_tracker.get_diagnostic_events(
+                    bot_id=bot_id,
+                    limit=limit,
+                    event_type=event_type_enum,
+                    level=level_enum
+                )
+                
+                event_dicts = [event.to_dict() for event in events]
+                
+                return DiagnosticEventsResponse(
+                    success=True,
+                    events=event_dicts
+                )
+                
+            except Exception as e:
+                self.logger.error(f"Error getting diagnostic events for {bot_id}: {e}")
+                return DiagnosticEventsResponse(
+                    success=False,
+                    error=str(e)
+                )
+        
+        @self.router.get("/health/all", response_model=AllBotHealthResponse)
+        async def get_all_bot_health():
+            """Get health status for all active bots."""
+            try:
+                all_health = await self.bot_server.get_all_bot_health()
+                
+                return AllBotHealthResponse(
+                    success=True,
+                    bot_health_status=all_health
+                )
+                
+            except Exception as e:
+                self.logger.error(f"Error getting all bot health: {e}")
+                return AllBotHealthResponse(
+                    success=False,
                     error=str(e)
                 )
 
