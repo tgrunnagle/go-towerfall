@@ -84,18 +84,36 @@ func (b *BulletGameObject) handleGameTick(event *GameEvent) *GameObjectHandleEve
 	events := make([]*GameEvent, 0)
 	x, _ := b.GetStateValue(constants.StateDestroyedAtX)
 	y, _ := b.GetStateValue(constants.StateDestroyedAtY)
+
+	// Check for valid coordinates (not NaN or infinite)
 	if x != nil && y != nil {
-		events = append(events, NewGameEvent(
-			event.RoomID,
-			EventObjectDestroyed,
-			map[string]interface{}{
-				"objectID": b.GetID(),
-				"x":        x.(float64),
-				"y":        y.(float64),
-			},
-			10,
-			b,
-		))
+		xVal := x.(float64)
+		yVal := y.(float64)
+		if !math.IsNaN(xVal) && !math.IsInf(xVal, 0) && !math.IsNaN(yVal) && !math.IsInf(yVal, 0) {
+			events = append(events, NewGameEvent(
+				event.RoomID,
+				EventObjectDestroyed,
+				map[string]interface{}{
+					"objectID": b.GetID(),
+					"x":        xVal,
+					"y":        yVal,
+				},
+				10,
+				b,
+			))
+		} else {
+			log.Printf("BulletGameObject: Invalid destruction coordinates for bullet %s: x=%v, y=%v (NaN or Inf detected)",
+				b.GetID(), xVal, yVal)
+			events = append(events, NewGameEvent(
+				event.RoomID,
+				EventObjectDestroyed,
+				map[string]interface{}{
+					"objectID": b.GetID(),
+				},
+				10,
+				b,
+			))
+		}
 	} else {
 		events = append(events, NewGameEvent(
 			event.RoomID,

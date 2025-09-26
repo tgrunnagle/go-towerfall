@@ -417,8 +417,17 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 				if arrowCount, exists := p.GetStateValue(constants.StateArrowCount); exists && arrowCount.(int) < constants.PlayerMaxArrows {
 					p.SetState(constants.StateArrowCount, arrowCount.(int)+1)
 					// Mark arrow as destroyed
-					obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
-					obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
+					if len(collisionPoints) > 0 && !math.IsNaN(collisionPoints[0].X) && !math.IsNaN(collisionPoints[0].Y) {
+						obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
+						obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
+					} else {
+						if len(collisionPoints) == 0 {
+							log.Printf("PlayerGameObject: No collision points available for arrow pickup by player %s", p.GetID())
+						} else {
+							log.Printf("PlayerGameObject: Invalid collision point for arrow pickup by player %s: x=%v, y=%v (NaN detected)",
+								p.GetID(), collisionPoints[0].X, collisionPoints[0].Y)
+						}
+					}
 					obj.SetState(constants.StateDestroyed, true)
 					stateChanged = true
 				}
@@ -446,8 +455,17 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 					}
 
 					// Mark arrow as destroyed
-					obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
-					obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
+					if len(collisionPoints) > 0 && !math.IsNaN(collisionPoints[0].X) && !math.IsNaN(collisionPoints[0].Y) {
+						obj.SetState(constants.StateDestroyedAtX, collisionPoints[0].X)
+						obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
+					} else {
+						if len(collisionPoints) == 0 {
+							log.Printf("PlayerGameObject: No collision points available for arrow collision with player %s", p.GetID())
+						} else {
+							log.Printf("PlayerGameObject: Invalid collision point for arrow collision with player %s: x=%v, y=%v (NaN detected)",
+								p.GetID(), collisionPoints[0].X, collisionPoints[0].Y)
+						}
+					}
 					obj.SetState(constants.StateDestroyed, true)
 
 					raisedEvents = append(raisedEvents, NewGameEvent(

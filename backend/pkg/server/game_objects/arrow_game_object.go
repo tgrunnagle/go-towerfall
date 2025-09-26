@@ -44,10 +44,21 @@ func NewArrowGameObject(
 	initialVelocityPxPerSec := math.Sqrt(2*powerRatio*constants.ArrowMaxPowerNewton/constants.ArrowMassKg) * constants.PxPerMeter
 	distanceX := toX - x.(float64)
 	distanceY := toY - y.(float64)
-	dxNorm := distanceX / math.Sqrt(distanceX*distanceX+distanceY*distanceY)
-	dyNorm := distanceY / math.Sqrt(distanceX*distanceX+distanceY*distanceY)
-	dx := dxNorm * initialVelocityPxPerSec
-	dy := dyNorm * initialVelocityPxPerSec
+	distance := math.Sqrt(distanceX*distanceX + distanceY*distanceY)
+
+	var dx, dy float64
+	if distance > 0 {
+		dxNorm := distanceX / distance
+		dyNorm := distanceY / distance
+		dx = dxNorm * initialVelocityPxPerSec
+		dy = dyNorm * initialVelocityPxPerSec
+	} else {
+		// If no distance, default to shooting right
+		log.Printf("NewArrowGameObject: Zero distance between source (%v, %v) and target (%v, %v), using default direction",
+			x.(float64), y.(float64), toX, toY)
+		dx = initialVelocityPxPerSec
+		dy = 0
+	}
 
 	base.SetState(constants.StateDx, dx)
 	base.SetState(constants.StateDy, dy)
@@ -72,9 +83,20 @@ func (a *ArrowGameObject) GetState() map[string]interface{} {
 	// supplement with 'dir' based on dx, dy
 	dx := state[constants.StateDx].(float64)
 	dy := state[constants.StateDy].(float64)
-	normDx := dx / math.Sqrt(dx*dx+dy*dy)
-	normDy := dy / math.Sqrt(dx*dx+dy*dy)
-	dir := math.Atan2(normDy, normDx)
+	velocity := math.Sqrt(dx*dx + dy*dy)
+
+	var dir float64
+	if velocity > 0 {
+		normDx := dx / velocity
+		normDy := dy / velocity
+		dir = math.Atan2(normDy, normDx)
+	} else {
+		// Default direction if no velocity
+		log.Printf("ArrowGameObject.GetState: Zero velocity (dx=%v, dy=%v) for arrow %s, using default direction",
+			dx, dy, a.GetID())
+		dir = 0.0
+	}
+
 	state[constants.StateDir] = dir
 	return state
 }
@@ -101,14 +123,25 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 		if !exists {
 			y, _ = a.GetStateValue(constants.StateY)
 		}
+
+		// Check for valid coordinates (not NaN or infinite)
+		xVal := x.(float64)
+		yVal := y.(float64)
+		eventData := map[string]interface{}{
+			"objectID": a.GetID(),
+		}
+		if !math.IsNaN(xVal) && !math.IsInf(xVal, 0) && !math.IsNaN(yVal) && !math.IsInf(yVal, 0) {
+			eventData["x"] = xVal
+			eventData["y"] = yVal
+		} else {
+			log.Printf("ArrowGameObject: Invalid destruction coordinates for arrow %s: x=%v, y=%v (NaN or Inf detected)",
+				a.GetID(), xVal, yVal)
+		}
+
 		events := []*GameEvent{NewGameEvent(
 			event.RoomID,
 			EventObjectDestroyed,
-			map[string]interface{}{
-				"objectID": a.GetID(),
-				"x":        x.(float64),
-				"y":        y.(float64),
-			},
+			eventData,
 			10,
 			a,
 		)}
@@ -136,14 +169,23 @@ func (a *ArrowGameObject) handleGameTick(event *GameEvent, roomObjects map[strin
 		a.SetState(constants.StateDestroyed, true)
 		a.SetState(constants.StateDestroyedAtX, nextX)
 		a.SetState(constants.StateDestroyedAtY, nextY)
+
+		// Check for valid coordinates (not NaN or infinite)
+		eventData := map[string]interface{}{
+			"objectID": a.GetID(),
+		}
+		if !math.IsNaN(nextX) && !math.IsInf(nextX, 0) && !math.IsNaN(nextY) && !math.IsInf(nextY, 0) {
+			eventData["x"] = nextX
+			eventData["y"] = nextY
+		} else {
+			log.Printf("ArrowGameObject: Invalid out-of-bounds destruction coordinates for arrow %s: x=%v, y=%v (NaN or Inf detected)",
+				a.GetID(), nextX, nextY)
+		}
+
 		events := []*GameEvent{NewGameEvent(
 			event.RoomID,
 			EventObjectDestroyed,
-			map[string]interface{}{
-				"objectID": a.GetID(),
-				"x":        nextX,
-				"y":        nextY,
-			},
+			eventData,
 			10,
 			a,
 		)}
@@ -231,8 +273,19 @@ func (a *ArrowGameObject) getBoundingShapeFor(x float64, y float64, dX float64, 
 		return geo.NewCircle(geo.NewPoint(x, y), constants.ArrowGroundedRadiusPx)
 	}
 
-	dXNorm := dX / math.Sqrt(dX*dX+dY*dY)
-	dYNorm := dY / math.Sqrt(dX*dX+dY*dY)
+	velocity := math.Sqrt(dX*dX + dY*dY)
+	var dXNorm, dYNorm float64
+	if velocity > 0 {
+		dXNorm = dX / velocity
+		dYNorm = dY / velocity
+	} else {
+		// If no velocity, default to pointing right
+		log.Printf("ArrowGameObject.getBoundingShapeFor: Zero velocity (dX=%v, dY=%v) for arrow %s, using default direction",
+			dX, dY, a.GetID())
+		dXNorm = 1.0
+		dYNorm = 0.0
+	}
+
 	p0 := geo.NewPoint(x, y)
 	p1 := geo.NewPoint(
 		x+dXNorm*constants.ArrowLengthPx,

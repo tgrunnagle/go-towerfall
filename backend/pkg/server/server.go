@@ -247,10 +247,23 @@ func (s *Server) sendGameUpdate(update GameUpdateQueueItem) error {
 	s.serverLock.Unlock()
 
 	for _, conn := range connectionsToUpdate {
-		// TODO remove this when the NaN issue is fixed
+		// Check for marshalling errors (including NaN values)
 		_, err := json.Marshal(updateMessage)
 		if err != nil {
-			log.Printf("sendGameUpdate:Error marshalling GameState: %v. %v", err, updateMessage)
+			log.Printf("sendGameUpdate:Error marshalling GameState: %v", err)
+			// Log detailed information about the update message to help debug
+			log.Printf("sendGameUpdate:Failed update message details - FullUpdate: %v, Events count: %d",
+				updateMessage.FullUpdate, len(updateMessage.Events))
+			if len(updateMessage.Events) > 0 {
+				for i, event := range updateMessage.Events {
+					log.Printf("sendGameUpdate:Event %d - Type: %s, Data: %+v", i, event.Type, event.Data)
+				}
+			}
+			if len(updateMessage.ObjectStates) > 0 {
+				for objID, state := range updateMessage.ObjectStates {
+					log.Printf("sendGameUpdate:ObjectState %s: %+v", objID, state)
+				}
+			}
 			continue
 		}
 		// Lock the connection before writing to prevent concurrent writes
