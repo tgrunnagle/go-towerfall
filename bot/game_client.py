@@ -44,10 +44,11 @@ class GameClient:
         try:
             # First join via HTTP API
             self._logger.info(f"Joining game via HTTP API {room_code} as player {player_name}")
+            
             join_data = {
                 "playerName": player_name,
                 "roomCode": room_code,
-                "roomPassword": room_password
+                "roomPassword": room_password or ""
             }
 
             async with aiohttp.ClientSession() as session:
@@ -103,16 +104,34 @@ class GameClient:
         await self.websocket.send(json.dumps(message))
 
     async def send_mouse_input(self, button: str, pressed: bool, x: float, y: float) -> None:
-        """Send mouse input (left/right click)"""
+        """Send mouse input (left/right click)
+        
+        Args:
+            button: "left" or "right" (converted to 0 or 2 for Go server)
+            pressed: True for mouse down, False for mouse up
+            x: X coordinate of click
+            y: Y coordinate of click
+        """
         if not self.websocket:
             return
+
+        # Convert button string to integer as expected by Go server
+        # 0 for left click, 2 for right click
+        button_lower = button.lower()
+        if button_lower == "left":
+            button_code = 0
+        elif button_lower == "right":
+            button_code = 2
+        else:
+            self._logger.warning(f"Unknown button '{button}', defaulting to left click")
+            button_code = 0
 
         message = {
             "type": "Click",
             "payload": {
                 "x": x,
                 "y": y,
-                "button": button,
+                "button": button_code,
                 "isDown": pressed,
             }
         }
