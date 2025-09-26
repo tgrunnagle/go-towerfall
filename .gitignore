@@ -115,6 +115,9 @@ bot/data/replays/*.json
 bot/data/metrics/*.json
 bot/logs/*.log
 bot/logs/tensorboard/
+bot/server/logs/*.log
+bot/server/logs/*_diagnostics.log
+bot/server/logs/????_??_??_*
 wandb/
 *.wandb
 
