@@ -415,6 +415,7 @@ class RulesBasedBot:
             'ammunition': game_state.get('player', {}).get('ammunition', 10),
             'power_ups': game_state.get('player', {}).get('powerUps', [])
         }
+        # TODO add bot action state here (e.g. currently holding mouse button down)
         return player_info
         
     def _analyze_projectile_threat(self, projectile: Dict[str, Any], player_pos: Tuple[float, float]) -> Optional[Threat]:
