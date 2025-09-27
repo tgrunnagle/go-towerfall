@@ -277,7 +277,7 @@ class HyperparameterTuner:
         algorithm: str,
         tuning_strategy: str = 'random',
         n_trials: int = 50,
-        results_dir: str = "bot/data/hyperparameter_tuning"
+        results_dir: str = "data/hyperparameter_tuning"
     ):
         """
         Initialize hyperparameter tuner.

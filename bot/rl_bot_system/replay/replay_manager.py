@@ -27,7 +27,7 @@ class ReplayManager:
     
     def __init__(
         self,
-        storage_path: str = "bot/data/replays",
+        storage_path: str = "data/replays",
         recording_config: Optional[RecordingConfig] = None,
         buffer_config: Optional[BufferConfig] = None,
         analysis_config: Optional[AnalysisConfig] = None

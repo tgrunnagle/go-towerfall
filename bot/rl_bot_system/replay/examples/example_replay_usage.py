@@ -80,7 +80,7 @@ def demonstrate_basic_recording():
     
     # Configure replay system
     recording_config = RecordingConfig(
-        storage_path="bot/data/examples/replays",
+        storage_path="data/examples/replays",
         max_episodes_per_file=5,
         compression=True
     )
@@ -92,7 +92,7 @@ def demonstrate_basic_recording():
     
     # Create replay manager
     manager = ReplayManager(
-        storage_path="bot/data/examples/replays",
+        storage_path="data/examples/replays",
         recording_config=recording_config,
         buffer_config=buffer_config
     )
@@ -321,7 +321,7 @@ def demonstrate_export_functionality():
         export_episodes.append(episode)
     
     # Export episodes in different formats
-    export_dir = Path("bot/data/examples/exports")
+    export_dir = Path("data/examples/exports")
     export_dir.mkdir(parents=True, exist_ok=True)
     
     # Export as JSON
@@ -362,7 +362,7 @@ def demonstrate_session_management():
     """Demonstrate session management and loading."""
     print("\n=== Session Management Demo ===")
     
-    manager = ReplayManager(storage_path="bot/data/examples/replays")
+    manager = ReplayManager(storage_path="data/examples/replays")
     
     # Get available sessions
     available_sessions = manager.get_available_sessions()

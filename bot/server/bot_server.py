@@ -100,7 +100,7 @@ class BotServerConfig:
     bot_timeout_seconds: int = 300  # 5 minutes
     cleanup_interval_seconds: int = 60
     game_server_url: str = "http://localhost:4000"
-    models_dir: str = "bot/data/models"
+    models_dir: str = "data/models"
     enable_performance_tracking: bool = True
     auto_cleanup_empty_rooms: bool = True
     bot_reconnect_attempts: int = 3

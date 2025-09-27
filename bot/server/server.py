@@ -104,7 +104,7 @@ class ServerConfig(BaseModel):
     max_bots_per_room: int = 8
     max_total_bots: int = 50
     bot_timeout_seconds: int = 300
-    models_dir: str = "bot/data/models"
+    models_dir: str = "data/models"
 
 
 class UnifiedServer:

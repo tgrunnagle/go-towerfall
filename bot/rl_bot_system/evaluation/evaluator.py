@@ -96,7 +96,7 @@ class EvaluationManager:
     def __init__(
         self,
         model_manager: ModelManager,
-        results_dir: str = "bot/data/evaluations",
+        results_dir: str = "data/evaluations",
         game_client_factory=None
     ):
         """

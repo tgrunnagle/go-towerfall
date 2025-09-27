@@ -16,7 +16,7 @@ from rl_bot_system.evaluation.evaluator import GameEpisode
 @dataclass
 class RecordingConfig:
     """Configuration for episode recording."""
-    storage_path: str = "bot/data/replays"
+    storage_path: str = "data/replays"
     max_episodes_per_file: int = 100
     compression: bool = True
     record_states: bool = True
