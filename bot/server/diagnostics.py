@@ -7,6 +7,7 @@ activity, and lifecycle events to help identify and resolve bot inactivity issue
 
 import logging
 import asyncio
+import os
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, List, Optional, Any, Set, Callable, Awaitable
@@ -255,21 +256,35 @@ class BotDiagnosticTracker:
         self._setup_diagnostic_logger()
     
     def _setup_diagnostic_logger(self) -> None:
-        """Setup specialized diagnostic logger."""
+        """Setup specialized diagnostic logger for file-only output."""
         # Create diagnostic-specific logger
         self.diagnostic_logger = logging.getLogger("bot_diagnostics")
         self.diagnostic_logger.setLevel(logging.INFO)
+        
+        # Prevent propagation to parent loggers (prevents console output)
+        self.diagnostic_logger.propagate = False
         
         # Create formatter for diagnostic events
         formatter = logging.Formatter(
             '%(asctime)s - BOT_DIAGNOSTIC - %(levelname)s - %(message)s'
         )
         
-        # Add handler if not already present
+        # Add file handler if not already present
         if not self.diagnostic_logger.handlers:
-            handler = logging.StreamHandler()
+            # Create logs directory if it doesn't exist
+            logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
+            os.makedirs(logs_dir, exist_ok=True)
+            
+            # Create file handler for diagnostic events
+            log_file = os.path.join(logs_dir, 'bot_diagnostics.log')
+            handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
             handler.setFormatter(formatter)
+            handler.setLevel(logging.INFO)
+            
             self.diagnostic_logger.addHandler(handler)
+            
+            # Log initialization message
+            self.diagnostic_logger.info("Bot diagnostic logger initialized - file-only output")
     
     async def start(self) -> None:
         """Start the diagnostic tracker."""
