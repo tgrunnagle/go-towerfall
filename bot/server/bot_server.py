@@ -1316,8 +1316,8 @@ class BotServer:
                     bot_ai = RulesBasedBot(config.difficulty)
                     
                     # Validate the bot AI was created successfully
-                    if not hasattr(bot_ai, 'difficulty_level'):
-                        raise RuntimeError("Rules-based bot creation failed - missing difficulty_level attribute")
+                    if not hasattr(bot_ai, 'difficulty'):
+                        raise RuntimeError("Rules-based bot creation failed - missing difficulty attribute")
                     
                     load_duration = (datetime.now() - load_start).total_seconds()
                     self.logger.debug(f"Rules-based AI loaded successfully for bot {bot_id} in {load_duration:.3f}s")

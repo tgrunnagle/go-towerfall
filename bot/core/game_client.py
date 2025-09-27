@@ -178,7 +178,10 @@ class GameClient:
     async def close(self) -> None:
         """Close the WebSocket connection"""
         if self.websocket:
-            await self.websocket.close()
+            try:
+                await self.websocket.close()
+            except:
+                self._logger.exception("Error closing WebSocket connection", e)
             self.websocket = None
 
     # Training mode extensions
