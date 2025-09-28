@@ -67,6 +67,8 @@ class GameClient:
             self._logger.info(f"Connecting to websocket server at {self.ws_url}")
             self.websocket = await websockets.connect(self.ws_url)
 
+            self.register_message_handler(self._handle_game_state_update)
+
             # Start listening for messages
             listener_task = asyncio.create_task(self._listen_for_messages())
 
@@ -450,3 +452,13 @@ class GameClient:
             "training_session_id": self._training_session_id,
             "last_state_update": self._last_state_update
         }
+
+    def _handle_game_state_update(self, message_data: Dict[str, Any]) -> None:
+        """Handle game state update."""
+        if not message_data.get("type") == "GameState":
+            return
+        if message_data["payload"].get("fullUpdate", False):
+            self.game_state = message_data["payload"]["objectStates"]
+        else:
+            for obj_id, obj in message_data["payload"]["objectStates"].items():
+                self.game_state[obj_id] = obj

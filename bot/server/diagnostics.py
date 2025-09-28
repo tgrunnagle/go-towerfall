@@ -38,6 +38,7 @@ class BotLifecycleEvent(Enum):
     BOT_GAME_JOINED = "bot_game_joined"
     BOT_GAME_JOIN_FAILED = "bot_game_join_failed"
     BOT_ACTIVE = "bot_active"
+    BOT_ENTERING_GAME_LOOP = "bot_enter_game_loop"
     BOT_AI_DECISION_MADE = "bot_ai_decision_made"
     BOT_ACTION_SENT = "bot_action_sent"
     BOT_ACTION_FAILED = "bot_action_failed"
@@ -275,8 +276,11 @@ class BotDiagnosticTracker:
             logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
             os.makedirs(logs_dir, exist_ok=True)
             
+            today = datetime.now()
+            date_prefix = today.strftime("%Y_%m_%d")
+
             # Create file handler for diagnostic events
-            log_file = os.path.join(logs_dir, 'bot_diagnostics.log')
+            log_file = os.path.join(logs_dir, f'{date_prefix}_bot_diagnostics.log')
             handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
             handler.setFormatter(formatter)
             handler.setLevel(logging.INFO)

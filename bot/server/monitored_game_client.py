@@ -51,14 +51,10 @@ class MonitoredGameClient(GameClient):
         today = datetime.now()
         date_prefix = today.strftime("%Y_%m_%d")
         
-        # Find the next available number for today
-        counter = 1
-        while True:
-            filename = f"{date_prefix}_{counter}_{bot_id}_diagnostics.log"
-            filepath = os.path.join(logs_dir, filename)
-            if not os.path.exists(filepath):
-                return filepath
-            counter += 1
+        filename = f"{date_prefix}_client_diagnostics_{bot_id}.log"
+        filepath = os.path.join(logs_dir, filename)
+        if not os.path.exists(filepath):
+            return filepath
     
     def __init__(self, bot_id: str, ws_url: str = "ws://localhost:4000/ws", 
                  http_url: str = "http://localhost:4000",
@@ -104,7 +100,7 @@ class MonitoredGameClient(GameClient):
             log_filepath = self._generate_log_filename(self.bot_id)
             
             # Create file handler with buffering
-            file_handler = logging.FileHandler(log_filepath, mode='w', encoding='utf-8')
+            file_handler = logging.FileHandler(log_filepath, mode='a', encoding='utf-8')
             file_handler.setLevel(logging.DEBUG)
             
             # Create formatter

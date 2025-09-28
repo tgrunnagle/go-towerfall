@@ -1447,7 +1447,14 @@ class BotServer:
             return
         
         bot_instance = self._bots[bot_id]
-        
+        self.diagnostic_tracker.log_event(
+            bot_id=bot_id,
+            event_type=BotLifecycleEvent.BOT_ENTERING_GAME_LOOP,
+            level=DiagnosticLevel.INFO,
+            message="Bot entering game loop",
+            correlation_id=correlation_id
+        )
+
         try:
             while (bot_instance.status == BotStatus.ACTIVE and 
                    bot_instance.game_client and 
@@ -1459,6 +1466,9 @@ class BotServer:
                 else:
                     game_state = bot_instance.game_client.game_state
                 
+                if not game_state:
+                    self.logger.warning(f"No game state received for bot {bot_id}")
+
                 # Track game state updates
                 if game_state:
                     if bot_id in self._bots:
@@ -1491,6 +1501,8 @@ class BotServer:
                     if action:
                         await self._execute_bot_action(bot_id, action)
                 
+                # TODO other bot types
+
                 # Update activity timestamp
                 bot_instance.last_activity = datetime.now()
                 
