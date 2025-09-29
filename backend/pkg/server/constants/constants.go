@@ -35,8 +35,6 @@ const (
 	StateName              = "name"
 	StateX                 = "x"
 	StateY                 = "y"
-	StateWidth             = "w"
-	StateHeight            = "h"
 	StateDx                = "dx"
 	StateDy                = "dy"
 	StateLastLocUpdateTime = "llut"
