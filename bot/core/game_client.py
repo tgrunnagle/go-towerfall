@@ -85,6 +85,7 @@ class GameClient:
                     data = await response.json()
 
             self.player_id = data["playerId"]
+            self._logger.info(f"Connected as player {self.player_id}")
             self.player_token = data["playerToken"]
             self.room_id = data["roomId"]
 
@@ -113,7 +114,7 @@ class GameClient:
             # Keep the listener task running
             return listener_task
         except Exception as e:
-            self._logger.error(f"Failed to connect: {e}")
+            self._logger.exception("Failed to connect")
             raise
 
     async def send_keyboard_input(self, key: str, pressed: bool) -> None:
@@ -178,7 +179,7 @@ class GameClient:
                 try:
                     await handler(data)
                 except Exception as e:
-                    self._logger.error(f"Error in message handler: {e}")
+                    self._logger.exception("Error in message handler")
         except json.JSONDecodeError:
             self._logger.error(f"Failed to parse message: {message}")
 
@@ -192,7 +193,7 @@ class GameClient:
                 self._logger.error("Connection to server closed")
                 break
             except Exception as e:
-                self._logger.exception(f"Error in message listener", e)
+                self._logger.exception("Error in message listener")
                 break
 
     async def close(self) -> None:
@@ -284,12 +285,12 @@ class GameClient:
                         try:
                             await callback(self._state_cache)
                         except Exception as e:
-                            self._logger.error(f"Error in state update callback: {e}")
+                            self._logger.exception("Error in state update callback")
 
                     return self._state_cache
 
         except Exception as e:
-            self._logger.error(f"Failed to get direct state: {e}")
+            self._logger.exception("Failed to get direct state")
             # Fallback to cached state if available
             return self._state_cache
 
@@ -316,7 +317,7 @@ class GameClient:
             self._logger.info(f"Room speed set to {speed_multiplier}x")
 
         except Exception as e:
-            self._logger.error(f"Failed to set room speed: {e}")
+            self._logger.exception("Failed to set room speed")
             raise
 
     async def create_training_room(
@@ -376,7 +377,7 @@ class GameClient:
             return data
 
         except Exception as e:
-            self._logger.error(f"Failed to create training room: {e}")
+            self._logger.exception("Failed to create training room")
             raise
 
     async def join_training_room(
@@ -430,7 +431,7 @@ class GameClient:
             return data
 
         except Exception as e:
-            self._logger.error(f"Failed to join training room: {e}")
+            self._logger.exception("Failed to join training room")
             raise
 
     def register_state_update_callback(
@@ -479,7 +480,7 @@ class GameClient:
                     response.raise_for_status()
 
         except Exception as e:
-            self._logger.error(f"Failed to configure training room: {e}")
+            self._logger.exception("Failed to configure training room")
 
     def is_training_mode(self) -> bool:
         """Check if client is in training mode."""
@@ -495,7 +496,7 @@ class GameClient:
             "last_state_update": self._last_state_update,
         }
 
-    def _handle_game_state_update(self, message_data: Dict[str, Any]) -> None:
+    async def _handle_game_state_update(self, message_data: Dict[str, Any]) -> None:
         """Handle game state update."""
         if not message_data.get("type") == "GameState":
             return
@@ -507,14 +508,14 @@ class GameClient:
             self.game_state.arrows = {}
 
         for obj_id, obj in message_data["payload"]["objectStates"].items():
-            if obj["type"] == "player":
+            if obj["objectType"] == "player":
                 if obj_id == self.player_id:
                     self.game_state.player = player_state_from_dict(obj)
                 else:
                     self.game_state.enemies[obj_id] = player_state_from_dict(obj)
-            elif obj["type"] == "block":
+            elif obj["objectType"] == "block":
                 self.game_state.blocks[obj_id] = block_from_dict(obj)
-            elif obj["type"] == "arrow":
-                self.game_state.arrows[obj_id] = arrow_from_dict(obj)
+            elif obj["objectType"] == "arrow":
+                self.game_state.arrows[obj_id] = arrow_state_from_dict(obj)
             else:
                 self._logger.warning(f"Unknown object type: {obj['type']}")

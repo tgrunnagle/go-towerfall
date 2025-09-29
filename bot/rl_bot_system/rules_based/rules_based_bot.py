@@ -519,7 +519,7 @@ class RulesBasedBot(BaseBot):
             value = max(0.3, 1.0 - (distance / 250))
 
             # Increase value if enemy is vulnerable (low health, not moving much)
-            if enemy.get("health", 100) < 50:
+            if enemy.health < 50:
                 value *= 1.3
 
             enemy_vel = (enemy.dx, enemy.dy)
