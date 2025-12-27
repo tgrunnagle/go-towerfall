@@ -1,3 +1,4 @@
+# Example basic bot for Towerfall using GameClient to connect and interact with the game server.
 import asyncio
 import argparse
 import logging

@@ -1,3 +1,5 @@
+# Example implementation of a GameClient that connects to a game server via WebSocket and HTTP API.
+
 import json
 import asyncio
 import aiohttp
@@ -7,13 +9,19 @@ from typing import Dict, Optional
 import logging
 from urllib.parse import urljoin
 
+
 class InputType(Enum):
     KEYBOARD = "keyboard"
     MOUSE = "mouse"
     DIRECTION = "direction"
 
+
 class GameClient:
-    def __init__(self, ws_url: str = "ws://localhost:4000/ws", http_url: str = "http://localhost:4000"):
+    def __init__(
+        self,
+        ws_url: str = "ws://localhost:4000/ws",
+        http_url: str = "http://localhost:4000",
+    ):
         self.ws_url = ws_url
         self.http_url = http_url
         self.websocket = None
@@ -24,21 +32,24 @@ class GameClient:
         self._logger = logging.getLogger(__name__)
         self._message_handlers = []
 
-    async def connect(self, room_code: str, player_name: str, room_password: Optional[str] = None) -> None:
+    async def connect(
+        self, room_code: str, player_name: str, room_password: Optional[str] = None
+    ) -> None:
         """Connect to a game room"""
         try:
             # First join via HTTP API
-            self._logger.info(f"Joining game via HTTP API {room_code} as player {player_name}")
+            self._logger.info(
+                f"Joining game via HTTP API {room_code} as player {player_name}"
+            )
             join_data = {
                 "playerName": player_name,
                 "roomCode": room_code,
-                "roomPassword": room_password
+                "roomPassword": room_password,
             }
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    urljoin(self.http_url, "api/joinGame"),
-                    json=join_data
+                    urljoin(self.http_url, "api/joinGame"), json=join_data
                 ) as response:
                     response.raise_for_status()
                     data = await response.json()
@@ -61,8 +72,8 @@ class GameClient:
                 "payload": {
                     "playerId": self.player_id,
                     "playerToken": self.player_token,
-                    "roomId": self.room_id
-                }
+                    "roomId": self.room_id,
+                },
             }
 
             await self.websocket.send(json.dumps(rejoin_message))
@@ -78,16 +89,12 @@ class GameClient:
         if not self.websocket:
             return
 
-        message = {
-            "type": "Key",
-            "payload": {
-                "key": key,
-                "isDown": pressed
-            }
-        }
+        message = {"type": "Key", "payload": {"key": key, "isDown": pressed}}
         await self.websocket.send(json.dumps(message))
 
-    async def send_mouse_input(self, button: str, pressed: bool, x: float, y: float) -> None:
+    async def send_mouse_input(
+        self, button: str, pressed: bool, x: float, y: float
+    ) -> None:
         """Send mouse input (left/right click)"""
         if not self.websocket:
             return
@@ -99,7 +106,7 @@ class GameClient:
                 "y": y,
                 "button": button,
                 "isDown": pressed,
-            }
+            },
         }
         await self.websocket.send(json.dumps(message))
 
@@ -109,13 +116,10 @@ class GameClient:
     async def exit_game(self) -> None:
         if not self.websocket:
             return
-        message = {
-            "type": "ExitGame",
-            "payload": {}
-        }
+        message = {"type": "ExitGame", "payload": {}}
         await self.websocket.send(json.dumps(message))
         await self.close()
-    
+
     async def _handle_message(self, message: str) -> None:
         """Handle incoming websocket messages"""
         try:
