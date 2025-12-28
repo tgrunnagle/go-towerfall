@@ -24,7 +24,12 @@ func (s *RoomManager) AddGameRoom(room *GameRoom) {
 
 func (s *RoomManager) RemoveGameRoom(roomID string) {
 	s.roomLock.Lock()
-	delete(s.gameRooms, roomID)
+	room, exists := s.gameRooms[roomID]
+	if exists {
+		// Stop the room's tick loop before removing
+		room.StopTickLoop()
+		delete(s.gameRooms, roomID)
+	}
 	s.roomLock.Unlock()
 }
 
