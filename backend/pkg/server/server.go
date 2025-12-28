@@ -21,7 +21,6 @@ const (
 	// Time to keep inactive rooms before cleanup
 	ROOM_CLEANUP_INTERVAL = 1 * time.Minute
 	ROOM_INACTIVE_TIMEOUT = 10 * time.Minute
-	GAME_TICK_INTERVAL    = 20 * time.Millisecond
 )
 
 var upgrader = websocket.Upgrader{
@@ -96,8 +95,7 @@ func NewServer() *Server {
 	// Start the inactive room cleanup worker
 	go server.runCleanupInactiveRooms()
 
-	// Start the game tick worker
-	go server.runGameTick()
+	// Note: Per-room tick loops are started when rooms are added via AddGameRoom
 
 	return server
 }
@@ -350,32 +348,6 @@ func (s *Server) runCleanupInactiveRooms() {
 	}
 }
 
-// runGameTick runs the game tick
-func (s *Server) runGameTick() {
-	for {
-		time.Sleep(GAME_TICK_INTERVAL)
-		s.triggerGameTick()
-	}
-}
-
-// triggerGameTick triggers a game tick for all rooms
-func (s *Server) triggerGameTick() {
-	// Send tick events to all rooms
-	roomIDs := s.roomManager.GetGameRoomIDs()
-	for _, roomID := range roomIDs {
-		room, exists := s.roomManager.GetGameRoom(roomID)
-		if !exists {
-			continue
-		}
-		go s.processEvent(room, game_objects.NewGameEvent(
-			roomID,
-			game_objects.EventGameTick,
-			nil,
-			1,
-			nil,
-		))
-	}
-}
 
 // cleanupInactiveRooms removes inactive rooms
 func (s *Server) cleanupInactiveRooms() {
@@ -394,4 +366,12 @@ func (s *Server) cleanupInactiveRooms() {
 			log.Printf("Removed empty game room: %s", roomID)
 		}
 	}
+}
+
+// AddGameRoomAndStartTick adds a room to the room manager and starts its tick loop
+func (s *Server) AddGameRoomAndStartTick(room *GameRoom) {
+	s.roomManager.AddGameRoom(room)
+	room.StartTickLoop(func(r *GameRoom, event *game_objects.GameEvent) {
+		go s.processEvent(r, event)
+	})
 }

@@ -24,6 +24,23 @@ type ConnectedPlayer struct {
 	IsSpectator bool
 }
 
+// Default tick interval constants
+const (
+	DefaultTickInterval = 20 * time.Millisecond
+	MinTickInterval     = 1 * time.Millisecond
+	MaxTickInterval     = 1000 * time.Millisecond
+)
+
+// TickConfig holds configuration for room tick rate
+type TickConfig struct {
+	// TickInterval is the duration between game ticks. Default is 20ms.
+	// Takes precedence over TickMultiplier if both are set.
+	TickInterval time.Duration
+	// TickMultiplier is a convenience multiplier for tick speed.
+	// 1.0 = normal speed (20ms), 10.0 = 10x faster (2ms), 0.5 = half speed (40ms)
+	TickMultiplier float64
+}
+
 // GameRoom represents an instance of the game being played
 type GameRoom struct {
 	ID       string `json:"id"`
@@ -41,10 +58,30 @@ type GameRoom struct {
 	// Map of player ID -> player
 	Players map[string]*ConnectedPlayer
 	Map     game_maps.Map
+
+	// Tick configuration
+	TickInterval   time.Duration
+	TickMultiplier float64
+
+	// Tick goroutine management
+	tickStopChan chan struct{}
+	tickWg       sync.WaitGroup
+	tickCallback func(*GameRoom, *game_objects.GameEvent)
 }
 
-// NewGameRoom creates a new game room
+// NewGameRoom creates a new game room with default tick configuration
 func NewGameRoom(id string, name string, password string, roomCode string, mapType game_maps.MapType) (*GameRoom, error) {
+	return NewGameRoomWithTickConfig(id, name, password, roomCode, mapType, nil)
+}
+
+// NewGameRoomWithTickConfig creates a new game room with custom tick configuration
+func NewGameRoomWithTickConfig(id string, name string, password string, roomCode string, mapType game_maps.MapType, tickConfig *TickConfig) (*GameRoom, error) {
+	// Calculate tick interval from config
+	tickInterval, tickMultiplier, err := calculateTickInterval(tickConfig)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tick configuration: %v", err)
+	}
+
 	// Create and initialize the map
 	baseMap, err := game_maps.CreateMap(mapType)
 	if err != nil {
@@ -62,6 +99,8 @@ func NewGameRoom(id string, name string, password string, roomCode string, mapTy
 		LastUpdateTime: time.Now(),
 		Players:        make(map[string]*ConnectedPlayer),
 		Map:            baseMap,
+		TickInterval:   tickInterval,
+		TickMultiplier: tickMultiplier,
 	}
 
 	// Initialize map objects
@@ -176,6 +215,10 @@ func (r *GameRoom) GetNumberOfConnectedPlayers() int {
 }
 
 func NewGameWithPlayer(roomName string, playerName string, mapType game_maps.MapType) (*GameRoom, *ConnectedPlayer, error) {
+	return NewGameWithPlayerAndTickConfig(roomName, playerName, mapType, nil)
+}
+
+func NewGameWithPlayerAndTickConfig(roomName string, playerName string, mapType game_maps.MapType, tickConfig *TickConfig) (*GameRoom, *ConnectedPlayer, error) {
 	// Generate room ID, password, and room code
 	roomID := uuid.New().String()
 	password := util.GeneratePassword()
@@ -185,8 +228,8 @@ func NewGameWithPlayer(roomName string, playerName string, mapType game_maps.Map
 	playerID := uuid.New().String()
 	playerToken := uuid.New().String()
 
-	// Create room with default map
-	room, err := NewGameRoom(roomID, roomName, password, roomCode, mapType)
+	// Create room with default map and tick config
+	room, err := NewGameRoomWithTickConfig(roomID, roomName, password, roomCode, mapType, tickConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create room: %v", err)
 	}
@@ -243,4 +286,78 @@ func (r *GameRoom) GetSpectators() []string {
 		}
 	}
 	return spectators
+}
+
+// StartTickLoop starts the per-room tick goroutine.
+// If the tick loop is already running, this method does nothing.
+func (r *GameRoom) StartTickLoop(callback func(*GameRoom, *game_objects.GameEvent)) {
+	if r.tickStopChan != nil {
+		return // Already running
+	}
+	r.tickCallback = callback
+	r.tickStopChan = make(chan struct{})
+	r.tickWg.Add(1)
+	go func() {
+		defer r.tickWg.Done()
+		ticker := time.NewTicker(r.TickInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if r.tickCallback != nil {
+					r.tickCallback(r, game_objects.NewGameEvent(
+						r.ID,
+						game_objects.EventGameTick,
+						nil,
+						1,
+						nil,
+					))
+				}
+			case <-r.tickStopChan:
+				return
+			}
+		}
+	}()
+}
+
+// StopTickLoop stops the per-room tick goroutine and waits for it to complete.
+// This method is idempotent and safe to call multiple times.
+func (r *GameRoom) StopTickLoop() {
+	if r.tickStopChan != nil {
+		close(r.tickStopChan)
+		r.tickWg.Wait()
+		r.tickStopChan = nil // Prevent double-close panic
+	}
+}
+
+// calculateTickInterval computes the tick interval from TickConfig
+func calculateTickInterval(config *TickConfig) (time.Duration, float64, error) {
+	if config == nil {
+		return DefaultTickInterval, 1.0, nil
+	}
+
+	var interval time.Duration
+	var multiplier float64
+
+	// TickInterval takes precedence over TickMultiplier
+	if config.TickInterval > 0 {
+		interval = config.TickInterval
+		multiplier = float64(DefaultTickInterval) / float64(interval)
+	} else if config.TickMultiplier > 0 {
+		multiplier = config.TickMultiplier
+		interval = time.Duration(float64(DefaultTickInterval) / multiplier)
+	} else {
+		return DefaultTickInterval, 1.0, nil
+	}
+
+	// Validate bounds
+	if interval < MinTickInterval {
+		return 0, 0, fmt.Errorf("tick interval %v is below minimum %v", interval, MinTickInterval)
+	}
+	if interval > MaxTickInterval {
+		return 0, 0, fmt.Errorf("tick interval %v exceeds maximum %v", interval, MaxTickInterval)
+	}
+
+	return interval, multiplier, nil
 }

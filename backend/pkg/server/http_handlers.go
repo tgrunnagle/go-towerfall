@@ -166,7 +166,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	s.roomManager.AddGameRoom(room)
+	s.AddGameRoomAndStartTick(room)
 
 	s.serverLock.Lock()
 	s.lastActivity[room.ID] = time.Now()
