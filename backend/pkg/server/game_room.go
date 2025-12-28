@@ -288,8 +288,12 @@ func (r *GameRoom) GetSpectators() []string {
 	return spectators
 }
 
-// StartTickLoop starts the per-room tick goroutine
+// StartTickLoop starts the per-room tick goroutine.
+// If the tick loop is already running, this method does nothing.
 func (r *GameRoom) StartTickLoop(callback func(*GameRoom, *game_objects.GameEvent)) {
+	if r.tickStopChan != nil {
+		return // Already running
+	}
 	r.tickCallback = callback
 	r.tickStopChan = make(chan struct{})
 	r.tickWg.Add(1)
@@ -317,11 +321,13 @@ func (r *GameRoom) StartTickLoop(callback func(*GameRoom, *game_objects.GameEven
 	}()
 }
 
-// StopTickLoop stops the per-room tick goroutine and waits for it to complete
+// StopTickLoop stops the per-room tick goroutine and waits for it to complete.
+// This method is idempotent and safe to call multiple times.
 func (r *GameRoom) StopTickLoop() {
 	if r.tickStopChan != nil {
 		close(r.tickStopChan)
 		r.tickWg.Wait()
+		r.tickStopChan = nil // Prevent double-close panic
 	}
 }
 

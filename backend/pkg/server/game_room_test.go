@@ -307,5 +307,54 @@ func TestStopTickLoopIsIdempotent(t *testing.T) {
 
 	// Stop multiple times - should not panic
 	room.StopTickLoop()
-	// Second stop should be safe (though tickStopChan is now nil after first stop)
+	room.StopTickLoop() // Second stop should be safe
+	room.StopTickLoop() // Third stop should also be safe
+}
+
+func TestStopTickLoopWithoutStart(t *testing.T) {
+	room, err := NewGameRoomWithTickConfig("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json", nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Stopping a room that was never started should be safe
+	room.StopTickLoop()
+}
+
+func TestStartTickLoopIgnoresDoubleStart(t *testing.T) {
+	room, err := NewGameRoomWithTickConfig("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json", &TickConfig{
+		TickInterval: 5 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	var tickCount1 int64
+	var tickCount2 int64
+
+	// Start with first callback
+	room.StartTickLoop(func(r *GameRoom, event *game_objects.GameEvent) {
+		atomic.AddInt64(&tickCount1, 1)
+	})
+
+	// Try to start again with a different callback - should be ignored
+	room.StartTickLoop(func(r *GameRoom, event *game_objects.GameEvent) {
+		atomic.AddInt64(&tickCount2, 1)
+	})
+
+	// Wait for some ticks
+	time.Sleep(30 * time.Millisecond)
+
+	room.StopTickLoop()
+
+	// Only the first callback should have been called
+	count1 := atomic.LoadInt64(&tickCount1)
+	count2 := atomic.LoadInt64(&tickCount2)
+
+	if count1 < 3 {
+		t.Errorf("Expected at least 3 ticks on first callback, got %d", count1)
+	}
+	if count2 != 0 {
+		t.Errorf("Expected 0 ticks on second callback (should be ignored), got %d", count2)
+	}
 }
