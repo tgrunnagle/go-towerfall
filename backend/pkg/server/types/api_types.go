@@ -85,6 +85,8 @@ type GameUpdate struct {
 	FullUpdate   bool                              `json:"fullUpdate"`
 	ObjectStates map[string]map[string]interface{} `json:"objectStates"` // Map of ObjectID -> ObjectState
 	Events       []GameUpdateEvent                 `json:"events"`       // List of events
+	// Training mode state (only included when training mode is enabled)
+	TrainingComplete bool `json:"trainingComplete,omitempty"` // True when training completion conditions are met
 }
 
 type SpectatorUpdate struct {

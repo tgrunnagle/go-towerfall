@@ -81,7 +81,9 @@ type GameRoom struct {
 	// Training mode configuration
 	TrainingOptions *TrainingOptions
 	// Training state tracking
+	// trainingStartTime is set once during construction and never modified, so it's safe to read without locking
 	trainingStartTime time.Time
+	// trainingKillCount is modified during gameplay and must be accessed with LockObject held
 	trainingKillCount int
 
 	// Tick goroutine management
@@ -406,7 +408,7 @@ func (r *GameRoom) IsTrainingComplete() bool {
 		return false
 	}
 
-	// Check max kills
+	// Check max kills (requires lock since trainingKillCount is modified during gameplay)
 	if r.TrainingOptions.MaxKills > 0 {
 		r.LockObject.Lock()
 		killCount := r.trainingKillCount
@@ -417,6 +419,8 @@ func (r *GameRoom) IsTrainingComplete() bool {
 	}
 
 	// Check max duration
+	// Note: trainingStartTime is set once during construction and never modified,
+	// so it's safe to read without locking
 	if r.TrainingOptions.MaxGameDurationSec > 0 {
 		elapsed := time.Since(r.trainingStartTime).Seconds()
 		if int(elapsed) >= r.TrainingOptions.MaxGameDurationSec {

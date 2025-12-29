@@ -233,6 +233,11 @@ func (s *Server) processEvent(room *GameRoom, event *game_objects.GameEvent) {
 		}
 	}
 
+	// Include training completion status in updates for training mode games
+	if room.IsTrainingMode() {
+		updates.TrainingComplete = room.IsTrainingComplete()
+	}
+
 	s.gameStateUpdateQueue <- GameUpdateQueueItem{RoomID: room.ID, Update: updates}
 }
 

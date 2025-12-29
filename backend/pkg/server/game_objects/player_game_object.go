@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"go-ws-server/pkg/server/constants"
@@ -19,6 +20,7 @@ type PlayerGameObject struct {
 	Token              string
 	respawnTimer       *time.Timer
 	respawning         bool
+	respawnMutex       sync.Mutex // Protects respawnTimer and respawning fields
 	getRespawnLocation func() (float64, float64)
 	wrapPosition       func(float64, float64) (float64, float64)
 	respawnTimeSec     float64
@@ -76,9 +78,16 @@ func NewPlayerGameObjectWithRespawnTime(
 
 // Handle processes events for the player
 func (p *PlayerGameObject) Handle(event *GameEvent, roomObjects map[string]GameObject) *GameObjectHandleEventResult {
-	if p.respawning {
-		// If the player is respawning, send an update to the client
+	// Check if player is respawning (protected by mutex since doRespawn runs in timer goroutine)
+	p.respawnMutex.Lock()
+	isRespawning := p.respawning
+	if isRespawning {
 		p.respawning = false
+	}
+	p.respawnMutex.Unlock()
+
+	if isRespawning {
+		// If the player is respawning, send an update to the client
 		return NewGameObjectHandleEventResult(true, nil)
 	}
 
@@ -519,9 +528,11 @@ func (p *PlayerGameObject) handleDeath() {
 		// Instant respawn
 		p.doRespawn()
 	} else {
+		p.respawnMutex.Lock()
 		p.respawnTimer = time.AfterFunc(time.Duration(respawnTime*float64(time.Second)), func() {
 			p.doRespawn()
 		})
+		p.respawnMutex.Unlock()
 	}
 }
 
@@ -535,8 +546,11 @@ func (p *PlayerGameObject) doRespawn() {
 	p.SetState(constants.StateDy, 0.0)
 	p.SetState(constants.StateDir, math.Pi*3/2)
 	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+
+	p.respawnMutex.Lock()
 	p.respawnTimer = nil
 	p.respawning = true
+	p.respawnMutex.Unlock()
 }
 
 // GetProperty returns the game object's properties
