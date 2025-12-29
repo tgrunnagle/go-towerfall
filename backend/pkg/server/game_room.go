@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"go-ws-server/pkg/server/constants"
 	"go-ws-server/pkg/server/game_maps"
 	"go-ws-server/pkg/server/game_objects"
 	"go-ws-server/pkg/util"
@@ -41,6 +42,20 @@ type TickConfig struct {
 	TickMultiplier float64
 }
 
+// TrainingOptions holds configuration for training mode
+type TrainingOptions struct {
+	// Enabled indicates whether training mode is active
+	Enabled bool
+	// TickMultiplier for accelerated training (1.0 = normal, 10.0 = 10x speed)
+	TickMultiplier float64
+	// MaxGameDurationSec is the maximum game duration in seconds (0 = unlimited)
+	MaxGameDurationSec int
+	// DisableRespawnTimer enables instant respawn when true
+	DisableRespawnTimer bool
+	// MaxKills is the maximum number of kills before game ends (0 = unlimited)
+	MaxKills int
+}
+
 // GameRoom represents an instance of the game being played
 type GameRoom struct {
 	ID       string `json:"id"`
@@ -63,6 +78,12 @@ type GameRoom struct {
 	TickInterval   time.Duration
 	TickMultiplier float64
 
+	// Training mode configuration
+	TrainingOptions *TrainingOptions
+	// Training state tracking
+	trainingStartTime time.Time
+	trainingKillCount int
+
 	// Tick goroutine management
 	tickStopChan chan struct{}
 	tickWg       sync.WaitGroup
@@ -76,8 +97,25 @@ func NewGameRoom(id string, name string, password string, roomCode string, mapTy
 
 // NewGameRoomWithTickConfig creates a new game room with custom tick configuration
 func NewGameRoomWithTickConfig(id string, name string, password string, roomCode string, mapType game_maps.MapType, tickConfig *TickConfig) (*GameRoom, error) {
+	return NewGameRoomWithTrainingConfig(id, name, password, roomCode, mapType, tickConfig, nil)
+}
+
+// NewGameRoomWithTrainingConfig creates a new game room with training configuration
+func NewGameRoomWithTrainingConfig(id string, name string, password string, roomCode string, mapType game_maps.MapType, tickConfig *TickConfig, trainingOptions *TrainingOptions) (*GameRoom, error) {
+	// If training mode is enabled and has a tick multiplier, use it
+	effectiveTickConfig := tickConfig
+	if trainingOptions != nil && trainingOptions.Enabled && trainingOptions.TickMultiplier > 0 {
+		if effectiveTickConfig == nil {
+			effectiveTickConfig = &TickConfig{}
+		}
+		// Training tick multiplier takes precedence if not already set
+		if effectiveTickConfig.TickMultiplier == 0 && effectiveTickConfig.TickInterval == 0 {
+			effectiveTickConfig.TickMultiplier = trainingOptions.TickMultiplier
+		}
+	}
+
 	// Calculate tick interval from config
-	tickInterval, tickMultiplier, err := calculateTickInterval(tickConfig)
+	tickInterval, tickMultiplier, err := calculateTickInterval(effectiveTickConfig)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tick configuration: %v", err)
 	}
@@ -90,17 +128,20 @@ func NewGameRoomWithTickConfig(id string, name string, password string, roomCode
 
 	// Create the room
 	room := &GameRoom{
-		ID:             id,
-		Name:           name,
-		Password:       password,
-		RoomCode:       roomCode,
-		EventManager:   NewGameEventManager(),
-		ObjectManager:  NewGameObjectManager(baseMap),
-		LastUpdateTime: time.Now(),
-		Players:        make(map[string]*ConnectedPlayer),
-		Map:            baseMap,
-		TickInterval:   tickInterval,
-		TickMultiplier: tickMultiplier,
+		ID:                id,
+		Name:              name,
+		Password:          password,
+		RoomCode:          roomCode,
+		EventManager:      NewGameEventManager(),
+		ObjectManager:     NewGameObjectManager(baseMap),
+		LastUpdateTime:    time.Now(),
+		Players:           make(map[string]*ConnectedPlayer),
+		Map:               baseMap,
+		TickInterval:      tickInterval,
+		TickMultiplier:    tickMultiplier,
+		TrainingOptions:   trainingOptions,
+		trainingStartTime: time.Now(),
+		trainingKillCount: 0,
 	}
 
 	// Initialize map objects
@@ -125,7 +166,9 @@ func (r *GameRoom) AddPlayer(playerID string, player *ConnectedPlayer) bool {
 	r.Players[playerID] = player
 
 	if !player.IsSpectator {
-		gameObject := game_objects.NewPlayerGameObject(player.ID, player.Name, player.Token, r.Map.GetRespawnLocation, r.Map.WrapPosition)
+		// Use room's configured respawn time (which may be 0 for training mode instant respawn)
+		respawnTime := r.GetRespawnTimeSec()
+		gameObject := game_objects.NewPlayerGameObjectWithRespawnTime(player.ID, player.Name, player.Token, r.Map.GetRespawnLocation, r.Map.WrapPosition, respawnTime)
 
 		// Add player's GameObject to the object manager if it exists
 		r.addObject(gameObject)
@@ -219,6 +262,10 @@ func NewGameWithPlayer(roomName string, playerName string, mapType game_maps.Map
 }
 
 func NewGameWithPlayerAndTickConfig(roomName string, playerName string, mapType game_maps.MapType, tickConfig *TickConfig) (*GameRoom, *ConnectedPlayer, error) {
+	return NewGameWithPlayerAndTrainingConfig(roomName, playerName, mapType, tickConfig, nil)
+}
+
+func NewGameWithPlayerAndTrainingConfig(roomName string, playerName string, mapType game_maps.MapType, tickConfig *TickConfig, trainingOptions *TrainingOptions) (*GameRoom, *ConnectedPlayer, error) {
 	// Generate room ID, password, and room code
 	roomID := uuid.New().String()
 	password := util.GeneratePassword()
@@ -228,8 +275,8 @@ func NewGameWithPlayerAndTickConfig(roomName string, playerName string, mapType 
 	playerID := uuid.New().String()
 	playerToken := uuid.New().String()
 
-	// Create room with default map and tick config
-	room, err := NewGameRoomWithTickConfig(roomID, roomName, password, roomCode, mapType, tickConfig)
+	// Create room with training config
+	room, err := NewGameRoomWithTrainingConfig(roomID, roomName, password, roomCode, mapType, tickConfig, trainingOptions)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create room: %v", err)
 	}
@@ -329,6 +376,69 @@ func (r *GameRoom) StopTickLoop() {
 		r.tickWg.Wait()
 		r.tickStopChan = nil // Prevent double-close panic
 	}
+}
+
+// IncrementKillCount increments the training kill counter and returns the new count.
+// This should be called when a player dies during training mode.
+func (r *GameRoom) IncrementKillCount() int {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+	r.trainingKillCount++
+	return r.trainingKillCount
+}
+
+// GetKillCount returns the current training kill count.
+func (r *GameRoom) GetKillCount() int {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+	return r.trainingKillCount
+}
+
+// GetTrainingElapsedSeconds returns the elapsed time since training started in seconds.
+func (r *GameRoom) GetTrainingElapsedSeconds() float64 {
+	return time.Since(r.trainingStartTime).Seconds()
+}
+
+// IsTrainingComplete checks if training completion conditions have been met.
+// Returns true if either max kills or max duration has been reached.
+func (r *GameRoom) IsTrainingComplete() bool {
+	if r.TrainingOptions == nil || !r.TrainingOptions.Enabled {
+		return false
+	}
+
+	// Check max kills
+	if r.TrainingOptions.MaxKills > 0 {
+		r.LockObject.Lock()
+		killCount := r.trainingKillCount
+		r.LockObject.Unlock()
+		if killCount >= r.TrainingOptions.MaxKills {
+			return true
+		}
+	}
+
+	// Check max duration
+	if r.TrainingOptions.MaxGameDurationSec > 0 {
+		elapsed := time.Since(r.trainingStartTime).Seconds()
+		if int(elapsed) >= r.TrainingOptions.MaxGameDurationSec {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsTrainingMode returns true if the room is in training mode.
+func (r *GameRoom) IsTrainingMode() bool {
+	return r.TrainingOptions != nil && r.TrainingOptions.Enabled
+}
+
+// GetRespawnTimeSec returns the respawn time for this room.
+// Returns 0 if training mode has instant respawn enabled, otherwise returns the default.
+func (r *GameRoom) GetRespawnTimeSec() float64 {
+	if r.TrainingOptions != nil && r.TrainingOptions.Enabled && r.TrainingOptions.DisableRespawnTimer {
+		return 0.0
+	}
+	return constants.PlayerRespawnTimeSec
 }
 
 // calculateTickInterval computes the tick interval from TickConfig

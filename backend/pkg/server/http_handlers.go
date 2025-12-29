@@ -74,6 +74,12 @@ type CreateGameHTTPRequest struct {
 	PlayerName string `json:"playerName"`
 	RoomName   string `json:"roomName"`
 	MapType    string `json:"mapType"`
+	// Training mode options (all optional)
+	TrainingMode        bool    `json:"trainingMode,omitempty"`
+	TickMultiplier      float64 `json:"tickMultiplier,omitempty"`      // e.g., 10.0 for 10x speed
+	MaxGameDurationSec  int     `json:"maxGameDurationSec,omitempty"`  // Auto-terminate after N seconds
+	DisableRespawnTimer bool    `json:"disableRespawnTimer,omitempty"` // Instant respawn for faster episodes
+	MaxKills            int     `json:"maxKills,omitempty"`            // End game after N total kills
 }
 
 // CreateGameResponse represents the response to a create game request
@@ -87,6 +93,12 @@ type CreateGameHTTPResponse struct {
 	CanvasSizeX int    `json:"canvasSizeX,omitempty"`
 	CanvasSizeY int    `json:"canvasSizeY,omitempty"`
 	Error       string `json:"error,omitempty"`
+	// Training mode settings (returned when training mode is enabled)
+	TrainingMode        bool    `json:"trainingMode,omitempty"`
+	TickMultiplier      float64 `json:"tickMultiplier,omitempty"`
+	MaxGameDurationSec  int     `json:"maxGameDurationSec,omitempty"`
+	DisableRespawnTimer bool    `json:"disableRespawnTimer,omitempty"`
+	MaxKills            int     `json:"maxKills,omitempty"`
 }
 
 // JoinGameRequest represents the request to join an existing game
@@ -155,9 +167,47 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create game with specified map type
+	// Build training options if training mode is enabled
+	var trainingOptions *TrainingOptions
+	if req.TrainingMode {
+		// Validate training parameters
+		if req.TickMultiplier != 0 && (req.TickMultiplier < 1.0 || req.TickMultiplier > 20.0) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+				Success: false,
+				Error:   "tickMultiplier must be between 1.0 and 20.0",
+			})
+			return
+		}
+		if req.MaxGameDurationSec < 0 || req.MaxGameDurationSec > 3600 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+				Success: false,
+				Error:   "maxGameDurationSec must be between 0 and 3600",
+			})
+			return
+		}
+		if req.MaxKills < 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+				Success: false,
+				Error:   "maxKills must be non-negative",
+			})
+			return
+		}
+
+		trainingOptions = &TrainingOptions{
+			Enabled:             true,
+			TickMultiplier:      req.TickMultiplier,
+			MaxGameDurationSec:  req.MaxGameDurationSec,
+			DisableRespawnTimer: req.DisableRespawnTimer,
+			MaxKills:            req.MaxKills,
+		}
+	}
+
+	// Create game with specified map type and training options
 	mapType := game_maps.MapType("meta/" + req.MapType + ".json")
-	room, player, err := NewGameWithPlayer(req.RoomName, req.PlayerName, mapType)
+	room, player, err := NewGameWithPlayerAndTrainingConfig(req.RoomName, req.PlayerName, mapType, nil, trainingOptions)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(CreateGameHTTPResponse{
@@ -172,10 +222,9 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	s.lastActivity[room.ID] = time.Now()
 	s.serverLock.Unlock()
 
-	// Return success response
-	w.WriteHeader(http.StatusOK)
+	// Build response
 	canvasSizeX, canvasSizeY := room.ObjectManager.Map.GetCanvasSize()
-	json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+	response := CreateGameHTTPResponse{
 		Success:     true,
 		RoomID:      room.ID,
 		RoomCode:    room.RoomCode,
@@ -184,7 +233,20 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		PlayerToken: player.Token,
 		CanvasSizeX: canvasSizeX,
 		CanvasSizeY: canvasSizeY,
-	})
+	}
+
+	// Include training settings in response if training mode is enabled
+	if room.TrainingOptions != nil && room.TrainingOptions.Enabled {
+		response.TrainingMode = true
+		response.TickMultiplier = room.TickMultiplier
+		response.MaxGameDurationSec = room.TrainingOptions.MaxGameDurationSec
+		response.DisableRespawnTimer = room.TrainingOptions.DisableRespawnTimer
+		response.MaxKills = room.TrainingOptions.MaxKills
+	}
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 
 	log.Printf("Created game room %s with code %s via HTTP API", room.ID, room.RoomCode)
 	log.Printf("Player %s joined game room %s via HTTP API", player.ID, room.ID)

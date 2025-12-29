@@ -358,3 +358,241 @@ func TestStartTickLoopIgnoresDoubleStart(t *testing.T) {
 		t.Errorf("Expected 0 ticks on second callback (should be ignored), got %d", count2)
 	}
 }
+
+// Training mode tests
+
+func TestNewGameRoomWithTrainingConfig(t *testing.T) {
+	tests := []struct {
+		name                string
+		trainingOptions     *TrainingOptions
+		wantTrainingEnabled bool
+		wantInterval        time.Duration
+		wantMultiplier      float64
+		wantErr             bool
+	}{
+		{
+			name:                "No training options (nil)",
+			trainingOptions:     nil,
+			wantTrainingEnabled: false,
+			wantInterval:        DefaultTickInterval,
+			wantMultiplier:      1.0,
+			wantErr:             false,
+		},
+		{
+			name: "Training mode enabled with 10x speed",
+			trainingOptions: &TrainingOptions{
+				Enabled:        true,
+				TickMultiplier: 10.0,
+			},
+			wantTrainingEnabled: true,
+			wantInterval:        2 * time.Millisecond,
+			wantMultiplier:      10.0,
+			wantErr:             false,
+		},
+		{
+			name: "Training mode with all options",
+			trainingOptions: &TrainingOptions{
+				Enabled:             true,
+				TickMultiplier:      5.0,
+				MaxGameDurationSec:  60,
+				DisableRespawnTimer: true,
+				MaxKills:            20,
+			},
+			wantTrainingEnabled: true,
+			wantInterval:        4 * time.Millisecond,
+			wantMultiplier:      5.0,
+			wantErr:             false,
+		},
+		{
+			name: "Training mode disabled (enabled=false)",
+			trainingOptions: &TrainingOptions{
+				Enabled:        false,
+				TickMultiplier: 10.0,
+			},
+			wantTrainingEnabled: false,
+			wantInterval:        DefaultTickInterval,
+			wantMultiplier:      1.0,
+			wantErr:             false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			room, err := NewGameRoomWithTrainingConfig("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json", nil, tt.trainingOptions)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewGameRoomWithTrainingConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if room.IsTrainingMode() != tt.wantTrainingEnabled {
+					t.Errorf("Room.IsTrainingMode() = %v, want %v", room.IsTrainingMode(), tt.wantTrainingEnabled)
+				}
+				if room.TickInterval != tt.wantInterval {
+					t.Errorf("Room.TickInterval = %v, want %v", room.TickInterval, tt.wantInterval)
+				}
+				if room.TickMultiplier != tt.wantMultiplier {
+					t.Errorf("Room.TickMultiplier = %v, want %v", room.TickMultiplier, tt.wantMultiplier)
+				}
+			}
+		})
+	}
+}
+
+func TestTrainingModeKillTracking(t *testing.T) {
+	room, err := NewGameRoomWithTrainingConfig("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json", nil, &TrainingOptions{
+		Enabled:  true,
+		MaxKills: 5,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Initial kill count should be 0
+	if room.GetKillCount() != 0 {
+		t.Errorf("Initial kill count should be 0, got %d", room.GetKillCount())
+	}
+
+	// Training should not be complete initially
+	if room.IsTrainingComplete() {
+		t.Error("Training should not be complete initially")
+	}
+
+	// Increment kills
+	for i := 1; i <= 4; i++ {
+		count := room.IncrementKillCount()
+		if count != i {
+			t.Errorf("IncrementKillCount() returned %d, want %d", count, i)
+		}
+		if room.IsTrainingComplete() {
+			t.Errorf("Training should not be complete with %d kills (max is 5)", i)
+		}
+	}
+
+	// Fifth kill should complete training
+	count := room.IncrementKillCount()
+	if count != 5 {
+		t.Errorf("IncrementKillCount() returned %d, want 5", count)
+	}
+	if !room.IsTrainingComplete() {
+		t.Error("Training should be complete after 5 kills")
+	}
+}
+
+func TestTrainingModeDurationTracking(t *testing.T) {
+	room, err := NewGameRoomWithTrainingConfig("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json", nil, &TrainingOptions{
+		Enabled:            true,
+		MaxGameDurationSec: 1, // 1 second for quick test
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Training should not be complete initially
+	if room.IsTrainingComplete() {
+		t.Error("Training should not be complete initially")
+	}
+
+	// Elapsed time should be very small initially
+	elapsed := room.GetTrainingElapsedSeconds()
+	if elapsed > 0.5 {
+		t.Errorf("Initial elapsed time should be very small, got %v", elapsed)
+	}
+
+	// Wait for the duration to expire
+	time.Sleep(1100 * time.Millisecond)
+
+	// Training should be complete now
+	if !room.IsTrainingComplete() {
+		t.Error("Training should be complete after duration expires")
+	}
+}
+
+func TestTrainingModeRespawnTime(t *testing.T) {
+	tests := []struct {
+		name               string
+		trainingOptions    *TrainingOptions
+		wantRespawnTimeSec float64
+	}{
+		{
+			name:               "No training mode",
+			trainingOptions:    nil,
+			wantRespawnTimeSec: 5.0, // Default from constants
+		},
+		{
+			name: "Training mode without instant respawn",
+			trainingOptions: &TrainingOptions{
+				Enabled:             true,
+				DisableRespawnTimer: false,
+			},
+			wantRespawnTimeSec: 5.0, // Default
+		},
+		{
+			name: "Training mode with instant respawn",
+			trainingOptions: &TrainingOptions{
+				Enabled:             true,
+				DisableRespawnTimer: true,
+			},
+			wantRespawnTimeSec: 0.0, // Instant
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			room, err := NewGameRoomWithTrainingConfig("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json", nil, tt.trainingOptions)
+			if err != nil {
+				t.Fatalf("Failed to create room: %v", err)
+			}
+			if room.GetRespawnTimeSec() != tt.wantRespawnTimeSec {
+				t.Errorf("Room.GetRespawnTimeSec() = %v, want %v", room.GetRespawnTimeSec(), tt.wantRespawnTimeSec)
+			}
+		})
+	}
+}
+
+func TestIsTrainingModeWithNoOptions(t *testing.T) {
+	room, err := NewGameRoom("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json")
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	if room.IsTrainingMode() {
+		t.Error("Room should not be in training mode by default")
+	}
+
+	if room.IsTrainingComplete() {
+		t.Error("Training should never be complete when not in training mode")
+	}
+}
+
+func TestNewGameWithPlayerAndTrainingConfig(t *testing.T) {
+	room, player, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, &TrainingOptions{
+		Enabled:             true,
+		TickMultiplier:      5.0,
+		DisableRespawnTimer: true,
+		MaxKills:            10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room with player: %v", err)
+	}
+
+	if player == nil {
+		t.Fatal("Player should not be nil")
+	}
+
+	if !room.IsTrainingMode() {
+		t.Error("Room should be in training mode")
+	}
+
+	if room.TickMultiplier != 5.0 {
+		t.Errorf("Room.TickMultiplier = %v, want 5.0", room.TickMultiplier)
+	}
+
+	if room.TrainingOptions.MaxKills != 10 {
+		t.Errorf("Room.TrainingOptions.MaxKills = %v, want 10", room.TrainingOptions.MaxKills)
+	}
+
+	// Verify player was added with instant respawn configuration
+	if room.GetRespawnTimeSec() != 0.0 {
+		t.Errorf("Room.GetRespawnTimeSec() = %v, want 0.0 for instant respawn", room.GetRespawnTimeSec())
+	}
+}

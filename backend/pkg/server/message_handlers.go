@@ -226,6 +226,11 @@ func (s *Server) processEvent(room *GameRoom, event *game_objects.GameEvent) {
 			Type: event.EventType,
 			Data: event.Data,
 		})
+
+		// Track kills for training mode
+		if event.EventType == game_objects.EventPlayerDied && room.IsTrainingMode() {
+			room.IncrementKillCount()
+		}
 	}
 
 	s.gameStateUpdateQueue <- GameUpdateQueueItem{RoomID: room.ID, Update: updates}
