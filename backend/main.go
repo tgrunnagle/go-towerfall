@@ -18,6 +18,7 @@ func main() {
 	http.HandleFunc("/api/maps", server.HandleGetMaps)
 	http.HandleFunc("/api/createGame", server.HandleCreateGame)
 	http.HandleFunc("/api/joinGame", server.HandleJoinGame)
+	http.HandleFunc("/api/rooms/", server.HandleGetRoomState)
 
 	if err := http.ListenAndServe(":4000", nil); err != nil {
 		log.Fatal("ListenAndServe: ", err)

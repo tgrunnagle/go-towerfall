@@ -122,6 +122,15 @@ type JoinGameHTTPResponse struct {
 	Error       string `json:"error,omitempty"`
 }
 
+// GetRoomStateResponse represents the response to a room state request
+type GetRoomStateResponse struct {
+	Success      bool                              `json:"success"`
+	RoomID       string                            `json:"roomId,omitempty"`
+	Timestamp    string                            `json:"timestamp,omitempty"`
+	ObjectStates map[string]map[string]interface{} `json:"objectStates,omitempty"`
+	Error        string                            `json:"error,omitempty"`
+}
+
 // HandleCreateGame handles HTTP requests to create a new game
 func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	// Set response headers
@@ -346,4 +355,114 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 	})
 
 	log.Printf("Player %s joined game room %s via HTTP API", player.ID, room.ID)
+}
+
+// HandleGetRoomState handles HTTP requests to get the current game state for a room
+func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Player-Token")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow GET requests
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(GetRoomStateResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract roomId from URL path: /api/rooms/{roomId}/state
+	path := r.URL.Path
+	prefix := "/api/rooms/"
+	suffix := "/state"
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GetRoomStateResponse{
+			Success: false,
+			Error:   "Invalid URL format",
+		})
+		return
+	}
+	roomID := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
+	if roomID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GetRoomStateResponse{
+			Success: false,
+			Error:   "Room ID is required",
+		})
+		return
+	}
+
+	// Get player token from query parameter or header
+	playerToken := r.URL.Query().Get("playerToken")
+	if playerToken == "" {
+		playerToken = r.Header.Get("X-Player-Token")
+	}
+	if playerToken == "" {
+		// Check Authorization header (Bearer token format)
+		auth := r.Header.Get("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			playerToken = strings.TrimPrefix(auth, "Bearer ")
+		}
+	}
+	if playerToken == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(GetRoomStateResponse{
+			Success: false,
+			Error:   "Player token is required (provide via playerToken query param, X-Player-Token header, or Authorization: Bearer header)",
+		})
+		return
+	}
+
+	// Get room by ID
+	room, exists := s.roomManager.GetGameRoom(roomID)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(GetRoomStateResponse{
+			Success: false,
+			Error:   "Room not found",
+		})
+		return
+	}
+
+	// Verify player token belongs to a player in the room
+	authorized := false
+	for _, player := range room.Players {
+		if player.Token == playerToken {
+			authorized = true
+			break
+		}
+	}
+	if !authorized {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(GetRoomStateResponse{
+			Success: false,
+			Error:   "Player token is not authorized for this room",
+		})
+		return
+	}
+
+	// Get game state
+	objectStates := room.GetAllGameObjectStates()
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(GetRoomStateResponse{
+		Success:      true,
+		RoomID:       room.ID,
+		Timestamp:    time.Now().UTC().Format(time.RFC3339),
+		ObjectStates: objectStates,
+	})
+
+	log.Printf("Returned room state for room %s via HTTP API", room.ID)
 }

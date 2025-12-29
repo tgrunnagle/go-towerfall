@@ -66,29 +66,9 @@ npm install
 npm test
 ```
 
-### Bot
+### Bot2
 
-The bot is a ML model that can play the game. It runs in python and is located in the `bot` directory. Initialize the virtual environment with:
-
-```bash
-cd bot
-# on macOS
-python3.11 -m venv env
-source env/bin/activate
-# on windows (in powershell, Set-ExecutionPolicy RemoteSigned)
-py -3.11 -m venv env
-.\env\Scripts\activate
-# exit venv
-deactivate
-
-pip install -r requirements.txt
-```
-
-Run the bot with:
-
-```bash
-// TODO
-```
+TODO
 
 ## Game Controls
 
