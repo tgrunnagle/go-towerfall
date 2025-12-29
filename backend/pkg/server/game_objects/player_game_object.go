@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"go-ws-server/pkg/server/constants"
@@ -19,17 +20,31 @@ type PlayerGameObject struct {
 	Token              string
 	respawnTimer       *time.Timer
 	respawning         bool
+	respawnMutex       sync.Mutex // Protects respawnTimer and respawning fields
 	getRespawnLocation func() (float64, float64)
 	wrapPosition       func(float64, float64) (float64, float64)
+	respawnTimeSec     float64
 }
 
-// NewPlayerGameObject creates a new PlayerGameObject
+// NewPlayerGameObject creates a new PlayerGameObject with default respawn time
 func NewPlayerGameObject(
 	id string,
 	name string,
 	token string,
 	getRespawnLocation func() (float64, float64),
 	wrapPosition func(float64, float64) (float64, float64),
+) *PlayerGameObject {
+	return NewPlayerGameObjectWithRespawnTime(id, name, token, getRespawnLocation, wrapPosition, constants.PlayerRespawnTimeSec)
+}
+
+// NewPlayerGameObjectWithRespawnTime creates a new PlayerGameObject with configurable respawn time
+func NewPlayerGameObjectWithRespawnTime(
+	id string,
+	name string,
+	token string,
+	getRespawnLocation func() (float64, float64),
+	wrapPosition func(float64, float64) (float64, float64),
+	respawnTimeSec float64,
 ) *PlayerGameObject {
 	base := NewBaseGameObject(id, constants.ObjectTypePlayer)
 	player := &PlayerGameObject{
@@ -39,6 +54,7 @@ func NewPlayerGameObject(
 		respawnTimer:       nil,
 		getRespawnLocation: getRespawnLocation,
 		wrapPosition:       wrapPosition,
+		respawnTimeSec:     respawnTimeSec,
 	}
 	player.SetState(constants.StateID, id)
 	player.SetState(constants.StateName, name)
@@ -62,9 +78,16 @@ func NewPlayerGameObject(
 
 // Handle processes events for the player
 func (p *PlayerGameObject) Handle(event *GameEvent, roomObjects map[string]GameObject) *GameObjectHandleEventResult {
-	if p.respawning {
-		// If the player is respawning, send an update to the client
+	// Check if player is respawning (protected by mutex since doRespawn runs in timer goroutine)
+	p.respawnMutex.Lock()
+	isRespawning := p.respawning
+	if isRespawning {
 		p.respawning = false
+	}
+	p.respawnMutex.Unlock()
+
+	if isRespawning {
+		// If the player is respawning, send an update to the client
 		return NewGameObjectHandleEventResult(true, nil)
 	}
 
@@ -498,19 +521,36 @@ func (p *PlayerGameObject) handleDeath() {
 	p.SetState(constants.StateDx, 0.0)
 	p.SetState(constants.StateDy, 0.0)
 	p.SetState(constants.StateLastLocUpdateTime, time.Now())
-	p.respawnTimer = time.AfterFunc(constants.PlayerRespawnTimeSec*time.Second, func() {
-		p.SetState(constants.StateDead, false)
-		p.SetState(constants.StateHealth, constants.PlayerStartingHealth)
-		respawnX, respawnY := p.getRespawnLocation()
-		p.SetState(constants.StateX, respawnX)
-		p.SetState(constants.StateY, respawnY)
-		p.SetState(constants.StateDx, 0.0)
-		p.SetState(constants.StateDy, 0.0)
-		p.SetState(constants.StateDir, math.Pi*3/2)
-		p.SetState(constants.StateLastLocUpdateTime, time.Now())
-		p.respawnTimer = nil
-		p.respawning = true
-	})
+
+	// Use configured respawn time (0 = instant respawn)
+	respawnTime := p.respawnTimeSec
+	if respawnTime <= 0 {
+		// Instant respawn
+		p.doRespawn()
+	} else {
+		p.respawnMutex.Lock()
+		p.respawnTimer = time.AfterFunc(time.Duration(respawnTime*float64(time.Second)), func() {
+			p.doRespawn()
+		})
+		p.respawnMutex.Unlock()
+	}
+}
+
+func (p *PlayerGameObject) doRespawn() {
+	p.SetState(constants.StateDead, false)
+	p.SetState(constants.StateHealth, constants.PlayerStartingHealth)
+	respawnX, respawnY := p.getRespawnLocation()
+	p.SetState(constants.StateX, respawnX)
+	p.SetState(constants.StateY, respawnY)
+	p.SetState(constants.StateDx, 0.0)
+	p.SetState(constants.StateDy, 0.0)
+	p.SetState(constants.StateDir, math.Pi*3/2)
+	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+
+	p.respawnMutex.Lock()
+	p.respawnTimer = nil
+	p.respawning = true
+	p.respawnMutex.Unlock()
 }
 
 // GetProperty returns the game object's properties
