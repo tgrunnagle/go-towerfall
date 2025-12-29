@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"go-ws-server/pkg/server/constants"
 	"go-ws-server/pkg/server/game_maps"
+	"go-ws-server/pkg/server/game_objects"
+	"go-ws-server/pkg/server/types"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -456,4 +458,201 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 		Timestamp:    time.Now().UTC().Format(time.RFC3339),
 		ObjectStates: objectStates,
 	})
+}
+
+// extractBotActionPathParams extracts roomId and playerId from the URL path
+// Expected format: /api/rooms/{roomId}/players/{playerId}/action
+func extractBotActionPathParams(path string) (roomID string, playerID string, ok bool) {
+	parts := strings.Split(path, "/")
+	// parts = ["", "api", "rooms", "{roomId}", "players", "{playerId}", "action"]
+	if len(parts) == 7 && parts[1] == "api" && parts[2] == "rooms" &&
+		parts[4] == "players" && parts[6] == "action" {
+		return parts[3], parts[5], true
+	}
+	return "", "", false
+}
+
+// HandleBotAction handles HTTP requests to submit bot actions
+func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow POST requests
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(types.BotActionResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract roomId and playerId from URL path
+	roomID, playerID, ok := extractBotActionPathParams(r.URL.Path)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(types.BotActionResponse{
+			Success: false,
+			Error:   "Invalid URL format. Expected: /api/rooms/{roomId}/players/{playerId}/action",
+		})
+		return
+	}
+
+	// Get player token from Authorization header (Bearer token format)
+	playerToken := ""
+	auth := r.Header.Get("Authorization")
+	if strings.HasPrefix(auth, "Bearer ") {
+		playerToken = strings.TrimPrefix(auth, "Bearer ")
+	}
+	if playerToken == "" {
+		log.Printf("HandleBotAction: Missing authorization header for room %s, player %s", roomID, playerID)
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(types.BotActionResponse{
+			Success: false,
+			Error:   "Authorization header with Bearer token is required",
+		})
+		return
+	}
+
+	// Get room by ID
+	room, exists := s.roomManager.GetGameRoom(roomID)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(types.BotActionResponse{
+			Success: false,
+			Error:   "Room not found",
+		})
+		return
+	}
+
+	// Get player by ID
+	player, exists := room.GetPlayer(playerID)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(types.BotActionResponse{
+			Success: false,
+			Error:   "Player not found",
+		})
+		return
+	}
+
+	// Validate player token
+	if player.Token != playerToken {
+		log.Printf("HandleBotAction: Invalid player token for room %s, player %s", roomID, playerID)
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(types.BotActionResponse{
+			Success: false,
+			Error:   "Invalid player token",
+		})
+		return
+	}
+
+	// Parse request body (limit to 1MB to prevent abuse)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	var req types.BotActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(types.BotActionResponse{
+			Success: false,
+			Error:   "Invalid request format",
+		})
+		return
+	}
+
+	// Process each action
+	actionsProcessed := 0
+	for _, action := range req.Actions {
+		var event *game_objects.GameEvent
+
+		switch action.Type {
+		case "key":
+			// Validate key value
+			key := strings.ToUpper(action.Key)
+			if key != "W" && key != "A" && key != "S" && key != "D" {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(types.BotActionResponse{
+					Success: false,
+					Error:   "Invalid key value. Must be W, A, S, or D",
+				})
+				return
+			}
+			eventData := map[string]interface{}{
+				"playerId": playerID,
+				"key":      key,
+				"isDown":   action.IsDown,
+			}
+			event = game_objects.NewGameEvent(
+				roomID,
+				game_objects.EventPlayerKeyInput,
+				eventData,
+				1,
+				nil,
+			)
+
+		case "click":
+			eventData := map[string]interface{}{
+				"playerId": playerID,
+				"x":        action.X,
+				"y":        action.Y,
+				"isDown":   action.IsDown,
+				"button":   action.Button,
+			}
+			event = game_objects.NewGameEvent(
+				roomID,
+				game_objects.EventPlayerClickInput,
+				eventData,
+				1,
+				nil,
+			)
+
+		case "direction":
+			eventData := map[string]interface{}{
+				"playerId":  playerID,
+				"direction": action.Direction,
+			}
+			event = game_objects.NewGameEvent(
+				roomID,
+				game_objects.EventPlayerDirection,
+				eventData,
+				1,
+				nil,
+			)
+
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(types.BotActionResponse{
+				Success: false,
+				Error:   fmt.Sprintf("Invalid action type: %s. Must be key, click, or direction", action.Type),
+			})
+			return
+		}
+
+		// Process the event (reuses processEvent from message_handlers.go)
+		s.processEvent(room, event)
+		actionsProcessed++
+	}
+
+	// Update room activity
+	s.serverLock.Lock()
+	s.lastActivity[roomID] = time.Now()
+	s.serverLock.Unlock()
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(types.BotActionResponse{
+		Success:          true,
+		ActionsProcessed: actionsProcessed,
+		Timestamp:        time.Now().UnixMilli(),
+	})
+
+	log.Printf("Bot action submitted for player %s in room %s: %d actions processed", playerID, roomID, actionsProcessed)
 }

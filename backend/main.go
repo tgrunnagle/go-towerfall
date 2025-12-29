@@ -3,22 +3,33 @@ package main
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"go-ws-server/pkg/server"
 )
 
 func main() {
-	server := server.NewServer()
+	srv := server.NewServer()
 	log.Printf("Starting server on :4000")
 
 	// WebSocket endpoint
-	http.HandleFunc("/ws", server.HandleWebSocket)
+	http.HandleFunc("/ws", srv.HandleWebSocket)
 
 	// HTTP API endpoints
-	http.HandleFunc("/api/maps", server.HandleGetMaps)
-	http.HandleFunc("/api/createGame", server.HandleCreateGame)
-	http.HandleFunc("/api/joinGame", server.HandleJoinGame)
-	http.HandleFunc("/api/rooms/", server.HandleGetRoomState)
+	http.HandleFunc("/api/maps", srv.HandleGetMaps)
+	http.HandleFunc("/api/createGame", srv.HandleCreateGame)
+	http.HandleFunc("/api/joinGame", srv.HandleJoinGame)
+
+	// Route /api/rooms/ requests based on path pattern
+	http.HandleFunc("/api/rooms/", func(w http.ResponseWriter, r *http.Request) {
+		// Check if this is a bot action endpoint: /api/rooms/{roomId}/players/{playerId}/action
+		if strings.Contains(r.URL.Path, "/players/") && strings.HasSuffix(r.URL.Path, "/action") {
+			srv.HandleBotAction(w, r)
+			return
+		}
+		// Otherwise, handle as room state endpoint: /api/rooms/{roomId}/state
+		srv.HandleGetRoomState(w, r)
+	})
 
 	if err := http.ListenAndServe(":4000", nil); err != nil {
 		log.Fatal("ListenAndServe: ", err)
