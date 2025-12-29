@@ -171,6 +171,8 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	var trainingOptions *TrainingOptions
 	if req.TrainingMode {
 		// Validate training parameters
+		// Note: Max multiplier is 20x because DefaultTickInterval (20ms) / MinTickInterval (1ms) = 20.
+		// The issue spec mentions 1.0-100.0, but the server's MinTickInterval of 1ms limits practical max to 20x.
 		if req.TickMultiplier != 0 && (req.TickMultiplier < 1.0 || req.TickMultiplier > 20.0) {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(CreateGameHTTPResponse{
@@ -238,6 +240,8 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	// Include training settings in response if training mode is enabled
 	if room.TrainingOptions != nil && room.TrainingOptions.Enabled {
 		response.TrainingMode = true
+		// Return the actual applied tick multiplier (from room.TickMultiplier) rather than the
+		// requested value, as the room may have applied defaults or constraints
 		response.TickMultiplier = room.TickMultiplier
 		response.MaxGameDurationSec = room.TrainingOptions.MaxGameDurationSec
 		response.DisableRespawnTimer = room.TrainingOptions.DisableRespawnTimer

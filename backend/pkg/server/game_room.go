@@ -102,15 +102,21 @@ func NewGameRoomWithTickConfig(id string, name string, password string, roomCode
 	return NewGameRoomWithTrainingConfig(id, name, password, roomCode, mapType, tickConfig, nil)
 }
 
-// NewGameRoomWithTrainingConfig creates a new game room with training configuration
+// NewGameRoomWithTrainingConfig creates a new game room with training configuration.
+//
+// Tick rate precedence (highest to lowest):
+//  1. tickConfig.TickInterval (explicit interval always wins)
+//  2. tickConfig.TickMultiplier (explicit multiplier)
+//  3. trainingOptions.TickMultiplier (training mode multiplier, only if no tickConfig set)
+//  4. DefaultTickInterval (20ms, 1x speed)
 func NewGameRoomWithTrainingConfig(id string, name string, password string, roomCode string, mapType game_maps.MapType, tickConfig *TickConfig, trainingOptions *TrainingOptions) (*GameRoom, error) {
-	// If training mode is enabled and has a tick multiplier, use it
+	// Apply training tick multiplier only if no explicit tickConfig is provided
 	effectiveTickConfig := tickConfig
 	if trainingOptions != nil && trainingOptions.Enabled && trainingOptions.TickMultiplier > 0 {
 		if effectiveTickConfig == nil {
 			effectiveTickConfig = &TickConfig{}
 		}
-		// Training tick multiplier takes precedence if not already set
+		// Only use training multiplier if tickConfig doesn't specify any tick rate
 		if effectiveTickConfig.TickMultiplier == 0 && effectiveTickConfig.TickInterval == 0 {
 			effectiveTickConfig.TickMultiplier = trainingOptions.TickMultiplier
 		}
@@ -408,7 +414,7 @@ func (r *GameRoom) IsTrainingComplete() bool {
 		return false
 	}
 
-	// Check max kills (requires lock since trainingKillCount is modified during gameplay)
+	// Check max kills - requires lock since trainingKillCount is modified during gameplay
 	if r.TrainingOptions.MaxKills > 0 {
 		r.LockObject.Lock()
 		killCount := r.trainingKillCount
@@ -418,9 +424,7 @@ func (r *GameRoom) IsTrainingComplete() bool {
 		}
 	}
 
-	// Check max duration
-	// Note: trainingStartTime is set once during construction and never modified,
-	// so it's safe to read without locking
+	// Check max duration - no lock needed: trainingStartTime is immutable after construction
 	if r.TrainingOptions.MaxGameDurationSec > 0 {
 		elapsed := time.Since(r.trainingStartTime).Seconds()
 		if int(elapsed) >= r.TrainingOptions.MaxGameDurationSec {
