@@ -106,3 +106,27 @@ type ExitGameResponse struct {
 type ErrorMessage struct {
 	Message string `json:"message"`
 }
+
+// BotAction represents a single bot action (key, click, or direction)
+type BotAction struct {
+	Type      string  `json:"type"`                // "key", "click", or "direction"
+	Key       string  `json:"key,omitempty"`       // For key actions: W/A/S/D
+	IsDown    bool    `json:"isDown,omitempty"`    // For key/click actions
+	X         float64 `json:"x,omitempty"`         // For click actions
+	Y         float64 `json:"y,omitempty"`         // For click actions
+	Button    int     `json:"button,omitempty"`    // For click actions: 0=left, 2=right
+	Direction float64 `json:"direction,omitempty"` // For direction actions (radians)
+}
+
+// BotActionRequest represents a request to submit bot actions
+type BotActionRequest struct {
+	Actions []BotAction `json:"actions"`
+}
+
+// BotActionResponse represents the response to a bot action request
+type BotActionResponse struct {
+	Success          bool   `json:"success"`
+	ActionsProcessed int    `json:"actionsProcessed,omitempty"`
+	Timestamp        int64  `json:"timestamp,omitempty"`
+	Error            string `json:"error,omitempty"`
+}

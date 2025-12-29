@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"go-ws-server/pkg/server/types"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -524,5 +525,393 @@ func TestHandleGetRoomState_ResponseContainsPlayerState(t *testing.T) {
 	// Verify player name matches what we created
 	if playerName, ok := playerState["name"].(string); !ok || playerName != "TestPlayer" {
 		t.Errorf("Player name = %v, want 'TestPlayer'", playerState["name"])
+	}
+}
+
+func TestExtractBotActionPathParams(t *testing.T) {
+	tests := []struct {
+		name         string
+		path         string
+		wantRoomID   string
+		wantPlayerID string
+		wantOk       bool
+	}{
+		{
+			name:         "Valid path",
+			path:         "/api/rooms/room123/players/player456/action",
+			wantRoomID:   "room123",
+			wantPlayerID: "player456",
+			wantOk:       true,
+		},
+		{
+			name:         "Valid path with UUIDs",
+			path:         "/api/rooms/550e8400-e29b-41d4-a716-446655440000/players/6ba7b810-9dad-11d1-80b4-00c04fd430c8/action",
+			wantRoomID:   "550e8400-e29b-41d4-a716-446655440000",
+			wantPlayerID: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+			wantOk:       true,
+		},
+		{
+			name:   "Invalid path - missing action",
+			path:   "/api/rooms/room123/players/player456",
+			wantOk: false,
+		},
+		{
+			name:   "Invalid path - wrong endpoint",
+			path:   "/api/rooms/room123/players/player456/state",
+			wantOk: false,
+		},
+		{
+			name:   "Invalid path - missing players segment",
+			path:   "/api/rooms/room123/action",
+			wantOk: false,
+		},
+		{
+			name:   "Invalid path - wrong prefix",
+			path:   "/rooms/room123/players/player456/action",
+			wantOk: false,
+		},
+		{
+			name:   "Invalid path - extra segments",
+			path:   "/api/rooms/room123/players/player456/action/extra",
+			wantOk: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			roomID, playerID, ok := extractBotActionPathParams(tt.path)
+			if ok != tt.wantOk {
+				t.Errorf("extractBotActionPathParams() ok = %v, want %v", ok, tt.wantOk)
+			}
+			if ok && roomID != tt.wantRoomID {
+				t.Errorf("extractBotActionPathParams() roomID = %v, want %v", roomID, tt.wantRoomID)
+			}
+			if ok && playerID != tt.wantPlayerID {
+				t.Errorf("extractBotActionPathParams() playerID = %v, want %v", playerID, tt.wantPlayerID)
+			}
+		})
+	}
+}
+
+func TestHandleBotAction(t *testing.T) {
+	server := NewServer()
+
+	// First create a game to get a valid room and player token
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "TestBot",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if !createResp.Success {
+		t.Fatalf("Failed to create test game: %s", createResp.Error)
+	}
+
+	roomID := createResp.RoomID
+	playerID := createResp.PlayerID
+	playerToken := createResp.PlayerToken
+
+	tests := []struct {
+		name           string
+		url            string
+		token          string
+		request        types.BotActionRequest
+		wantStatusCode int
+		wantSuccess    bool
+		wantError      string
+		wantProcessed  int
+	}{
+		{
+			name:  "Valid key action",
+			url:   "/api/rooms/" + roomID + "/players/" + playerID + "/action",
+			token: playerToken,
+			request: types.BotActionRequest{
+				Actions: []types.BotAction{
+					{Type: "key", Key: "d", IsDown: true},
+				},
+			},
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+			wantProcessed:  1,
+		},
+		{
+			name:  "Valid click action",
+			url:   "/api/rooms/" + roomID + "/players/" + playerID + "/action",
+			token: playerToken,
+			request: types.BotActionRequest{
+				Actions: []types.BotAction{
+					{Type: "click", X: 150.5, Y: 200.0, Button: 0, IsDown: true},
+				},
+			},
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+			wantProcessed:  1,
+		},
+		{
+			name:  "Valid direction action",
+			url:   "/api/rooms/" + roomID + "/players/" + playerID + "/action",
+			token: playerToken,
+			request: types.BotActionRequest{
+				Actions: []types.BotAction{
+					{Type: "direction", Direction: 1.57},
+				},
+			},
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+			wantProcessed:  1,
+		},
+		{
+			name:  "Multiple actions",
+			url:   "/api/rooms/" + roomID + "/players/" + playerID + "/action",
+			token: playerToken,
+			request: types.BotActionRequest{
+				Actions: []types.BotAction{
+					{Type: "key", Key: "w", IsDown: true},
+					{Type: "click", X: 100.0, Y: 100.0, Button: 0, IsDown: true},
+					{Type: "direction", Direction: 3.14},
+				},
+			},
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+			wantProcessed:  3,
+		},
+		{
+			name:  "Empty actions array",
+			url:   "/api/rooms/" + roomID + "/players/" + playerID + "/action",
+			token: playerToken,
+			request: types.BotActionRequest{
+				Actions: []types.BotAction{},
+			},
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+			wantProcessed:  0,
+		},
+		{
+			name:           "Missing authorization header",
+			url:            "/api/rooms/" + roomID + "/players/" + playerID + "/action",
+			token:          "",
+			request:        types.BotActionRequest{Actions: []types.BotAction{}},
+			wantStatusCode: http.StatusUnauthorized,
+			wantSuccess:    false,
+			wantError:      "Authorization header with Bearer token is required",
+		},
+		{
+			name:           "Invalid player token",
+			url:            "/api/rooms/" + roomID + "/players/" + playerID + "/action",
+			token:          "invalid-token",
+			request:        types.BotActionRequest{Actions: []types.BotAction{}},
+			wantStatusCode: http.StatusUnauthorized,
+			wantSuccess:    false,
+			wantError:      "Invalid player token",
+		},
+		{
+			name:           "Room not found",
+			url:            "/api/rooms/nonexistent-room/players/" + playerID + "/action",
+			token:          playerToken,
+			request:        types.BotActionRequest{Actions: []types.BotAction{}},
+			wantStatusCode: http.StatusNotFound,
+			wantSuccess:    false,
+			wantError:      "Room not found",
+		},
+		{
+			name:           "Player not found",
+			url:            "/api/rooms/" + roomID + "/players/nonexistent-player/action",
+			token:          playerToken,
+			request:        types.BotActionRequest{Actions: []types.BotAction{}},
+			wantStatusCode: http.StatusNotFound,
+			wantSuccess:    false,
+			wantError:      "Player not found",
+		},
+		{
+			name:  "Invalid action type",
+			url:   "/api/rooms/" + roomID + "/players/" + playerID + "/action",
+			token: playerToken,
+			request: types.BotActionRequest{
+				Actions: []types.BotAction{
+					{Type: "invalid"},
+				},
+			},
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Invalid action type: invalid",
+		},
+		{
+			name:  "Invalid key value",
+			url:   "/api/rooms/" + roomID + "/players/" + playerID + "/action",
+			token: playerToken,
+			request: types.BotActionRequest{
+				Actions: []types.BotAction{
+					{Type: "key", Key: "x", IsDown: true},
+				},
+			},
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Invalid key value",
+		},
+		{
+			name:           "Invalid URL format",
+			url:            "/api/rooms/" + roomID + "/players/" + playerID,
+			token:          playerToken,
+			request:        types.BotActionRequest{Actions: []types.BotAction{}},
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Invalid URL format",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(tt.request)
+			req := httptest.NewRequest(http.MethodPost, tt.url, bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			if tt.token != "" {
+				req.Header.Set("Authorization", "Bearer "+tt.token)
+			}
+
+			rr := httptest.NewRecorder()
+			server.HandleBotAction(rr, req)
+
+			if rr.Code != tt.wantStatusCode {
+				t.Errorf("HandleBotAction() status = %v, want %v", rr.Code, tt.wantStatusCode)
+			}
+
+			var response types.BotActionResponse
+			if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+				t.Fatalf("Failed to decode response: %v", err)
+			}
+
+			if response.Success != tt.wantSuccess {
+				t.Errorf("HandleBotAction() success = %v, want %v", response.Success, tt.wantSuccess)
+			}
+
+			if tt.wantError != "" && !strings.Contains(response.Error, tt.wantError) {
+				t.Errorf("HandleBotAction() error = %q, want to contain %q", response.Error, tt.wantError)
+			}
+
+			if tt.wantSuccess && response.ActionsProcessed != tt.wantProcessed {
+				t.Errorf("HandleBotAction() actionsProcessed = %v, want %v", response.ActionsProcessed, tt.wantProcessed)
+			}
+
+			if tt.wantSuccess && response.Timestamp == 0 {
+				t.Error("HandleBotAction() timestamp should not be zero for successful requests")
+			}
+		})
+	}
+}
+
+func TestHandleBotAction_MethodNotAllowed(t *testing.T) {
+	server := NewServer()
+
+	// Test that non-POST methods are rejected (except OPTIONS for CORS)
+	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPatch}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/rooms/test-room/players/test-player/action", nil)
+			rr := httptest.NewRecorder()
+
+			server.HandleBotAction(rr, req)
+
+			if rr.Code != http.StatusMethodNotAllowed {
+				t.Errorf("HandleBotAction() with %s status = %v, want %v", method, rr.Code, http.StatusMethodNotAllowed)
+			}
+		})
+	}
+}
+
+func TestHandleBotAction_CORSPreflight(t *testing.T) {
+	server := NewServer()
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/rooms/test-room/players/test-player/action", nil)
+	rr := httptest.NewRecorder()
+
+	server.HandleBotAction(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("HandleBotAction() OPTIONS status = %v, want %v", rr.Code, http.StatusOK)
+	}
+
+	// Verify CORS headers
+	if rr.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Error("Missing or incorrect Access-Control-Allow-Origin header")
+	}
+	if rr.Header().Get("Access-Control-Allow-Methods") != "POST, OPTIONS" {
+		t.Error("Missing or incorrect Access-Control-Allow-Methods header")
+	}
+}
+
+func TestHandleBotAction_KeyCaseInsensitive(t *testing.T) {
+	server := NewServer()
+
+	// Create a game
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "TestBot",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	json.NewDecoder(createRR.Body).Decode(&createResp)
+
+	roomID := createResp.RoomID
+	playerID := createResp.PlayerID
+	playerToken := createResp.PlayerToken
+
+	// Test lowercase keys work
+	lowercaseKeys := []string{"w", "a", "s", "d"}
+	for _, key := range lowercaseKeys {
+		t.Run("lowercase_"+key, func(t *testing.T) {
+			request := types.BotActionRequest{
+				Actions: []types.BotAction{
+					{Type: "key", Key: key, IsDown: true},
+				},
+			}
+			body, _ := json.Marshal(request)
+			req := httptest.NewRequest(http.MethodPost, "/api/rooms/"+roomID+"/players/"+playerID+"/action", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+playerToken)
+
+			rr := httptest.NewRecorder()
+			server.HandleBotAction(rr, req)
+
+			if rr.Code != http.StatusOK {
+				t.Errorf("HandleBotAction() with key %q status = %v, want %v", key, rr.Code, http.StatusOK)
+			}
+		})
+	}
+
+	// Test uppercase keys also work
+	uppercaseKeys := []string{"W", "A", "S", "D"}
+	for _, key := range uppercaseKeys {
+		t.Run("uppercase_"+key, func(t *testing.T) {
+			request := types.BotActionRequest{
+				Actions: []types.BotAction{
+					{Type: "key", Key: key, IsDown: true},
+				},
+			}
+			body, _ := json.Marshal(request)
+			req := httptest.NewRequest(http.MethodPost, "/api/rooms/"+roomID+"/players/"+playerID+"/action", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+playerToken)
+
+			rr := httptest.NewRecorder()
+			server.HandleBotAction(rr, req)
+
+			if rr.Code != http.StatusOK {
+				t.Errorf("HandleBotAction() with key %q status = %v, want %v", key, rr.Code, http.StatusOK)
+			}
+		})
 	}
 }
