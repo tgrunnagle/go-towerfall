@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -416,7 +417,7 @@ func TestHandleGetRoomState(t *testing.T) {
 
 			if tt.wantError != "" && response.Error == "" {
 				t.Errorf("HandleGetRoomState() expected error containing %q, got empty", tt.wantError)
-			} else if tt.wantError != "" && !contains(response.Error, tt.wantError) {
+			} else if tt.wantError != "" && !strings.Contains(response.Error, tt.wantError) {
 				t.Errorf("HandleGetRoomState() error = %q, want to contain %q", response.Error, tt.wantError)
 			}
 
@@ -524,19 +525,4 @@ func TestHandleGetRoomState_ResponseContainsPlayerState(t *testing.T) {
 	if playerName, ok := playerState["name"].(string); !ok || playerName != "TestPlayer" {
 		t.Errorf("Player name = %v, want 'TestPlayer'", playerState["name"])
 	}
-}
-
-// contains checks if substr is contained in s
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && stringContains(s, substr)))
-}
-
-func stringContains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

@@ -215,6 +215,19 @@ func (r *GameRoom) GetAllGameObjectStates() map[string]map[string]interface{} {
 	return r.ObjectManager.GetAllStates()
 }
 
+// IsPlayerTokenValid checks if the given token belongs to a player in this room (thread-safe)
+func (r *GameRoom) IsPlayerTokenValid(token string) bool {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+
+	for _, player := range r.Players {
+		if player.Token == token {
+			return true
+		}
+	}
+	return false
+}
+
 // Handle processes a batch of events and returns the game objects whose state has changed
 func (r *GameRoom) Handle(events []*game_objects.GameEvent) *HandleEventResult {
 	result := &HandleEventResult{

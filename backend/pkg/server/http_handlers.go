@@ -435,15 +435,8 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify player token belongs to a player in the room
-	authorized := false
-	for _, player := range room.Players {
-		if player.Token == playerToken {
-			authorized = true
-			break
-		}
-	}
-	if !authorized {
+	// Verify player token belongs to a player in the room (thread-safe)
+	if !room.IsPlayerTokenValid(playerToken) {
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(GetRoomStateResponse{
 			Success: false,
@@ -463,6 +456,4 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 		Timestamp:    time.Now().UTC().Format(time.RFC3339),
 		ObjectStates: objectStates,
 	})
-
-	log.Printf("Returned room state for room %s via HTTP API", room.ID)
 }
