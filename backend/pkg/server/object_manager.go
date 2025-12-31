@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"go-ws-server/pkg/server/constants"
 	"go-ws-server/pkg/server/game_maps"
 	"go-ws-server/pkg/server/game_objects"
 	"log"
@@ -127,6 +128,23 @@ func (m *GameObjectManager) GetAllStates() map[string]map[string]interface{} {
 		}
 	}
 	return allStates
+}
+
+// ClearNonPlayerObjects removes all non-player objects (arrows, bullets, etc.) from the manager
+// This is used during game reset to clear the arena while keeping players
+func (m *GameObjectManager) ClearNonPlayerObjects() {
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+
+	for id, obj := range m.Objects {
+		if obj == nil {
+			continue
+		}
+		// Keep player objects, remove everything else (arrows, bullets, etc.)
+		if obj.GetObjectType() != constants.ObjectTypePlayer {
+			m.Objects[id] = nil
+		}
+	}
 }
 
 func (m *GameObjectManager) HandleEvent(e *game_objects.GameEvent) (*GameObjectManagerHandleEventResult, error) {

@@ -453,6 +453,47 @@ func (r *GameRoom) IsTrainingMode() bool {
 	return r.TrainingOptions != nil && r.TrainingOptions.Enabled
 }
 
+// Reset resets the game state for a new training episode.
+// This resets all players to initial positions and clears all non-player objects (arrows, etc.).
+// Connected players and spectators remain in the room.
+func (r *GameRoom) Reset() {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+
+	// Clear all non-player objects (arrows, bullets, etc.)
+	r.ObjectManager.ClearNonPlayerObjects()
+
+	// Reset all player states
+	for playerID := range r.Players {
+		player := r.Players[playerID]
+		if player.IsSpectator {
+			continue
+		}
+
+		// Get the player's game object
+		obj, exists := r.ObjectManager.GetObject(playerID)
+		if !exists {
+			continue
+		}
+
+		playerObj, ok := obj.(*game_objects.PlayerGameObject)
+		if !ok {
+			continue
+		}
+
+		// Reset the player state
+		playerObj.Reset()
+	}
+
+	// Reset training kill count if in training mode
+	r.trainingKillCount = 0
+
+	// Reset training start time for a new episode
+	r.trainingStartTime = time.Now()
+
+	log.Printf("Game room %s has been reset", r.ID)
+}
+
 // GetRespawnTimeSec returns the respawn time for this room.
 // Returns 0 if training mode has instant respawn enabled, otherwise returns the default.
 func (r *GameRoom) GetRespawnTimeSec() float64 {

@@ -133,6 +133,17 @@ type GetRoomStateResponse struct {
 	Error        string                            `json:"error,omitempty"`
 }
 
+// ResetGameHTTPRequest represents the request to reset a game room
+type ResetGameHTTPRequest struct {
+	RoomPassword string `json:"roomPassword,omitempty"`
+}
+
+// ResetGameHTTPResponse represents the response to a reset game request
+type ResetGameHTTPResponse struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
 // HandleCreateGame handles HTTP requests to create a new game
 func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	// Set response headers
@@ -458,6 +469,137 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 		Timestamp:    time.Now().UTC().Format(time.RFC3339),
 		ObjectStates: objectStates,
 	})
+}
+
+// HandleResetGame handles HTTP requests to reset a game room for a new training episode
+func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Player-Token")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow POST requests
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract roomId from URL path: /api/rooms/{roomId}/reset
+	path := r.URL.Path
+	prefix := "/api/rooms/"
+	suffix := "/reset"
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+			Success: false,
+			Error:   "Invalid URL format",
+		})
+		return
+	}
+	roomID := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
+	if roomID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+			Success: false,
+			Error:   "Room ID is required",
+		})
+		return
+	}
+
+	// Get player token from header for authentication
+	playerToken := r.Header.Get("X-Player-Token")
+	if playerToken == "" {
+		// Check Authorization header (Bearer token format)
+		auth := r.Header.Get("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			playerToken = strings.TrimPrefix(auth, "Bearer ")
+		}
+	}
+	if playerToken == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+			Success: false,
+			Error:   "Player token is required (provide via X-Player-Token header or Authorization: Bearer header)",
+		})
+		return
+	}
+
+	// Get room by ID
+	room, exists := s.roomManager.GetGameRoom(roomID)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+			Success: false,
+			Error:   "Room not found",
+		})
+		return
+	}
+
+	// Verify player token belongs to a player in the room (thread-safe)
+	if !room.IsPlayerTokenValid(playerToken) {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+			Success: false,
+			Error:   "Player token is not authorized for this room",
+		})
+		return
+	}
+
+	// Parse optional request body for room password validation
+	var req ResetGameHTTPRequest
+	if r.Body != nil && r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+				Success: false,
+				Error:   "Invalid request format",
+			})
+			return
+		}
+
+		// Validate room password if provided
+		if req.RoomPassword != "" && room.Password != strings.ToUpper(req.RoomPassword) {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+				Success: false,
+				Error:   "Invalid room password",
+			})
+			return
+		}
+	}
+
+	// Reset the game room
+	room.Reset()
+
+	// Update room activity
+	s.serverLock.Lock()
+	s.lastActivity[roomID] = time.Now()
+	s.serverLock.Unlock()
+
+	// Queue a full game state update to broadcast to all connected WebSocket clients
+	s.gameStateUpdateQueue <- GameUpdateQueueItem{
+		RoomID: roomID,
+		Update: &types.GameUpdate{FullUpdate: true},
+	}
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+		Success: true,
+	})
+
+	log.Printf("Game room %s reset via HTTP API", roomID)
 }
 
 // extractBotActionPathParams extracts roomId and playerId from the URL path

@@ -553,6 +553,54 @@ func (p *PlayerGameObject) doRespawn() {
 	p.respawnMutex.Unlock()
 }
 
+// CancelRespawnTimer cancels any pending respawn timer
+func (p *PlayerGameObject) CancelRespawnTimer() {
+	p.respawnMutex.Lock()
+	defer p.respawnMutex.Unlock()
+	if p.respawnTimer != nil {
+		p.respawnTimer.Stop()
+		p.respawnTimer = nil
+	}
+	p.respawning = false
+}
+
+// Reset resets the player to initial state at a random respawn location
+// This cancels any pending respawn timer and resets all player state
+func (p *PlayerGameObject) Reset() {
+	// Cancel any pending respawn timer
+	p.CancelRespawnTimer()
+
+	// Reset position to respawn location
+	respawnX, respawnY := p.getRespawnLocation()
+	p.SetState(constants.StateX, respawnX)
+	p.SetState(constants.StateY, respawnY)
+
+	// Reset velocity
+	p.SetState(constants.StateDx, 0.0)
+	p.SetState(constants.StateDy, 0.0)
+
+	// Reset direction (pointing downward)
+	p.SetState(constants.StateDir, math.Pi*3/2)
+
+	// Reset health
+	p.SetState(constants.StateHealth, constants.PlayerStartingHealth)
+
+	// Reset dead state
+	p.SetState(constants.StateDead, false)
+
+	// Reset shooting state
+	p.SetState(constants.StateShooting, false)
+
+	// Reset jump count
+	p.SetState(constants.StateJumpCount, 0)
+
+	// Reset arrow count
+	p.SetState(constants.StateArrowCount, constants.PlayerStartingArrows)
+
+	// Update last location update time
+	p.SetState(constants.StateLastLocUpdateTime, time.Now())
+}
+
 // GetProperty returns the game object's properties
 func (p *PlayerGameObject) GetProperty(key GameObjectProperty) (interface{}, bool) {
 	switch key {
