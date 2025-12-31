@@ -417,7 +417,7 @@ class GameHTTPClient:
                 # Check for application-level error in response
                 if isinstance(data, dict) and data.get("success") is False:
                     error_msg = data.get("error", "Unknown error")
-                    logger.warning("API returned error: %s", error_msg)
+                    logger.debug("API returned error: %s", error_msg)
                     raise GameAPIError(error_msg)
 
                 return response_model.model_validate(data)
