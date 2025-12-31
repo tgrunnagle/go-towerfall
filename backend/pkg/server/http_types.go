@@ -40,3 +40,19 @@ type JoinGameResponse struct {
 	CanvasSizeX  int    `json:"canvas_size_x"`
 	CanvasSizeY  int    `json:"canvas_size_y"`
 }
+
+// PlayerStatsDTO represents kill/death statistics for a player in API responses
+type PlayerStatsDTO struct {
+	PlayerID   string `json:"playerId"`
+	PlayerName string `json:"playerName"`
+	Kills      int    `json:"kills"`
+	Deaths     int    `json:"deaths"`
+}
+
+// GetRoomStatsHTTPResponse represents the response to a room stats request
+type GetRoomStatsHTTPResponse struct {
+	Success     bool                       `json:"success"`
+	RoomID      string                     `json:"roomId,omitempty"`
+	PlayerStats map[string]*PlayerStatsDTO `json:"playerStats,omitempty"`
+	Error       string                     `json:"error,omitempty"`
+}

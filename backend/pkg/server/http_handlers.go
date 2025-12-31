@@ -144,22 +144,6 @@ type ResetGameHTTPResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// PlayerStatsDTO represents kill/death statistics for a player in API responses
-type PlayerStatsDTO struct {
-	PlayerID   string `json:"playerId"`
-	PlayerName string `json:"playerName"`
-	Kills      int    `json:"kills"`
-	Deaths     int    `json:"deaths"`
-}
-
-// GetRoomStatsHTTPResponse represents the response to a room stats request
-type GetRoomStatsHTTPResponse struct {
-	Success     bool                       `json:"success"`
-	RoomID      string                     `json:"roomId,omitempty"`
-	PlayerStats map[string]*PlayerStatsDTO `json:"playerStats,omitempty"`
-	Error       string                     `json:"error,omitempty"`
-}
-
 // HandleCreateGame handles HTTP requests to create a new game
 func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	// Set response headers
@@ -706,25 +690,17 @@ func (s *Server) HandleGetRoomStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get player stats and build response
-	stats := room.GetAllPlayerStats()
+	// Get player stats with names atomically
+	stats := room.GetAllPlayerStatsWithNames()
 	playerStatsDTO := make(map[string]*PlayerStatsDTO, len(stats))
-
-	// Get player names for the response
-	room.LockObject.Lock()
 	for playerID, stat := range stats {
-		playerName := ""
-		if player, ok := room.Players[playerID]; ok {
-			playerName = player.Name
-		}
 		playerStatsDTO[playerID] = &PlayerStatsDTO{
-			PlayerID:   playerID,
-			PlayerName: playerName,
+			PlayerID:   stat.PlayerID,
+			PlayerName: stat.PlayerName,
 			Kills:      stat.Kills,
 			Deaths:     stat.Deaths,
 		}
 	}
-	room.LockObject.Unlock()
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)

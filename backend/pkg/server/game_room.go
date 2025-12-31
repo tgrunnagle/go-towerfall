@@ -513,6 +513,36 @@ func (r *GameRoom) GetAllPlayerStats() map[string]*PlayerStats {
 	return result
 }
 
+// PlayerStatsWithName combines player stats with player name for API responses.
+type PlayerStatsWithName struct {
+	PlayerID   string
+	PlayerName string
+	Kills      int
+	Deaths     int
+}
+
+// GetAllPlayerStatsWithNames returns stats and names for all players atomically (thread-safe).
+// This ensures consistency between stats and player names in a single lock operation.
+func (r *GameRoom) GetAllPlayerStatsWithNames() map[string]*PlayerStatsWithName {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+
+	result := make(map[string]*PlayerStatsWithName, len(r.PlayerStats))
+	for playerID, stats := range r.PlayerStats {
+		playerName := ""
+		if player, ok := r.Players[playerID]; ok {
+			playerName = player.Name
+		}
+		result[playerID] = &PlayerStatsWithName{
+			PlayerID:   playerID,
+			PlayerName: playerName,
+			Kills:      stats.Kills,
+			Deaths:     stats.Deaths,
+		}
+	}
+	return result
+}
+
 // Reset resets the game state for a new training episode.
 // This resets all players to initial positions and clears all non-player objects (arrows, etc.).
 // Connected players and spectators remain in the room.
