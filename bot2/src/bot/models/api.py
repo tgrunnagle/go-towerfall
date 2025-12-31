@@ -48,7 +48,9 @@ class CreateGameRequest(BaseModel):
     training_mode: bool | None = Field(default=None, alias="trainingMode")
     tick_multiplier: float | None = Field(default=None, alias="tickMultiplier")
     max_game_duration_sec: int | None = Field(default=None, alias="maxGameDurationSec")
-    disable_respawn_timer: bool | None = Field(default=None, alias="disableRespawnTimer")
+    disable_respawn_timer: bool | None = Field(
+        default=None, alias="disableRespawnTimer"
+    )
     max_kills: int | None = Field(default=None, alias="maxKills")
 
 
@@ -69,7 +71,9 @@ class CreateGameResponse(BaseModel):
     training_mode: bool | None = Field(default=None, alias="trainingMode")
     tick_multiplier: float | None = Field(default=None, alias="tickMultiplier")
     max_game_duration_sec: int | None = Field(default=None, alias="maxGameDurationSec")
-    disable_respawn_timer: bool | None = Field(default=None, alias="disableRespawnTimer")
+    disable_respawn_timer: bool | None = Field(
+        default=None, alias="disableRespawnTimer"
+    )
     max_kills: int | None = Field(default=None, alias="maxKills")
 
 
