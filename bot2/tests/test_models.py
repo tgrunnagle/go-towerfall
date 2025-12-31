@@ -477,22 +477,24 @@ class TestHTTPAPIModels:
             map_type="default",
         )
         data = request.model_dump(by_alias=True)
-        assert data["room_name"] == "Test Room"
-        assert data["player_name"] == "TestBot"
-        assert data["map_type"] == "default"
+        assert data["roomName"] == "Test Room"
+        assert data["playerName"] == "TestBot"
+        assert data["mapType"] == "default"
 
     def test_create_game_response_parsing(self) -> None:
         """Test CreateGameResponse parsing from server JSON."""
         data = {
-            "room_id": "room-123",
-            "room_code": "ABC123",
-            "room_name": "Test Room",
-            "player_id": "player-456",
-            "player_token": "secret-token",
-            "canvas_size_x": 800,
-            "canvas_size_y": 800,
+            "success": True,
+            "roomId": "room-123",
+            "roomCode": "ABC123",
+            "roomName": "Test Room",
+            "playerId": "player-456",
+            "playerToken": "secret-token",
+            "canvasSizeX": 800,
+            "canvasSizeY": 800,
         }
         response = CreateGameResponse.model_validate(data)
+        assert response.success is True
         assert response.room_id == "room-123"
         assert response.room_code == "ABC123"
         assert response.player_id == "player-456"
@@ -504,10 +506,12 @@ class TestHTTPAPIModels:
         request = JoinGameRequest(
             room_code="ABC123",
             player_name="Joiner",
+            room_password="SECRET",
         )
         data = request.model_dump(by_alias=True)
-        assert data["room_code"] == "ABC123"
-        assert data["player_name"] == "Joiner"
+        assert data["roomCode"] == "ABC123"
+        assert data["playerName"] == "Joiner"
+        assert data["roomPassword"] == "SECRET"
 
     def test_bot_action_request(self) -> None:
         """Test BotActionRequest with multiple actions."""

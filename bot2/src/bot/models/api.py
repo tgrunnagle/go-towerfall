@@ -41,9 +41,15 @@ class CreateGameRequest(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    room_name: str = Field(alias="room_name")
-    player_name: str = Field(alias="player_name")
-    map_type: str = Field(alias="map_type")
+    room_name: str = Field(alias="roomName")
+    player_name: str = Field(alias="playerName")
+    map_type: str = Field(alias="mapType")
+    # Training mode options (all optional)
+    training_mode: bool | None = Field(default=None, alias="trainingMode")
+    tick_multiplier: float | None = Field(default=None, alias="tickMultiplier")
+    max_game_duration_sec: int | None = Field(default=None, alias="maxGameDurationSec")
+    disable_respawn_timer: bool | None = Field(default=None, alias="disableRespawnTimer")
+    max_kills: int | None = Field(default=None, alias="maxKills")
 
 
 class CreateGameResponse(BaseModel):
@@ -51,13 +57,20 @@ class CreateGameResponse(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    room_id: str = Field(alias="room_id")
-    room_code: str = Field(alias="room_code")
-    room_name: str = Field(alias="room_name")
-    player_id: str = Field(alias="player_id")
-    player_token: str = Field(alias="player_token")
-    canvas_size_x: int = Field(alias="canvas_size_x")
-    canvas_size_y: int = Field(alias="canvas_size_y")
+    success: bool
+    room_id: str = Field(alias="roomId")
+    room_code: str = Field(alias="roomCode")
+    room_name: str = Field(alias="roomName")
+    player_id: str = Field(alias="playerId")
+    player_token: str = Field(alias="playerToken")
+    canvas_size_x: int = Field(alias="canvasSizeX")
+    canvas_size_y: int = Field(alias="canvasSizeY")
+    # Training mode settings (returned when training mode is enabled)
+    training_mode: bool | None = Field(default=None, alias="trainingMode")
+    tick_multiplier: float | None = Field(default=None, alias="tickMultiplier")
+    max_game_duration_sec: int | None = Field(default=None, alias="maxGameDurationSec")
+    disable_respawn_timer: bool | None = Field(default=None, alias="disableRespawnTimer")
+    max_kills: int | None = Field(default=None, alias="maxKills")
 
 
 # =============================================================================
@@ -70,8 +83,10 @@ class JoinGameRequest(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    room_code: str = Field(alias="room_code")
-    player_name: str = Field(alias="player_name")
+    room_code: str = Field(alias="roomCode")
+    player_name: str = Field(alias="playerName")
+    room_password: str = Field(alias="roomPassword")
+    is_spectator: bool | None = Field(default=None, alias="isSpectator")
 
 
 class JoinGameResponse(BaseModel):
@@ -79,12 +94,15 @@ class JoinGameResponse(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    room_id: str = Field(alias="room_id")
-    room_name: str = Field(alias="room_name")
-    player_id: str = Field(alias="player_id")
-    player_token: str = Field(alias="player_token")
-    canvas_size_x: int = Field(alias="canvas_size_x")
-    canvas_size_y: int = Field(alias="canvas_size_y")
+    success: bool
+    room_id: str = Field(alias="roomId")
+    room_code: str = Field(alias="roomCode")
+    room_name: str | None = Field(default=None, alias="roomName")
+    player_id: str = Field(alias="playerId")
+    player_token: str = Field(alias="playerToken")
+    is_spectator: bool = Field(alias="isSpectator")
+    canvas_size_x: int = Field(alias="canvasSizeX")
+    canvas_size_y: int = Field(alias="canvasSizeY")
 
 
 # =============================================================================
