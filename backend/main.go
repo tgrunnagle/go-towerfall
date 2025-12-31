@@ -32,6 +32,11 @@ func main() {
 			srv.HandleResetGame(w, r)
 			return
 		}
+		// Check if this is a stats endpoint: /api/rooms/{roomId}/stats
+		if strings.HasSuffix(r.URL.Path, "/stats") {
+			srv.HandleGetRoomStats(w, r)
+			return
+		}
 		// Otherwise, handle as room state endpoint: /api/rooms/{roomId}/state
 		srv.HandleGetRoomState(w, r)
 	})

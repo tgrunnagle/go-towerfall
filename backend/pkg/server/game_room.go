@@ -25,6 +25,12 @@ type ConnectedPlayer struct {
 	IsSpectator bool
 }
 
+// PlayerStats tracks kill/death statistics for a player
+type PlayerStats struct {
+	Kills  int `json:"kills"`
+	Deaths int `json:"deaths"`
+}
+
 // Default tick interval constants
 const (
 	DefaultTickInterval = 20 * time.Millisecond
@@ -72,7 +78,9 @@ type GameRoom struct {
 	LastUpdateTime time.Time
 	// Map of player ID -> player
 	Players map[string]*ConnectedPlayer
-	Map     game_maps.Map
+	// Map of player ID -> stats (kills/deaths)
+	PlayerStats map[string]*PlayerStats
+	Map         game_maps.Map
 
 	// Tick configuration
 	TickInterval   time.Duration
@@ -144,6 +152,7 @@ func NewGameRoomWithTrainingConfig(id string, name string, password string, room
 		ObjectManager:     NewGameObjectManager(baseMap),
 		LastUpdateTime:    time.Now(),
 		Players:           make(map[string]*ConnectedPlayer),
+		PlayerStats:       make(map[string]*PlayerStats),
 		Map:               baseMap,
 		TickInterval:      tickInterval,
 		TickMultiplier:    tickMultiplier,
@@ -172,6 +181,11 @@ func (r *GameRoom) AddPlayer(playerID string, player *ConnectedPlayer) bool {
 
 	// Add player to the room
 	r.Players[playerID] = player
+
+	// Initialize player stats (only for non-spectators)
+	if !player.IsSpectator {
+		r.PlayerStats[playerID] = &PlayerStats{Kills: 0, Deaths: 0}
+	}
 
 	if !player.IsSpectator {
 		// Use room's configured respawn time (which may be 0 for training mode instant respawn)
@@ -453,6 +467,52 @@ func (r *GameRoom) IsTrainingMode() bool {
 	return r.TrainingOptions != nil && r.TrainingOptions.Enabled
 }
 
+// RecordKill increments the kill count for the specified player.
+// This should be called when a player kills another player.
+func (r *GameRoom) RecordKill(playerID string) {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+
+	if stats, exists := r.PlayerStats[playerID]; exists {
+		stats.Kills++
+	}
+}
+
+// RecordDeath increments the death count for the specified player.
+// This should be called when a player dies.
+func (r *GameRoom) RecordDeath(playerID string) {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+
+	if stats, exists := r.PlayerStats[playerID]; exists {
+		stats.Deaths++
+	}
+}
+
+// GetPlayerStats returns the stats for a specific player (thread-safe copy).
+func (r *GameRoom) GetPlayerStats(playerID string) (*PlayerStats, bool) {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+
+	if stats, exists := r.PlayerStats[playerID]; exists {
+		// Return a copy to prevent external modification
+		return &PlayerStats{Kills: stats.Kills, Deaths: stats.Deaths}, true
+	}
+	return nil, false
+}
+
+// GetAllPlayerStats returns a copy of all player stats (thread-safe).
+func (r *GameRoom) GetAllPlayerStats() map[string]*PlayerStats {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+
+	result := make(map[string]*PlayerStats, len(r.PlayerStats))
+	for playerID, stats := range r.PlayerStats {
+		result[playerID] = &PlayerStats{Kills: stats.Kills, Deaths: stats.Deaths}
+	}
+	return result
+}
+
 // Reset resets the game state for a new training episode.
 // This resets all players to initial positions and clears all non-player objects (arrows, etc.).
 // Connected players and spectators remain in the room.
@@ -490,6 +550,11 @@ func (r *GameRoom) Reset() {
 
 	// Reset training start time for a new episode
 	r.trainingStartTime = time.Now()
+
+	// Reset player stats
+	for playerID := range r.PlayerStats {
+		r.PlayerStats[playerID] = &PlayerStats{Kills: 0, Deaths: 0}
+	}
 
 	log.Printf("Game room %s has been reset", r.ID)
 }

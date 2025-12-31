@@ -1202,3 +1202,387 @@ func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
 	// Log initial and reset positions for informational purposes
 	t.Logf("Initial position: (%v, %v), Reset position: (%v, %v)", initialX, initialY, resetPlayerState["x"], resetPlayerState["y"])
 }
+
+func TestHandleGetRoomStats(t *testing.T) {
+	server := NewServer()
+
+	// First create a game to get a valid room and player token
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "TestPlayer",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if !createResp.Success {
+		t.Fatalf("Failed to create test game: %s", createResp.Error)
+	}
+
+	roomID := createResp.RoomID
+	playerToken := createResp.PlayerToken
+
+	tests := []struct {
+		name           string
+		url            string
+		token          string
+		tokenLocation  string // "query", "header", "bearer"
+		wantStatusCode int
+		wantSuccess    bool
+		wantError      string
+	}{
+		{
+			name:           "Valid request with query param token",
+			url:            "/api/rooms/" + roomID + "/stats?playerToken=" + playerToken,
+			tokenLocation:  "query",
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+		},
+		{
+			name:           "Valid request with X-Player-Token header",
+			url:            "/api/rooms/" + roomID + "/stats",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+		},
+		{
+			name:           "Valid request with Bearer token",
+			url:            "/api/rooms/" + roomID + "/stats",
+			token:          playerToken,
+			tokenLocation:  "bearer",
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+		},
+		{
+			name:           "Missing player token",
+			url:            "/api/rooms/" + roomID + "/stats",
+			tokenLocation:  "",
+			wantStatusCode: http.StatusUnauthorized,
+			wantSuccess:    false,
+			wantError:      "Player token is required",
+		},
+		{
+			name:           "Invalid player token",
+			url:            "/api/rooms/" + roomID + "/stats",
+			token:          "invalid-token",
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusForbidden,
+			wantSuccess:    false,
+			wantError:      "Player token is not authorized for this room",
+		},
+		{
+			name:           "Room not found",
+			url:            "/api/rooms/nonexistent-room-id/stats",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusNotFound,
+			wantSuccess:    false,
+			wantError:      "Room not found",
+		},
+		{
+			name:           "Invalid URL format - missing /stats suffix",
+			url:            "/api/rooms/" + roomID,
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Invalid URL format",
+		},
+		{
+			name:           "Empty room ID",
+			url:            "/api/rooms//stats",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Room ID is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
+
+			// Set token based on location
+			switch tt.tokenLocation {
+			case "header":
+				req.Header.Set("X-Player-Token", tt.token)
+			case "bearer":
+				req.Header.Set("Authorization", "Bearer "+tt.token)
+			// "query" case is already in URL
+			}
+
+			rr := httptest.NewRecorder()
+			server.HandleGetRoomStats(rr, req)
+
+			if rr.Code != tt.wantStatusCode {
+				t.Errorf("HandleGetRoomStats() status = %v, want %v", rr.Code, tt.wantStatusCode)
+			}
+
+			var response GetRoomStatsHTTPResponse
+			if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+				t.Fatalf("Failed to decode response: %v", err)
+			}
+
+			if response.Success != tt.wantSuccess {
+				t.Errorf("HandleGetRoomStats() success = %v, want %v", response.Success, tt.wantSuccess)
+			}
+
+			if tt.wantError != "" && response.Error == "" {
+				t.Errorf("HandleGetRoomStats() expected error containing %q, got empty", tt.wantError)
+			} else if tt.wantError != "" && !strings.Contains(response.Error, tt.wantError) {
+				t.Errorf("HandleGetRoomStats() error = %q, want to contain %q", response.Error, tt.wantError)
+			}
+
+			// For successful requests, verify response structure
+			if tt.wantSuccess {
+				if response.RoomID != roomID {
+					t.Errorf("HandleGetRoomStats() roomId = %v, want %v", response.RoomID, roomID)
+				}
+				if response.PlayerStats == nil {
+					t.Error("HandleGetRoomStats() playerStats should not be nil")
+				}
+			}
+		})
+	}
+}
+
+func TestHandleGetRoomStats_MethodNotAllowed(t *testing.T) {
+	server := NewServer()
+
+	// Test that non-GET methods are rejected (except OPTIONS for CORS)
+	methods := []string{http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/rooms/test-room/stats", nil)
+			rr := httptest.NewRecorder()
+
+			server.HandleGetRoomStats(rr, req)
+
+			if rr.Code != http.StatusMethodNotAllowed {
+				t.Errorf("HandleGetRoomStats() with %s status = %v, want %v", method, rr.Code, http.StatusMethodNotAllowed)
+			}
+		})
+	}
+}
+
+func TestHandleGetRoomStats_CORSPreflight(t *testing.T) {
+	server := NewServer()
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/rooms/test-room/stats", nil)
+	rr := httptest.NewRecorder()
+
+	server.HandleGetRoomStats(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("HandleGetRoomStats() OPTIONS status = %v, want %v", rr.Code, http.StatusOK)
+	}
+
+	// Verify CORS headers
+	if rr.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Error("Missing or incorrect Access-Control-Allow-Origin header")
+	}
+	if rr.Header().Get("Access-Control-Allow-Methods") != "GET, OPTIONS" {
+		t.Error("Missing or incorrect Access-Control-Allow-Methods header")
+	}
+}
+
+func TestHandleGetRoomStats_ReturnsPlayerStats(t *testing.T) {
+	server := NewServer()
+
+	// Create a game with a player
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "Player1",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	json.NewDecoder(createRR.Body).Decode(&createResp)
+
+	roomID := createResp.RoomID
+	playerID := createResp.PlayerID
+	playerToken := createResp.PlayerToken
+
+	// Get stats
+	req := httptest.NewRequest(http.MethodGet, "/api/rooms/"+roomID+"/stats", nil)
+	req.Header.Set("X-Player-Token", playerToken)
+	rr := httptest.NewRecorder()
+	server.HandleGetRoomStats(rr, req)
+
+	var response GetRoomStatsHTTPResponse
+	json.NewDecoder(rr.Body).Decode(&response)
+
+	if !response.Success {
+		t.Fatalf("HandleGetRoomStats() failed: %s", response.Error)
+	}
+
+	// Verify player stats exist
+	playerStats, exists := response.PlayerStats[playerID]
+	if !exists {
+		t.Fatalf("Player stats should exist for player %s", playerID)
+	}
+
+	// Verify initial stats
+	if playerStats.PlayerID != playerID {
+		t.Errorf("PlayerID = %v, want %v", playerStats.PlayerID, playerID)
+	}
+	if playerStats.PlayerName != "Player1" {
+		t.Errorf("PlayerName = %v, want 'Player1'", playerStats.PlayerName)
+	}
+	if playerStats.Kills != 0 {
+		t.Errorf("Initial kills should be 0, got %d", playerStats.Kills)
+	}
+	if playerStats.Deaths != 0 {
+		t.Errorf("Initial deaths should be 0, got %d", playerStats.Deaths)
+	}
+}
+
+func TestHandleGetRoomStats_WithMultiplePlayers(t *testing.T) {
+	server := NewServer()
+
+	// Create a game with a player
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "Player1",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	json.NewDecoder(createRR.Body).Decode(&createResp)
+
+	roomID := createResp.RoomID
+	player1Token := createResp.PlayerToken
+
+	// Get the room and add a second player directly via the room manager
+	room, _ := server.roomManager.GetGameRoom(roomID)
+	player2, _ := AddPlayerToGame(room, "Player2", room.Password, false)
+
+	// Record some stats
+	room.RecordKill(createResp.PlayerID)
+	room.RecordKill(createResp.PlayerID)
+	room.RecordDeath(player2.ID)
+	room.RecordDeath(player2.ID)
+
+	// Get stats
+	req := httptest.NewRequest(http.MethodGet, "/api/rooms/"+roomID+"/stats", nil)
+	req.Header.Set("X-Player-Token", player1Token)
+	rr := httptest.NewRecorder()
+	server.HandleGetRoomStats(rr, req)
+
+	var response GetRoomStatsHTTPResponse
+	json.NewDecoder(rr.Body).Decode(&response)
+
+	if !response.Success {
+		t.Fatalf("HandleGetRoomStats() failed: %s", response.Error)
+	}
+
+	// Verify we have stats for both players
+	if len(response.PlayerStats) != 2 {
+		t.Errorf("Expected 2 player stats, got %d", len(response.PlayerStats))
+	}
+
+	// Check Player1 stats
+	player1Stats, exists := response.PlayerStats[createResp.PlayerID]
+	if !exists {
+		t.Fatal("Player1 stats should exist")
+	}
+	if player1Stats.Kills != 2 {
+		t.Errorf("Player1 kills should be 2, got %d", player1Stats.Kills)
+	}
+	if player1Stats.Deaths != 0 {
+		t.Errorf("Player1 deaths should be 0, got %d", player1Stats.Deaths)
+	}
+
+	// Check Player2 stats
+	player2Stats, exists := response.PlayerStats[player2.ID]
+	if !exists {
+		t.Fatal("Player2 stats should exist")
+	}
+	if player2Stats.Kills != 0 {
+		t.Errorf("Player2 kills should be 0, got %d", player2Stats.Kills)
+	}
+	if player2Stats.Deaths != 2 {
+		t.Errorf("Player2 deaths should be 2, got %d", player2Stats.Deaths)
+	}
+}
+
+func TestHandleGetRoomStats_StatsResetAfterGameReset(t *testing.T) {
+	server := NewServer()
+
+	// Create a training mode game
+	createReq := CreateGameHTTPRequest{
+		PlayerName:   "Player1",
+		RoomName:     "TestRoom",
+		MapType:      "default",
+		TrainingMode: true,
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	json.NewDecoder(createRR.Body).Decode(&createResp)
+
+	roomID := createResp.RoomID
+	playerID := createResp.PlayerID
+	playerToken := createResp.PlayerToken
+
+	// Record some stats directly on the room
+	room, _ := server.roomManager.GetGameRoom(roomID)
+	room.RecordKill(playerID)
+	room.RecordKill(playerID)
+	room.RecordDeath(playerID)
+
+	// Verify stats before reset
+	req1 := httptest.NewRequest(http.MethodGet, "/api/rooms/"+roomID+"/stats", nil)
+	req1.Header.Set("X-Player-Token", playerToken)
+	rr1 := httptest.NewRecorder()
+	server.HandleGetRoomStats(rr1, req1)
+
+	var response1 GetRoomStatsHTTPResponse
+	json.NewDecoder(rr1.Body).Decode(&response1)
+
+	if response1.PlayerStats[playerID].Kills != 2 || response1.PlayerStats[playerID].Deaths != 1 {
+		t.Errorf("Stats before reset: kills=%d deaths=%d, want kills=2 deaths=1",
+			response1.PlayerStats[playerID].Kills, response1.PlayerStats[playerID].Deaths)
+	}
+
+	// Reset the game
+	resetReq := httptest.NewRequest(http.MethodPost, "/api/rooms/"+roomID+"/reset", nil)
+	resetReq.Header.Set("X-Player-Token", playerToken)
+	server.HandleResetGame(httptest.NewRecorder(), resetReq)
+
+	// Verify stats after reset
+	req2 := httptest.NewRequest(http.MethodGet, "/api/rooms/"+roomID+"/stats", nil)
+	req2.Header.Set("X-Player-Token", playerToken)
+	rr2 := httptest.NewRecorder()
+	server.HandleGetRoomStats(rr2, req2)
+
+	var response2 GetRoomStatsHTTPResponse
+	json.NewDecoder(rr2.Body).Decode(&response2)
+
+	if response2.PlayerStats[playerID].Kills != 0 || response2.PlayerStats[playerID].Deaths != 0 {
+		t.Errorf("Stats after reset: kills=%d deaths=%d, want kills=0 deaths=0",
+			response2.PlayerStats[playerID].Kills, response2.PlayerStats[playerID].Deaths)
+	}
+}
