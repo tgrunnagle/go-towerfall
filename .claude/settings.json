@@ -3,7 +3,8 @@
     "allow": [
       "Bash(gh issue view:*)",
       "Bash(go test:*)",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(task:*)"
     ]
   }
 }

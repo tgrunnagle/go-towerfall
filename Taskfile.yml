@@ -1,3 +1,59 @@
 version: '3'
 
 tasks:
+  bot2:install:
+    dir: bot2
+    desc: Install bot2 dependencies
+    cmds:
+      - uv sync --dev
+
+  bot2:lint:
+    dir: bot2
+    desc: Run bot2 linting with ruff
+    cmds:
+      - uv run ruff check --select I
+      - uv run ruff check .
+    deps:
+      - bot2:install
+
+  bot2:lint:fix:
+    dir: bot2
+    desc: Run bot2 linting with ruff and fix
+    cmds:
+      - uv run ruff check --select I --fix .
+      - uv run ruff check . --fix
+    deps:
+      - bot2:install
+
+  bot2:format:
+    dir: bot2
+    desc: Fix bot2 linting issues and format code
+    cmds:
+      - uv run ruff format .
+    deps:
+      - bot2:install
+
+  bot2:typecheck:
+    dir: bot2
+    desc: Run bot2 type checking with ty
+    cmds:
+      - uv run ty check .
+    deps:
+      - bot2:install
+
+  bot2:test:
+    dir: bot2
+    desc: Run bot2 unit tests
+    cmds:
+      - uv run pytest tests/ -v
+    deps:
+      - bot2:install
+
+  bot2:check:
+    dir: bot2
+    desc: Run all bot2 checks (lint, format, typecheck, tests)
+    deps:
+      - bot2:lint
+      - bot2:format
+      - bot2:typecheck
+      - bot2:test
