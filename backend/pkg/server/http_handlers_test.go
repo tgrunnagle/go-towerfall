@@ -915,3 +915,290 @@ func TestHandleBotAction_KeyCaseInsensitive(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleResetGame(t *testing.T) {
+	server := NewServer()
+
+	// First create a game to get a valid room and player token
+	createReq := CreateGameHTTPRequest{
+		PlayerName:   "TestPlayer",
+		RoomName:     "TestRoom",
+		MapType:      "default",
+		TrainingMode: true,
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if !createResp.Success {
+		t.Fatalf("Failed to create test game: %s", createResp.Error)
+	}
+
+	roomID := createResp.RoomID
+	playerToken := createResp.PlayerToken
+
+	tests := []struct {
+		name           string
+		url            string
+		token          string
+		tokenLocation  string // "header", "bearer"
+		body           *ResetGameHTTPRequest
+		wantStatusCode int
+		wantSuccess    bool
+		wantError      string
+	}{
+		{
+			name:           "Valid reset with X-Player-Token header",
+			url:            "/api/rooms/" + roomID + "/reset",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+		},
+		{
+			name:           "Valid reset with Bearer token",
+			url:            "/api/rooms/" + roomID + "/reset",
+			token:          playerToken,
+			tokenLocation:  "bearer",
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+		},
+		{
+			name:           "Missing player token",
+			url:            "/api/rooms/" + roomID + "/reset",
+			tokenLocation:  "",
+			wantStatusCode: http.StatusUnauthorized,
+			wantSuccess:    false,
+			wantError:      "Player token is required",
+		},
+		{
+			name:           "Invalid player token",
+			url:            "/api/rooms/" + roomID + "/reset",
+			token:          "invalid-token",
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusForbidden,
+			wantSuccess:    false,
+			wantError:      "Player token is not authorized for this room",
+		},
+		{
+			name:           "Room not found",
+			url:            "/api/rooms/nonexistent-room-id/reset",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusNotFound,
+			wantSuccess:    false,
+			wantError:      "Room not found",
+		},
+		{
+			name:           "Invalid URL format - missing /reset suffix",
+			url:            "/api/rooms/" + roomID,
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Invalid URL format",
+		},
+		{
+			name:           "Empty room ID",
+			url:            "/api/rooms//reset",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Room ID is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var bodyReader *bytes.Reader
+			if tt.body != nil {
+				bodyBytes, _ := json.Marshal(tt.body)
+				bodyReader = bytes.NewReader(bodyBytes)
+			} else {
+				bodyReader = bytes.NewReader(nil)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, tt.url, bodyReader)
+			req.Header.Set("Content-Type", "application/json")
+
+			// Set token based on location
+			switch tt.tokenLocation {
+			case "header":
+				req.Header.Set("X-Player-Token", tt.token)
+			case "bearer":
+				req.Header.Set("Authorization", "Bearer "+tt.token)
+			}
+
+			rr := httptest.NewRecorder()
+			server.HandleResetGame(rr, req)
+
+			if rr.Code != tt.wantStatusCode {
+				t.Errorf("HandleResetGame() status = %v, want %v", rr.Code, tt.wantStatusCode)
+			}
+
+			var response ResetGameHTTPResponse
+			if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+				t.Fatalf("Failed to decode response: %v", err)
+			}
+
+			if response.Success != tt.wantSuccess {
+				t.Errorf("HandleResetGame() success = %v, want %v", response.Success, tt.wantSuccess)
+			}
+
+			if tt.wantError != "" && response.Error == "" {
+				t.Errorf("HandleResetGame() expected error containing %q, got empty", tt.wantError)
+			} else if tt.wantError != "" && !strings.Contains(response.Error, tt.wantError) {
+				t.Errorf("HandleResetGame() error = %q, want to contain %q", response.Error, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestHandleResetGame_MethodNotAllowed(t *testing.T) {
+	server := NewServer()
+
+	// Test that non-POST methods are rejected (except OPTIONS for CORS)
+	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPatch}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/rooms/test-room/reset", nil)
+			rr := httptest.NewRecorder()
+
+			server.HandleResetGame(rr, req)
+
+			if rr.Code != http.StatusMethodNotAllowed {
+				t.Errorf("HandleResetGame() with %s status = %v, want %v", method, rr.Code, http.StatusMethodNotAllowed)
+			}
+		})
+	}
+}
+
+func TestHandleResetGame_CORSPreflight(t *testing.T) {
+	server := NewServer()
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/rooms/test-room/reset", nil)
+	rr := httptest.NewRecorder()
+
+	server.HandleResetGame(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("HandleResetGame() OPTIONS status = %v, want %v", rr.Code, http.StatusOK)
+	}
+
+	// Verify CORS headers
+	if rr.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Error("Missing or incorrect Access-Control-Allow-Origin header")
+	}
+	if rr.Header().Get("Access-Control-Allow-Methods") != "POST, OPTIONS" {
+		t.Error("Missing or incorrect Access-Control-Allow-Methods header")
+	}
+}
+
+func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
+	server := NewServer()
+
+	// Create a game
+	createReq := CreateGameHTTPRequest{
+		PlayerName:   "TestPlayer",
+		RoomName:     "TestRoom",
+		MapType:      "default",
+		TrainingMode: true,
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	json.NewDecoder(createRR.Body).Decode(&createResp)
+
+	roomID := createResp.RoomID
+	playerID := createResp.PlayerID
+	playerToken := createResp.PlayerToken
+
+	// Get initial state
+	getStateReq := httptest.NewRequest(http.MethodGet, "/api/rooms/"+roomID+"/state", nil)
+	getStateReq.Header.Set("X-Player-Token", playerToken)
+	getStateRR := httptest.NewRecorder()
+	server.HandleGetRoomState(getStateRR, getStateReq)
+
+	var initialState GetRoomStateResponse
+	json.NewDecoder(getStateRR.Body).Decode(&initialState)
+	initialPlayerState := initialState.ObjectStates[playerID]
+	initialX := initialPlayerState["x"].(float64)
+	initialY := initialPlayerState["y"].(float64)
+
+	// Modify player state by sending key input
+	actionReq := types.BotActionRequest{
+		Actions: []types.BotAction{
+			{Type: "key", Key: "d", IsDown: true}, // Move right
+		},
+	}
+	actionBody, _ := json.Marshal(actionReq)
+	botActionReq := httptest.NewRequest(http.MethodPost, "/api/rooms/"+roomID+"/players/"+playerID+"/action", bytes.NewReader(actionBody))
+	botActionReq.Header.Set("Content-Type", "application/json")
+	botActionReq.Header.Set("Authorization", "Bearer "+playerToken)
+	server.HandleBotAction(httptest.NewRecorder(), botActionReq)
+
+	// Reset the game
+	resetReq := httptest.NewRequest(http.MethodPost, "/api/rooms/"+roomID+"/reset", nil)
+	resetReq.Header.Set("X-Player-Token", playerToken)
+	resetRR := httptest.NewRecorder()
+	server.HandleResetGame(resetRR, resetReq)
+
+	if resetRR.Code != http.StatusOK {
+		t.Fatalf("HandleResetGame() failed with status %v", resetRR.Code)
+	}
+
+	// Get state after reset
+	getStateReq2 := httptest.NewRequest(http.MethodGet, "/api/rooms/"+roomID+"/state", nil)
+	getStateReq2.Header.Set("X-Player-Token", playerToken)
+	getStateRR2 := httptest.NewRecorder()
+	server.HandleGetRoomState(getStateRR2, getStateReq2)
+
+	var resetState GetRoomStateResponse
+	json.NewDecoder(getStateRR2.Body).Decode(&resetState)
+	resetPlayerState := resetState.ObjectStates[playerID]
+
+	// Verify player is still in the game
+	if resetPlayerState == nil {
+		t.Fatal("Player should still exist after reset")
+	}
+
+	// Verify dx and dy are reset to 0
+	if dx, ok := resetPlayerState["dx"].(float64); !ok || dx != 0.0 {
+		t.Errorf("Player dx after reset = %v, want 0", resetPlayerState["dx"])
+	}
+	if dy, ok := resetPlayerState["dy"].(float64); !ok || dy != 0.0 {
+		t.Errorf("Player dy after reset = %v, want 0", resetPlayerState["dy"])
+	}
+
+	// Verify player is not dead
+	if dead, ok := resetPlayerState["dead"].(bool); !ok || dead {
+		t.Errorf("Player dead after reset = %v, want false", resetPlayerState["dead"])
+	}
+
+	// Verify arrows are reset to starting count (4)
+	// Note: The state key is "ac" for arrow count, and it comes as float64 from JSON
+	if arrowCount, ok := resetPlayerState["ac"].(float64); !ok || arrowCount != 4.0 {
+		t.Errorf("Player arrows after reset = %v, want 4", resetPlayerState["ac"])
+	}
+
+	// Note: Position may have changed to a new respawn location, so we just verify it's set
+	if _, ok := resetPlayerState["x"].(float64); !ok {
+		t.Error("Player x position should be set after reset")
+	}
+	if _, ok := resetPlayerState["y"].(float64); !ok {
+		t.Error("Player y position should be set after reset")
+	}
+
+	// Log initial and reset positions for informational purposes
+	t.Logf("Initial position: (%v, %v), Reset position: (%v, %v)", initialX, initialY, resetPlayerState["x"], resetPlayerState["y"])
+}

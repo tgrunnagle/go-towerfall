@@ -27,6 +27,11 @@ func main() {
 			srv.HandleBotAction(w, r)
 			return
 		}
+		// Check if this is a reset endpoint: /api/rooms/{roomId}/reset
+		if strings.HasSuffix(r.URL.Path, "/reset") {
+			srv.HandleResetGame(w, r)
+			return
+		}
 		// Otherwise, handle as room state endpoint: /api/rooms/{roomId}/state
 		srv.HandleGetRoomState(w, r)
 	})

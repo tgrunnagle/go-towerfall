@@ -596,3 +596,178 @@ func TestNewGameWithPlayerAndTrainingConfig(t *testing.T) {
 		t.Errorf("Room.GetRespawnTimeSec() = %v, want 0.0 for instant respawn", room.GetRespawnTimeSec())
 	}
 }
+
+// Reset tests
+
+func TestGameRoomReset(t *testing.T) {
+	// Create a room with training mode enabled
+	room, player, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, &TrainingOptions{
+		Enabled:  true,
+		MaxKills: 10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room with player: %v", err)
+	}
+
+	// Get the player game object
+	obj, exists := room.ObjectManager.GetObject(player.ID)
+	if !exists {
+		t.Fatal("Player game object should exist")
+	}
+	playerObj := obj.(*game_objects.PlayerGameObject)
+
+	// Increment kill count to simulate game progress
+	room.IncrementKillCount()
+	room.IncrementKillCount()
+	room.IncrementKillCount()
+
+	if room.GetKillCount() != 3 {
+		t.Errorf("Kill count should be 3, got %d", room.GetKillCount())
+	}
+
+	// Modify player state to simulate gameplay (using short key names from constants)
+	playerObj.SetState("dx", 100.0)
+	playerObj.SetState("dy", -50.0)
+	// Note: can't use "h" since Reset() uses constants.StateHealth which also uses "h"
+
+	// Reset the game
+	room.Reset()
+
+	// Verify kill count is reset
+	if room.GetKillCount() != 0 {
+		t.Errorf("Kill count should be 0 after reset, got %d", room.GetKillCount())
+	}
+
+	// Verify player state is reset
+	state := playerObj.GetState()
+
+	// Velocity should be 0
+	if dx, ok := state["dx"].(float64); !ok || dx != 0.0 {
+		t.Errorf("Player dx should be 0 after reset, got %v", state["dx"])
+	}
+	if dy, ok := state["dy"].(float64); !ok || dy != 0.0 {
+		t.Errorf("Player dy should be 0 after reset, got %v", state["dy"])
+	}
+
+	// Arrows should be reset to starting count (4)
+	// Note: Arrow count is stored as int, not float64
+	if arrows, ok := state["ac"].(int); !ok || arrows != 4 {
+		t.Errorf("Player arrows should be 4 after reset, got %v", state["ac"])
+	}
+
+	// Dead should be false
+	if dead, ok := state["dead"].(bool); !ok || dead {
+		t.Errorf("Player should not be dead after reset, got %v", state["dead"])
+	}
+
+	// Player should still exist in the room
+	_, exists = room.GetPlayer(player.ID)
+	if !exists {
+		t.Error("Player should still exist after reset")
+	}
+}
+
+func TestGameRoomResetClearsNonPlayerObjects(t *testing.T) {
+	// Create a room with a player
+	room, player, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, &TrainingOptions{
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room with player: %v", err)
+	}
+
+	// Manually add an arrow object to simulate gameplay
+	// Get the player object for the arrow's source
+	playerObj, _ := room.ObjectManager.GetObject(player.ID)
+	arrow := game_objects.NewArrowGameObject("test-arrow", playerObj.(*game_objects.PlayerGameObject), 400, 400, 0.5, room.Map.WrapPosition)
+	room.ObjectManager.AddObject(arrow)
+
+	// Verify arrow exists
+	_, arrowExists := room.ObjectManager.GetObject("test-arrow")
+	if !arrowExists {
+		t.Fatal("Arrow should exist before reset")
+	}
+
+	// Reset the game
+	room.Reset()
+
+	// Verify arrow is removed (nil in the Objects map)
+	arrowObj, _ := room.ObjectManager.GetObject("test-arrow")
+	if arrowObj != nil {
+		t.Error("Arrow should be removed after reset")
+	}
+
+	// Verify player still exists
+	playerObjAfterReset, playerExists := room.ObjectManager.GetObject(player.ID)
+	if !playerExists || playerObjAfterReset == nil {
+		t.Error("Player should still exist after reset")
+	}
+}
+
+func TestGameRoomResetResetsTrainingStartTime(t *testing.T) {
+	room, _, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, &TrainingOptions{
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Wait a bit so we can detect if the start time is reset
+	time.Sleep(100 * time.Millisecond)
+
+	// Get elapsed time before reset
+	elapsedBefore := room.GetTrainingElapsedSeconds()
+	if elapsedBefore < 0.05 {
+		t.Error("Expected some elapsed time before reset")
+	}
+
+	// Reset the game
+	room.Reset()
+
+	// Get elapsed time after reset - should be very small
+	elapsedAfter := room.GetTrainingElapsedSeconds()
+	if elapsedAfter > 0.05 {
+		t.Errorf("Elapsed time should be near 0 after reset, got %v", elapsedAfter)
+	}
+}
+
+func TestGameRoomResetWithSpectator(t *testing.T) {
+	// Create a room with a player
+	room, _, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, &TrainingOptions{
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Add a spectator
+	spectator, err := AddPlayerToGame(room, "spectator", room.Password, true)
+	if err != nil {
+		t.Fatalf("Failed to add spectator: %v", err)
+	}
+
+	// Increment kill count
+	room.IncrementKillCount()
+
+	// Reset the game
+	room.Reset()
+
+	// Verify spectator is still in the room
+	_, spectatorExists := room.GetPlayer(spectator.ID)
+	if !spectatorExists {
+		t.Error("Spectator should still exist after reset")
+	}
+
+	// Verify spectators list still has the spectator
+	spectators := room.GetSpectators()
+	found := false
+	for _, name := range spectators {
+		if name == "spectator" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Spectator should still be in spectators list after reset")
+	}
+}
