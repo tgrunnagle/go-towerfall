@@ -602,6 +602,115 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Game room %s reset via HTTP API", roomID)
 }
 
+// HandleGetRoomStats handles HTTP requests to get player statistics for a room
+func (s *Server) HandleGetRoomStats(w http.ResponseWriter, r *http.Request) {
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Player-Token")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow GET requests
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract roomId from URL path: /api/rooms/{roomId}/stats
+	path := r.URL.Path
+	prefix := "/api/rooms/"
+	suffix := "/stats"
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+			Success: false,
+			Error:   "Invalid URL format",
+		})
+		return
+	}
+	roomID := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
+	if roomID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+			Success: false,
+			Error:   "Room ID is required",
+		})
+		return
+	}
+
+	// Get player token from query parameter or header
+	playerToken := r.URL.Query().Get("playerToken")
+	if playerToken == "" {
+		playerToken = r.Header.Get("X-Player-Token")
+	}
+	if playerToken == "" {
+		// Check Authorization header (Bearer token format)
+		auth := r.Header.Get("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			playerToken = strings.TrimPrefix(auth, "Bearer ")
+		}
+	}
+	if playerToken == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+			Success: false,
+			Error:   "Player token is required (provide via playerToken query param, X-Player-Token header, or Authorization: Bearer header)",
+		})
+		return
+	}
+
+	// Get room by ID
+	room, exists := s.roomManager.GetGameRoom(roomID)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+			Success: false,
+			Error:   "Room not found",
+		})
+		return
+	}
+
+	// Verify player token belongs to a player in the room (thread-safe)
+	if !room.IsPlayerTokenValid(playerToken) {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+			Success: false,
+			Error:   "Player token is not authorized for this room",
+		})
+		return
+	}
+
+	// Get player stats with names atomically
+	stats := room.GetAllPlayerStatsWithNames()
+	playerStatsDTO := make(map[string]*PlayerStatsDTO, len(stats))
+	for playerID, stat := range stats {
+		playerStatsDTO[playerID] = &PlayerStatsDTO{
+			PlayerID:   stat.PlayerID,
+			PlayerName: stat.PlayerName,
+			Kills:      stat.Kills,
+			Deaths:     stat.Deaths,
+		}
+	}
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+		Success:     true,
+		RoomID:      room.ID,
+		PlayerStats: playerStatsDTO,
+	})
+}
+
 // extractBotActionPathParams extracts roomId and playerId from the URL path
 // Expected format: /api/rooms/{roomId}/players/{playerId}/action
 func extractBotActionPathParams(path string) (roomID string, playerID string, ok bool) {

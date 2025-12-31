@@ -227,9 +227,22 @@ func (s *Server) processEvent(room *GameRoom, event *game_objects.GameEvent) {
 			Data: event.Data,
 		})
 
-		// Track kills for training mode
-		if event.EventType == game_objects.EventPlayerDied && room.IsTrainingMode() {
-			room.IncrementKillCount()
+		// Track kills and deaths when a player dies
+		if event.EventType == game_objects.EventPlayerDied {
+			// Record death for the player who died
+			if victimID, ok := event.Data["objectID"].(string); ok && victimID != "" {
+				room.RecordDeath(victimID)
+			}
+
+			// Record kill for the player who killed (if any)
+			if killerID, ok := event.Data["killerID"].(string); ok && killerID != "" {
+				room.RecordKill(killerID)
+			}
+
+			// Track kills for training mode completion
+			if room.IsTrainingMode() {
+				room.IncrementKillCount()
+			}
 		}
 	}
 

@@ -771,3 +771,276 @@ func TestGameRoomResetWithSpectator(t *testing.T) {
 		t.Error("Spectator should still be in spectators list after reset")
 	}
 }
+
+// Player Stats tests
+
+func TestPlayerStatsInitialization(t *testing.T) {
+	room, player, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Verify player stats are initialized
+	stats, exists := room.GetPlayerStats(player.ID)
+	if !exists {
+		t.Fatal("Player stats should exist after player joins")
+	}
+
+	if stats.Kills != 0 {
+		t.Errorf("Initial kills should be 0, got %d", stats.Kills)
+	}
+	if stats.Deaths != 0 {
+		t.Errorf("Initial deaths should be 0, got %d", stats.Deaths)
+	}
+}
+
+func TestPlayerStatsNotInitializedForSpectators(t *testing.T) {
+	room, _, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Add a spectator
+	spectator, err := AddPlayerToGame(room, "spectator", room.Password, true)
+	if err != nil {
+		t.Fatalf("Failed to add spectator: %v", err)
+	}
+
+	// Verify spectator does not have stats
+	_, exists := room.GetPlayerStats(spectator.ID)
+	if exists {
+		t.Error("Spectator should not have player stats")
+	}
+}
+
+func TestRecordKill(t *testing.T) {
+	room, player, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Record some kills
+	room.RecordKill(player.ID)
+	room.RecordKill(player.ID)
+	room.RecordKill(player.ID)
+
+	stats, exists := room.GetPlayerStats(player.ID)
+	if !exists {
+		t.Fatal("Player stats should exist")
+	}
+
+	if stats.Kills != 3 {
+		t.Errorf("Kills should be 3, got %d", stats.Kills)
+	}
+	if stats.Deaths != 0 {
+		t.Errorf("Deaths should still be 0, got %d", stats.Deaths)
+	}
+}
+
+func TestRecordDeath(t *testing.T) {
+	room, player, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Record some deaths
+	room.RecordDeath(player.ID)
+	room.RecordDeath(player.ID)
+
+	stats, exists := room.GetPlayerStats(player.ID)
+	if !exists {
+		t.Fatal("Player stats should exist")
+	}
+
+	if stats.Deaths != 2 {
+		t.Errorf("Deaths should be 2, got %d", stats.Deaths)
+	}
+	if stats.Kills != 0 {
+		t.Errorf("Kills should still be 0, got %d", stats.Kills)
+	}
+}
+
+func TestRecordKillAndDeathForMultiplePlayers(t *testing.T) {
+	room, player1, err := NewGameWithPlayerAndTrainingConfig("test-room", "player1", "meta/default.json", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Add a second player
+	player2, err := AddPlayerToGame(room, "player2", room.Password, false)
+	if err != nil {
+		t.Fatalf("Failed to add player2: %v", err)
+	}
+
+	// Simulate player1 killing player2
+	room.RecordKill(player1.ID)
+	room.RecordDeath(player2.ID)
+
+	// Simulate player2 killing player1
+	room.RecordKill(player2.ID)
+	room.RecordDeath(player1.ID)
+
+	// Check player1 stats
+	stats1, exists := room.GetPlayerStats(player1.ID)
+	if !exists {
+		t.Fatal("Player1 stats should exist")
+	}
+	if stats1.Kills != 1 {
+		t.Errorf("Player1 kills should be 1, got %d", stats1.Kills)
+	}
+	if stats1.Deaths != 1 {
+		t.Errorf("Player1 deaths should be 1, got %d", stats1.Deaths)
+	}
+
+	// Check player2 stats
+	stats2, exists := room.GetPlayerStats(player2.ID)
+	if !exists {
+		t.Fatal("Player2 stats should exist")
+	}
+	if stats2.Kills != 1 {
+		t.Errorf("Player2 kills should be 1, got %d", stats2.Kills)
+	}
+	if stats2.Deaths != 1 {
+		t.Errorf("Player2 deaths should be 1, got %d", stats2.Deaths)
+	}
+}
+
+func TestGetAllPlayerStats(t *testing.T) {
+	room, player1, err := NewGameWithPlayerAndTrainingConfig("test-room", "player1", "meta/default.json", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Add a second player
+	player2, err := AddPlayerToGame(room, "player2", room.Password, false)
+	if err != nil {
+		t.Fatalf("Failed to add player2: %v", err)
+	}
+
+	// Record some stats
+	room.RecordKill(player1.ID)
+	room.RecordKill(player1.ID)
+	room.RecordDeath(player2.ID)
+	room.RecordDeath(player2.ID)
+
+	// Get all stats
+	allStats := room.GetAllPlayerStats()
+
+	if len(allStats) != 2 {
+		t.Errorf("Expected 2 player stats, got %d", len(allStats))
+	}
+
+	// Check player1
+	if stats, exists := allStats[player1.ID]; !exists {
+		t.Error("Player1 stats should exist in all stats")
+	} else {
+		if stats.Kills != 2 {
+			t.Errorf("Player1 kills should be 2, got %d", stats.Kills)
+		}
+	}
+
+	// Check player2
+	if stats, exists := allStats[player2.ID]; !exists {
+		t.Error("Player2 stats should exist in all stats")
+	} else {
+		if stats.Deaths != 2 {
+			t.Errorf("Player2 deaths should be 2, got %d", stats.Deaths)
+		}
+	}
+}
+
+func TestGetAllPlayerStatsReturnsCopy(t *testing.T) {
+	room, player, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Get stats and modify the returned copy
+	allStats := room.GetAllPlayerStats()
+	allStats[player.ID].Kills = 999
+
+	// Verify original stats are unchanged
+	stats, _ := room.GetPlayerStats(player.ID)
+	if stats.Kills != 0 {
+		t.Errorf("Original stats should be unchanged, got kills=%d", stats.Kills)
+	}
+}
+
+func TestPlayerStatsResetOnGameReset(t *testing.T) {
+	room, player1, err := NewGameWithPlayerAndTrainingConfig("test-room", "player1", "meta/default.json", nil, &TrainingOptions{
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Add a second player
+	player2, err := AddPlayerToGame(room, "player2", room.Password, false)
+	if err != nil {
+		t.Fatalf("Failed to add player2: %v", err)
+	}
+
+	// Record some stats
+	room.RecordKill(player1.ID)
+	room.RecordKill(player1.ID)
+	room.RecordDeath(player1.ID)
+	room.RecordKill(player2.ID)
+	room.RecordDeath(player2.ID)
+	room.RecordDeath(player2.ID)
+
+	// Verify stats before reset
+	stats1Before, _ := room.GetPlayerStats(player1.ID)
+	stats2Before, _ := room.GetPlayerStats(player2.ID)
+	if stats1Before.Kills != 2 || stats1Before.Deaths != 1 {
+		t.Errorf("Player1 stats before reset should be kills=2 deaths=1, got kills=%d deaths=%d", stats1Before.Kills, stats1Before.Deaths)
+	}
+	if stats2Before.Kills != 1 || stats2Before.Deaths != 2 {
+		t.Errorf("Player2 stats before reset should be kills=1 deaths=2, got kills=%d deaths=%d", stats2Before.Kills, stats2Before.Deaths)
+	}
+
+	// Reset the game
+	room.Reset()
+
+	// Verify stats are reset
+	stats1After, _ := room.GetPlayerStats(player1.ID)
+	stats2After, _ := room.GetPlayerStats(player2.ID)
+
+	if stats1After.Kills != 0 || stats1After.Deaths != 0 {
+		t.Errorf("Player1 stats after reset should be 0, got kills=%d deaths=%d", stats1After.Kills, stats1After.Deaths)
+	}
+	if stats2After.Kills != 0 || stats2After.Deaths != 0 {
+		t.Errorf("Player2 stats after reset should be 0, got kills=%d deaths=%d", stats2After.Kills, stats2After.Deaths)
+	}
+}
+
+func TestRecordKillForNonexistentPlayer(t *testing.T) {
+	room, _, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Should not panic when recording kill for nonexistent player
+	room.RecordKill("nonexistent-player-id")
+
+	// Verify no stats created for nonexistent player
+	_, exists := room.GetPlayerStats("nonexistent-player-id")
+	if exists {
+		t.Error("Stats should not be created for nonexistent player")
+	}
+}
+
+func TestRecordDeathForNonexistentPlayer(t *testing.T) {
+	room, _, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Should not panic when recording death for nonexistent player
+	room.RecordDeath("nonexistent-player-id")
+
+	// Verify no stats created for nonexistent player
+	_, exists := room.GetPlayerStats("nonexistent-player-id")
+	if exists {
+		t.Error("Stats should not be created for nonexistent player")
+	}
+}

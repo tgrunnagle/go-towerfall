@@ -473,11 +473,18 @@ func (p *PlayerGameObject) handleGameTick(event *GameEvent, roomObjects map[stri
 					obj.SetState(constants.StateDestroyedAtY, collisionPoints[0].Y)
 					obj.SetState(constants.StateDestroyed, true)
 
+					// Get the killer's player ID from the arrow source
+					killerID := ""
+					if arrow, ok := obj.(*ArrowGameObject); ok && arrow.SourcePlayer != nil {
+						killerID = arrow.SourcePlayer.GetID()
+					}
+
 					raisedEvents = append(raisedEvents, NewGameEvent(
 						event.RoomID,
 						EventPlayerDied,
 						map[string]interface{}{
 							"objectID": p.GetID(),
+							"killerID": killerID,
 							"x":        playerShape.GetCenter().X,
 							"y":        playerShape.GetCenter().Y,
 						},
