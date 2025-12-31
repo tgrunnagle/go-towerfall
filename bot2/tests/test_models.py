@@ -471,10 +471,12 @@ class TestHTTPAPIModels:
 
     def test_create_game_request_serialization(self) -> None:
         """Test CreateGameRequest serializes with correct aliases."""
-        request = CreateGameRequest(
-            room_name="Test Room",
-            player_name="TestBot",
-            map_type="default",
+        request = CreateGameRequest.model_validate(
+            {
+                "roomName": "Test Room",
+                "playerName": "TestBot",
+                "mapType": "default",
+            }
         )
         data = request.model_dump(by_alias=True)
         assert data["roomName"] == "Test Room"
@@ -503,10 +505,12 @@ class TestHTTPAPIModels:
 
     def test_join_game_request_serialization(self) -> None:
         """Test JoinGameRequest serializes correctly."""
-        request = JoinGameRequest(
-            room_code="ABC123",
-            player_name="Joiner",
-            room_password="SECRET",
+        request = JoinGameRequest.model_validate(
+            {
+                "roomCode": "ABC123",
+                "playerName": "Joiner",
+                "roomPassword": "SECRET",
+            }
         )
         data = request.model_dump(by_alias=True)
         assert data["roomCode"] == "ABC123"
