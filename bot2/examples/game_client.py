@@ -1,13 +1,14 @@
 # Example implementation of a GameClient that connects to a game server via WebSocket and HTTP API.
 
-import json
 import asyncio
+import json
+import logging
+from enum import Enum
+from typing import Optional
+from urllib.parse import urljoin
+
 import aiohttp
 import websockets
-from enum import Enum
-from typing import Dict, Optional
-import logging
-from urllib.parse import urljoin
 
 
 class InputType(Enum):
@@ -66,7 +67,7 @@ class GameClient:
             listener_task = asyncio.create_task(self._listen_for_messages())
 
             # Rejoin the game room with our token
-            self._logger.info(f"Rejoining game room with token")
+            self._logger.info("Rejoining game room with token")
             rejoin_message = {
                 "type": "RejoinGame",
                 "payload": {
@@ -142,7 +143,7 @@ class GameClient:
                 self._logger.error("Connection to server closed")
                 break
             except Exception as e:
-                self._logger.exception(f"Error in message listener", e)
+                self._logger.exception("Error in message listener", e)
                 break
 
     async def close(self) -> None:
