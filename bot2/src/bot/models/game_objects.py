@@ -65,6 +65,32 @@ class BlockState(BaseObjectState):
 
     points: list[Point] = Field(alias="pts")
 
+    @property
+    def center(self) -> tuple[float, float]:
+        """Calculate the center point of the block.
+
+        Returns:
+            Tuple of (center_x, center_y) in pixels
+        """
+        if not self.points:
+            return (0.0, 0.0)
+        xs = [p.x for p in self.points]
+        ys = [p.y for p in self.points]
+        return ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
+
+    @property
+    def bounds(self) -> tuple[float, float, float, float]:
+        """Get the bounding box of the block.
+
+        Returns:
+            Tuple of (min_x, min_y, max_x, max_y) in pixels
+        """
+        if not self.points:
+            return (0.0, 0.0, 0.0, 0.0)
+        xs = [p.x for p in self.points]
+        ys = [p.y for p in self.points]
+        return (min(xs), min(ys), max(xs), max(ys))
+
 
 class BulletState(BaseObjectState):
     """Represents bullet projectile state.

@@ -336,6 +336,7 @@ class TestObservationConfig:
         config = ObservationConfig()
         assert config.max_other_players == 3
         assert config.max_tracked_arrows == 8
+        assert config.include_map is True
 
     def test_own_player_size(self):
         """Test own player observation size."""
@@ -362,19 +363,45 @@ class TestObservationConfig:
         config = ObservationConfig()
         assert config.arrows_size == 8 * 8  # 64
 
-    def test_total_size(self):
-        """Test total observation vector size."""
+    def test_map_size_enabled(self):
+        """Test map size when enabled (default)."""
         config = ObservationConfig()
+        assert config.map_size == 20 * 15  # 300
+
+    def test_map_size_disabled(self):
+        """Test map size when disabled."""
+        config = ObservationConfig(include_map=False)
+        assert config.map_size == 0
+
+    def test_total_size_without_map(self):
+        """Test total observation vector size without map."""
+        config = ObservationConfig(include_map=False)
         # 14 + (3 * 12) + (8 * 8) = 14 + 36 + 64 = 114
         assert config.total_size == 114
 
+    def test_total_size_with_map(self):
+        """Test total observation vector size with map (default)."""
+        config = ObservationConfig()
+        # 14 + (3 * 12) + (8 * 8) + (20 * 15) = 14 + 36 + 64 + 300 = 414
+        assert config.total_size == 414
+
     def test_custom_config(self):
-        """Test custom configuration."""
-        config = ObservationConfig(max_other_players=5, max_tracked_arrows=10)
+        """Test custom configuration without map."""
+        config = ObservationConfig(
+            max_other_players=5, max_tracked_arrows=10, include_map=False
+        )
         assert config.max_other_players == 5
         assert config.max_tracked_arrows == 10
         # 14 + (5 * 12) + (10 * 8) = 14 + 60 + 80 = 154
         assert config.total_size == 154
+
+    def test_custom_config_with_map(self):
+        """Test custom configuration with map."""
+        config = ObservationConfig(max_other_players=5, max_tracked_arrows=10)
+        assert config.max_other_players == 5
+        assert config.max_tracked_arrows == 10
+        # 14 + (5 * 12) + (10 * 8) + (20 * 15) = 14 + 60 + 80 + 300 = 454
+        assert config.total_size == 454
 
 
 # =============================================================================
@@ -470,34 +497,55 @@ class TestObservationBuilder:
     """Test ObservationBuilder class."""
 
     def test_init_default_config(self):
-        """Test initialization with default config."""
+        """Test initialization with default config (includes map)."""
         builder = ObservationBuilder()
+        assert builder.config.total_size == 414  # 114 + 300 (map)
+
+    def test_init_config_without_map(self):
+        """Test initialization without map encoding."""
+        config = ObservationConfig(include_map=False)
+        builder = ObservationBuilder(config=config)
         assert builder.config.total_size == 114
 
     def test_init_custom_config(self):
         """Test initialization with custom config."""
-        config = ObservationConfig(max_other_players=2, max_tracked_arrows=4)
+        config = ObservationConfig(
+            max_other_players=2, max_tracked_arrows=4, include_map=False
+        )
         builder = ObservationBuilder(config=config)
         assert builder.config.max_other_players == 2
         assert builder.config.max_tracked_arrows == 4
 
     def test_build_missing_player_raises(self):
         """Test that build raises if player not found."""
-        builder = ObservationBuilder()
+        config = ObservationConfig(include_map=False)
+        builder = ObservationBuilder(config=config)
         game_state = create_game_state()
 
         with pytest.raises(ValueError, match="not found"):
             builder.build(game_state, "missing_player")
 
     def test_build_returns_correct_shape(self):
-        """Test that build returns correct observation shape."""
-        builder = ObservationBuilder()
+        """Test that build returns correct observation shape without map."""
+        config = ObservationConfig(include_map=False)
+        builder = ObservationBuilder(config=config)
         player = create_player_state("player1")
         game_state = create_game_state(players={"player1": player})
 
         obs = builder.build(game_state, "player1")
 
         assert obs.shape == (114,)
+        assert obs.dtype == np.float32
+
+    def test_build_returns_correct_shape_with_map(self):
+        """Test that build returns correct observation shape with map."""
+        builder = ObservationBuilder()  # Default includes map
+        player = create_player_state("player1")
+        game_state = create_game_state(players={"player1": player})
+
+        obs = builder.build(game_state, "player1")
+
+        assert obs.shape == (414,)  # 114 + 300 (map)
         assert obs.dtype == np.float32
 
     def test_build_values_in_range(self):
@@ -513,7 +561,8 @@ class TestObservationBuilder:
 
     def test_build_empty_game_state(self):
         """Test observation for game with only own player (no arrows/others)."""
-        builder = ObservationBuilder()
+        config = ObservationConfig(include_map=False)
+        builder = ObservationBuilder(config=config)
         player = create_player_state("player1")
         game_state = create_game_state(players={"player1": player})
 
@@ -654,7 +703,9 @@ class TestObservationBuilder:
 
     def test_build_max_entities_respected(self):
         """Test that max entities limits are respected."""
-        config = ObservationConfig(max_other_players=2, max_tracked_arrows=2)
+        config = ObservationConfig(
+            max_other_players=2, max_tracked_arrows=2, include_map=False
+        )
         builder = ObservationBuilder(config=config)
 
         player1 = create_player_state("player1", x=400, y=400)
@@ -824,8 +875,10 @@ class TestObservationBuilder:
         assert first_player_obs[5] == pytest.approx(1.0)
 
     def test_full_game_state(self):
-        """Test with maximum players and arrows."""
-        config = ObservationConfig(max_other_players=3, max_tracked_arrows=8)
+        """Test with maximum players and arrows (without map)."""
+        config = ObservationConfig(
+            max_other_players=3, max_tracked_arrows=8, include_map=False
+        )
         builder = ObservationBuilder(config=config)
 
         players = {"player1": create_player_state("player1", x=400, y=400)}
@@ -847,13 +900,48 @@ class TestObservationBuilder:
         assert np.all(obs >= -1.0)
         assert np.all(obs <= 1.0)
 
+    def test_full_game_state_with_map(self):
+        """Test with maximum players, arrows, and map."""
+        config = ObservationConfig(max_other_players=3, max_tracked_arrows=8)
+        builder = ObservationBuilder(config=config)
+
+        players = {"player1": create_player_state("player1", x=400, y=400)}
+        for i in range(3):
+            players[f"other{i}"] = create_player_state(
+                f"other{i}", x=450 + i * 50, y=400
+            )
+
+        arrows = {}
+        for i in range(8):
+            arrows[f"arrow{i}"] = create_arrow_state(f"arrow{i}", x=460 + i * 10, y=400)
+
+        game_state = create_game_state(players=players, arrows=arrows)
+        obs = builder.build(game_state, "player1")
+
+        # All sections should have values (114 + 300 map)
+        assert obs.shape == (414,)
+        assert not np.allclose(obs, 0)
+        assert np.all(obs >= -1.0)
+        assert np.all(obs <= 1.0)
+
 
 class TestObservationBuilderGymnasium:
     """Test ObservationBuilder gymnasium integration."""
 
     def test_get_gymnasium_space(self):
-        """Test gymnasium space creation."""
+        """Test gymnasium space creation with default config (includes map)."""
         builder = ObservationBuilder()
+        space = builder.get_gymnasium_space()
+
+        assert space.shape == (414,)  # 114 + 300 (map)
+        assert space.low.min() == -1.0
+        assert space.high.max() == 1.0
+        assert space.dtype == np.float32
+
+    def test_get_gymnasium_space_without_map(self):
+        """Test gymnasium space creation without map."""
+        config = ObservationConfig(include_map=False)
+        builder = ObservationBuilder(config=config)
         space = builder.get_gymnasium_space()
 
         assert space.shape == (114,)
@@ -862,12 +950,23 @@ class TestObservationBuilderGymnasium:
         assert space.dtype == np.float32
 
     def test_get_gymnasium_space_custom_config(self):
-        """Test gymnasium space with custom config."""
-        config = ObservationConfig(max_other_players=5, max_tracked_arrows=10)
+        """Test gymnasium space with custom config (without map)."""
+        config = ObservationConfig(
+            max_other_players=5, max_tracked_arrows=10, include_map=False
+        )
         builder = ObservationBuilder(config=config)
         space = builder.get_gymnasium_space()
 
         expected_size = 14 + (5 * 12) + (10 * 8)
+        assert space.shape == (expected_size,)
+
+    def test_get_gymnasium_space_custom_config_with_map(self):
+        """Test gymnasium space with custom config (with map)."""
+        config = ObservationConfig(max_other_players=5, max_tracked_arrows=10)
+        builder = ObservationBuilder(config=config)
+        space = builder.get_gymnasium_space()
+
+        expected_size = 14 + (5 * 12) + (10 * 8) + (20 * 15)
         assert space.shape == (expected_size,)
 
     def test_observation_in_gymnasium_space(self):
