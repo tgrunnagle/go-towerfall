@@ -350,11 +350,11 @@ class GameClient:
             x: Mouse X coordinate.
             y: Mouse Y coordinate.
         """
-        # Convert button name to button code
+        # Convert button name to button code (0=left, 2=right)
         button_code = 0 if button == "left" else 2
 
         if self.mode == ClientMode.WEBSOCKET:
-            await self._send_ws_mouse(button, pressed, x, y)
+            await self._send_ws_mouse(button_code, pressed, x, y)
         else:
             await self._send_rest_action(
                 BotAction(
@@ -376,12 +376,19 @@ class GameClient:
 
     async def _send_ws_mouse(
         self,
-        button: str,
+        button: int,
         pressed: bool,
         x: float,
         y: float,
     ) -> None:
-        """Send mouse input via WebSocket."""
+        """Send mouse input via WebSocket.
+
+        Args:
+            button: Button code (0=left, 2=right).
+            pressed: True for button down, False for button up.
+            x: Mouse X coordinate.
+            y: Mouse Y coordinate.
+        """
         if self._websocket is None:
             raise GameClientError("WebSocket not connected")
 
