@@ -1,6 +1,13 @@
 """Bot implementations for TowerFall game."""
 
-from bot.bots.base_bot import BaseBot
+from bot.bots.base_bot import (
+    BaseBot,
+    BotAction,
+    KeyboardAction,
+    KeyboardKey,
+    MouseAction,
+    MouseButton,
+)
 from bot.bots.rule_based_bot import RuleBasedBot, RuleBasedBotConfig, RuleBasedBotRunner
 from bot.bots.shooting_utils import (
     ShootingConfig,
@@ -8,6 +15,7 @@ from bot.bots.shooting_utils import (
     calculate_arrow_speed,
     calculate_max_arrow_speed,
     calculate_optimal_power,
+    calculate_optimal_power_with_thresholds,
     compensate_for_gravity,
     should_release_shot,
     should_shoot,
@@ -15,6 +23,11 @@ from bot.bots.shooting_utils import (
 
 __all__ = [
     "BaseBot",
+    "BotAction",
+    "KeyboardAction",
+    "KeyboardKey",
+    "MouseAction",
+    "MouseButton",
     "RuleBasedBot",
     "RuleBasedBotConfig",
     "RuleBasedBotRunner",
@@ -23,6 +36,7 @@ __all__ = [
     "calculate_arrow_speed",
     "calculate_max_arrow_speed",
     "calculate_optimal_power",
+    "calculate_optimal_power_with_thresholds",
     "compensate_for_gravity",
     "should_release_shot",
     "should_shoot",

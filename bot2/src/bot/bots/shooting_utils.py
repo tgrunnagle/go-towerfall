@@ -152,27 +152,52 @@ def calculate_optimal_power(distance: float) -> float:
     For closer targets, use less power for faster shot.
     For distant targets, use more power for reach.
 
+    Uses default thresholds. For configurable thresholds, use
+    calculate_optimal_power_with_config().
+
     Args:
         distance: Distance to target in pixels.
 
     Returns:
         Power ratio between 0.0 and 1.0.
     """
-    # Minimum power threshold for arrow to be useful
-    MIN_POWER = 0.2
+    # Default thresholds (kept for backwards compatibility)
+    return calculate_optimal_power_with_thresholds(
+        distance=distance,
+        min_power=0.2,
+        close_range=100.0,
+        max_range=600.0,
+    )
 
-    # Distance thresholds
-    CLOSE_RANGE = 100.0  # pixels
-    MAX_RANGE = 600.0  # pixels
 
-    if distance <= CLOSE_RANGE:
-        return MIN_POWER
-    elif distance >= MAX_RANGE:
+def calculate_optimal_power_with_thresholds(
+    distance: float,
+    min_power: float,
+    close_range: float,
+    max_range: float,
+) -> float:
+    """Calculate optimal power ratio for a given distance with custom thresholds.
+
+    For closer targets, use less power for faster shot.
+    For distant targets, use more power for reach.
+
+    Args:
+        distance: Distance to target in pixels.
+        min_power: Minimum power ratio for close range shots.
+        close_range: Distance threshold below which min power is used.
+        max_range: Distance threshold above which max power (1.0) is used.
+
+    Returns:
+        Power ratio between min_power and 1.0.
+    """
+    if distance <= close_range:
+        return min_power
+    elif distance >= max_range:
         return 1.0
     else:
         # Linear interpolation
-        ratio = (distance - CLOSE_RANGE) / (MAX_RANGE - CLOSE_RANGE)
-        return MIN_POWER + ratio * (1.0 - MIN_POWER)
+        ratio = (distance - close_range) / (max_range - close_range)
+        return min_power + ratio * (1.0 - min_power)
 
 
 @dataclass
@@ -197,6 +222,11 @@ class ShootingConfig:
 
     # Accuracy settings (optional future use)
     aim_noise_factor: float = 0.0  # Add randomness to aim (0 = perfect)
+
+    # Power calculation thresholds (pixels)
+    # Used by calculate_optimal_power_with_config()
+    close_range_threshold: float = 100.0  # Distance below which min power is used
+    max_range_threshold: float = 600.0  # Distance above which max power is used
 
 
 def should_shoot(
@@ -282,11 +312,16 @@ def should_release_shot(
     if power_ratio < config.min_power_ratio:
         return False
 
-    # Calculate optimal power for distance
+    # Calculate optimal power for distance using config thresholds
     dx = target.x - own_player.x
     dy = target.y - own_player.y
     distance = math.hypot(dx, dy)
-    optimal_power = calculate_optimal_power(distance)
+    optimal_power = calculate_optimal_power_with_thresholds(
+        distance=distance,
+        min_power=config.min_power_ratio,
+        close_range=config.close_range_threshold,
+        max_range=config.max_range_threshold,
+    )
 
     # Release when we reach optimal power
     return power_ratio >= optimal_power

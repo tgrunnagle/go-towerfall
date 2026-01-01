@@ -749,9 +749,10 @@ class TestRuleBasedBotShooting:
         # Use time=1.0 to bypass initial cooldown
         with patch("bot.bots.rule_based_bot.time.time", return_value=1.0):
             actions = await bot.decide_actions()
-            mouse_actions = [a for a in actions if a[0] == "mouse_left"]
+            mouse_actions = [a for a in actions if len(a) == 4]
             assert len(mouse_actions) == 1
-            _, _, aim_x, aim_y = mouse_actions[0]
+            mouse_action = mouse_actions[0]
+            aim_x = mouse_action[2]  # type: ignore[index]
 
             # Aim X should be ahead of enemy's current X (300)
             assert aim_x > 300
@@ -818,9 +819,10 @@ class TestRuleBasedBotShootingConfig:
         # Use time=1.0 to bypass initial cooldown
         with patch("bot.bots.rule_based_bot.time.time", return_value=1.0):
             actions = await bot.decide_actions()
-            mouse_actions = [a for a in actions if a[0] == "mouse_left"]
+            mouse_actions = [a for a in actions if len(a) == 4]
             assert len(mouse_actions) == 1
-            _, _, aim_x, aim_y = mouse_actions[0]
+            mouse_action = mouse_actions[0]
+            aim_x = mouse_action[2]  # type: ignore[index]
 
             # With lead prediction disabled and gravity compensation enabled,
             # aim_x should be exactly at target's current X (200)
@@ -842,9 +844,11 @@ class TestRuleBasedBotShootingConfig:
         # Use time=1.0 to bypass initial cooldown
         with patch("bot.bots.rule_based_bot.time.time", return_value=1.0):
             actions = await bot.decide_actions()
-            mouse_actions = [a for a in actions if a[0] == "mouse_left"]
+            mouse_actions = [a for a in actions if len(a) == 4]
             assert len(mouse_actions) == 1
-            _, _, aim_x, aim_y = mouse_actions[0]
+            mouse_action = mouse_actions[0]
+            aim_x = mouse_action[2]  # type: ignore[index]
+            aim_y = mouse_action[3]  # type: ignore[index]
 
             # With both disabled, aim should be exactly at target position
             assert aim_x == 200

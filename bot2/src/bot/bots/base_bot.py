@@ -1,8 +1,20 @@
 """Abstract base class for bot implementations."""
 
 from abc import ABC, abstractmethod
+from typing import Literal, TypeAlias
 
 from bot.models import GameState, PlayerState
+
+# Valid keyboard keys for bot actions
+KeyboardKey = Literal["w", "a", "s", "d"]
+
+# Valid mouse buttons for bot actions
+MouseButton = Literal["mouse_left"]
+
+# Type aliases for bot actions with typed discriminators
+KeyboardAction: TypeAlias = tuple[KeyboardKey, bool]
+MouseAction: TypeAlias = tuple[MouseButton, bool, float, float]
+BotAction: TypeAlias = KeyboardAction | MouseAction
 
 
 class BaseBot(ABC):
@@ -31,12 +43,15 @@ class BaseBot(ABC):
         self.current_state = state
 
     @abstractmethod
-    async def decide_actions(self) -> list[tuple[str, bool]]:
+    async def decide_actions(self) -> list[BotAction]:
         """Decide which actions to take based on current state.
 
         Returns:
-            List of (key, is_pressed) tuples for keyboard inputs.
-            Valid keys are: "w" (jump), "a" (left), "s" (dive), "d" (right).
+            List of actions, each is either:
+            - KeyboardAction: (key, is_pressed) for keyboard inputs
+            - MouseAction: (button, is_pressed, aim_x, aim_y) for mouse inputs
+            Valid keyboard keys are: "w" (jump), "a" (left), "s" (dive), "d" (right).
+            Valid mouse buttons are: "mouse_left".
         """
         pass
 

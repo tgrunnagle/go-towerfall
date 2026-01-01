@@ -821,7 +821,8 @@ class TestRuleBasedBotDecideActions:
         bot.update_state(state)
 
         actions = await bot.decide_actions()
-        actions_dict = dict(actions)
+        # Filter to keyboard actions only (length 2 tuples)
+        actions_dict = {a[0]: a[1] for a in actions if len(a) == 2}
 
         assert actions_dict["w"] is False
         assert actions_dict["a"] is False
@@ -860,7 +861,8 @@ class TestRuleBasedBotDecideActions:
         bot.update_state(state)
 
         actions = await bot.decide_actions()
-        actions_dict = dict(actions)
+        # Filter to keyboard actions only (length 2 tuples)
+        actions_dict = {a[0]: a[1] for a in actions if len(a) == 2}
 
         # Should move right toward center (400)
         assert actions_dict["d"] is True
@@ -1042,7 +1044,8 @@ class TestRuleBasedBotConfig:
         bot_small.update_state(state)
 
         actions = await bot_small.decide_actions()
-        actions_dict = dict(actions)
+        # Filter to keyboard actions only (length 2 tuples)
+        actions_dict = {a[0]: a[1] for a in actions if len(a) == 2}
         assert actions_dict["d"] is True  # Should move right toward center (400)
 
         # With large dead zone, bot at 200 is close enough to center
@@ -1051,7 +1054,8 @@ class TestRuleBasedBotConfig:
         bot_large.update_state(state)
 
         actions = await bot_large.decide_actions()
-        actions_dict = dict(actions)
+        # Filter to keyboard actions only (length 2 tuples)
+        actions_dict = {a[0]: a[1] for a in actions if len(a) == 2}
         assert actions_dict["d"] is False  # Should not move
         assert actions_dict["a"] is False
 

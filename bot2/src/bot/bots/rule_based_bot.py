@@ -4,7 +4,7 @@ import math
 import time
 from dataclasses import dataclass, field
 
-from bot.bots.base_bot import BaseBot
+from bot.bots.base_bot import BaseBot, BotAction, KeyboardAction, MouseAction
 from bot.bots.shooting_utils import (
     ShootingConfig,
     calculate_aim_point,
@@ -191,13 +191,13 @@ class RuleBasedBot(BaseBot):
 
         return False
 
-    def _move_to_center(self) -> list[tuple[str, bool]]:
+    def _move_to_center(self) -> list[KeyboardAction]:
         """Generate actions to move toward the center of the map.
 
         Returns:
-            List of (key, is_pressed) tuples to move toward center.
+            List of keyboard actions to move toward center.
         """
-        actions: list[tuple[str, bool]] = []
+        actions: list[KeyboardAction] = []
 
         own_player = self.get_own_player()
         if own_player is None:
@@ -218,17 +218,15 @@ class RuleBasedBot(BaseBot):
         actions.append(("w", False))
         return actions
 
-    async def decide_actions(
-        self,
-    ) -> list[tuple[str, bool] | tuple[str, bool, float, float]]:
+    async def decide_actions(self) -> list[BotAction]:
         """Decide movement and shooting actions based on current state.
 
         Returns:
             List of actions, each is either:
-            - (key, is_pressed) for keyboard inputs
-            - ("mouse_left", is_pressed, aim_x, aim_y) for mouse inputs
+            - KeyboardAction: (key, is_pressed) for keyboard inputs
+            - MouseAction: ("mouse_left", is_pressed, aim_x, aim_y) for mouse inputs
         """
-        actions: list[tuple[str, bool] | tuple[str, bool, float, float]] = []
+        actions: list[BotAction] = []
 
         own_player = self.get_own_player()
         if own_player is None or own_player.dead:
@@ -239,7 +237,7 @@ class RuleBasedBot(BaseBot):
 
         if target is None:
             # No enemies - idle at center and stop shooting
-            movement_actions = self._move_to_center()
+            movement_actions: list[BotAction] = list(self._move_to_center())  # type: ignore[arg-type]
             if self._shooting_start_time is not None:
                 # Cancel any ongoing shot
                 movement_actions.append(("mouse_left", False, 0.0, 0.0))
@@ -275,7 +273,7 @@ class RuleBasedBot(BaseBot):
 
     def _decide_shooting_actions(
         self, own_player: PlayerState, target: PlayerState
-    ) -> list[tuple[str, bool, float, float]]:
+    ) -> list[MouseAction]:
         """Decide shooting-related actions.
 
         Args:
@@ -285,7 +283,7 @@ class RuleBasedBot(BaseBot):
         Returns:
             List of mouse actions as ("mouse_left", pressed, aim_x, aim_y) tuples.
         """
-        actions: list[tuple[str, bool, float, float]] = []
+        actions: list[MouseAction] = []
         shooting_config = self.config.shooting
 
         current_time = time.time()
@@ -343,15 +341,13 @@ class RuleBasedBot(BaseBot):
 
         return actions
 
-    def _release_all_controls(
-        self,
-    ) -> list[tuple[str, bool] | tuple[str, bool, float, float]]:
+    def _release_all_controls(self) -> list[BotAction]:
         """Release all movement and shooting controls.
 
         Returns:
             List of actions to release all controls.
         """
-        actions: list[tuple[str, bool] | tuple[str, bool, float, float]] = [
+        actions: list[BotAction] = [
             ("w", False),
             ("a", False),
             ("d", False),
@@ -360,6 +356,15 @@ class RuleBasedBot(BaseBot):
             actions.append(("mouse_left", False, 0.0, 0.0))
             self._shooting_start_time = None
         return actions
+
+    def reset_shooting_state(self) -> None:
+        """Reset the shooting state for a new game/episode.
+
+        This method should be called when starting a new game or episode
+        to clear any charging state and cooldown timers.
+        """
+        self._shooting_start_time = None
+        self._last_shot_time = 0.0
 
 
 class RuleBasedBotRunner:
@@ -409,15 +414,17 @@ class RuleBasedBotRunner:
         actions = await self.bot.decide_actions()
 
         for action in actions:
-            if action[0] == "mouse_left":
+            if len(action) == 4:
                 # Mouse action: ("mouse_left", pressed, aim_x, aim_y)
-                _, pressed, aim_x, aim_y = action
+                mouse_action: MouseAction = action  # type: ignore[assignment]
+                _, pressed, aim_x, aim_y = mouse_action
                 if self._previous_mouse_state != pressed:
                     await self.client.send_mouse_input("left", pressed, aim_x, aim_y)
                     self._previous_mouse_state = pressed
             else:
                 # Keyboard action: (key, pressed)
-                key, pressed = action[0], action[1]
+                keyboard_action: KeyboardAction = action  # type: ignore[assignment]
+                key, pressed = keyboard_action
                 if self._previous_keyboard_actions.get(key) != pressed:
                     await self.client.send_keyboard_input(key, pressed)
                     self._previous_keyboard_actions[key] = pressed
@@ -427,5 +434,4 @@ class RuleBasedBotRunner:
         self._previous_keyboard_actions = {}
         self._previous_mouse_state = False
         if self.bot is not None:
-            self.bot._shooting_start_time = None
-            self.bot._last_shot_time = 0.0
+            self.bot.reset_shooting_state()
