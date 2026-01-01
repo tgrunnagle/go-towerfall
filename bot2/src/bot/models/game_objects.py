@@ -52,6 +52,7 @@ class ArrowState(BaseObjectState):
     destroyed: bool = Field(default=False, alias="d")
     destroyed_at_x: float | None = Field(default=None, alias="dAtX")
     destroyed_at_y: float | None = Field(default=None, alias="dAtY")
+    owner_id: str | None = Field(default=None, alias="own")
 
 
 class BlockState(BaseObjectState):

@@ -53,6 +53,7 @@ const (
 	StateShootingStartTime = "shts" // shooting start time (float64)
 	StateJumpCount         = "jc"   // jumping count (int)
 	StateArrowCount        = "ac"   // arrow count (int)
+	StateArrowOwner        = "own"  // arrow owner player ID (string)
 )
 
 // Player constants

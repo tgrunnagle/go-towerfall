@@ -30,6 +30,9 @@ class NormalizationConstants:
     MAX_ARROWS: int = 4
     MAX_JUMPS: int = 2
 
+    # Arrow constants
+    MAX_ARROW_POWER_TIME: float = 2.0  # seconds to reach max power
+
 
 # Default constants instance for convenience
 NORMALIZATION_CONSTANTS = NormalizationConstants()

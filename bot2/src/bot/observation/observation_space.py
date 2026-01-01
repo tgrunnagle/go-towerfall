@@ -4,6 +4,7 @@ Converts game state into normalized observation vectors suitable for
 neural network training.
 """
 
+import time
 from dataclasses import dataclass
 
 import numpy as np
@@ -232,10 +233,16 @@ class ObservationBuilder:
         obs[9] = normalize_count(player.arrow_count, self.constants.MAX_ARROWS)
 
         # Shooting power [10-11]
-        # If shooting, calculate power based on how long the shot has been held
-        # For now, set to 0 as we don't have timing info in the observation
-        obs[10] = 0.0
-        obs[11] = 0.0
+        # Calculate power ratio based on how long the shot has been held
+        # Power ratio goes from 0 to 1 over MAX_ARROW_POWER_TIME seconds
+        if player.shooting and player.shooting_start_time is not None:
+            elapsed_time = time.time() - player.shooting_start_time
+            power_ratio = min(1.0, elapsed_time / self.constants.MAX_ARROW_POWER_TIME)
+            # Normalize to [-1, 1] range: 0 power = -1, max power = 1
+            obs[10] = (power_ratio * 2.0) - 1.0
+        else:
+            obs[10] = -1.0  # Not shooting = minimum power
+        obs[11] = 0.0  # Reserved for future use
 
         # Reserved [12-13]
         obs[12] = 0.0
@@ -364,9 +371,8 @@ class ObservationBuilder:
         obs[5] = normalize_boolean(arrow.grounded)
 
         # Is Own Arrow [6]
-        # Note: Arrow ownership would need to be tracked separately
-        # For now, we set to -1 (False) as ArrowState doesn't include owner info
-        obs[6] = -1.0
+        is_own_arrow = arrow.owner_id == own_player_id if arrow.owner_id else False
+        obs[6] = normalize_boolean(is_own_arrow)
 
         # Distance [7]
         distance = calculate_distance(own_player.x, own_player.y, arrow.x, arrow.y)
