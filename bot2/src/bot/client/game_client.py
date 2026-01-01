@@ -142,6 +142,14 @@ class GameClient:
     # Connection Methods
     # =========================================================================
 
+    async def connect(self) -> None:
+        """Initialize the HTTP client connection.
+
+        This method is automatically called when using the async context manager.
+        Call this explicitly when not using the context manager pattern.
+        """
+        await self._http_client.connect()
+
     async def create_game(
         self,
         player_name: str,
