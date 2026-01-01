@@ -161,7 +161,7 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             http_url=self.http_url,
             mode=ClientMode.REST,
         )
-        await self._client._http_client.connect()
+        await self._client.connect()
 
         # Create training game
         await self._client.create_game(
