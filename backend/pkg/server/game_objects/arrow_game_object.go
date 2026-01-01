@@ -65,6 +65,11 @@ func NewArrowGameObject(
 func (a *ArrowGameObject) GetState() map[string]interface{} {
 	state := a.BaseGameObject.GetState()
 
+	// Include arrow owner ID
+	if a.SourcePlayer != nil {
+		state[constants.StateArrowOwner] = a.SourcePlayer.GetID()
+	}
+
 	if state[constants.StateArrowGrounded].(bool) {
 		return state
 	}

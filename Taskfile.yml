@@ -57,3 +57,53 @@ tasks:
       - bot2:format
       - bot2:typecheck
       - bot2:test
+
+  be:build:
+    dir: backend
+    desc: Build the backend Go application
+    cmds:
+      - go build ./...
+
+  be:test:
+    dir: backend
+    desc: Run backend unit tests
+    cmds:
+      - go test ./... -v
+
+  be:test:short:
+    dir: backend
+    desc: Run backend unit tests (short mode)
+    cmds:
+      - go test ./... -short
+
+  be:lint:
+    dir: backend
+    desc: Run backend linting with golangci-lint
+    cmds:
+      - golangci-lint run
+
+  be:format:
+    dir: backend
+    desc: Format backend Go code
+    cmds:
+      - go fmt ./...
+
+  be:vet:
+    dir: backend
+    desc: Run go vet on backend code
+    cmds:
+      - go vet ./...
+
+  be:tidy:
+    dir: backend
+    desc: Tidy backend Go modules
+    cmds:
+      - go mod tidy
+
+  be:check:
+    dir: backend
+    desc: Run all backend checks (build, vet, test)
+    cmds:
+      - task: be:build
+      - task: be:vet
+      - task: be:test
