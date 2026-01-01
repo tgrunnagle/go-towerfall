@@ -16,6 +16,7 @@ from numpy.typing import NDArray
 
 from bot.actions import ACTION_SPACE_SIZE, Action, execute_action
 from bot.client import ClientMode, GameClient
+from bot.gym.reward import RewardConfig, StandardRewardFunction
 from bot.models import GameState
 from bot.observation import ObservationBuilder, ObservationConfig
 
@@ -50,6 +51,7 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         max_episode_steps: int = 1000,
         render_mode: str | None = None,
         observation_config: ObservationConfig | None = None,
+        reward_config: RewardConfig | None = None,
     ):
         """Initialize the TowerFall environment.
 
@@ -63,6 +65,7 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             max_episode_steps: Maximum steps per episode before truncation.
             render_mode: Gymnasium render mode ("human", "rgb_array", or None).
             observation_config: Optional custom observation configuration.
+            reward_config: Optional custom reward function configuration.
         """
         super().__init__()
 
@@ -80,6 +83,9 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         self._obs_config = observation_config or ObservationConfig()
         self._obs_builder = ObservationBuilder(self._obs_config)
 
+        # Reward configuration
+        self._reward_fn = StandardRewardFunction(reward_config)
+
         # Define spaces
         self.action_space: spaces.Discrete = spaces.Discrete(ACTION_SPACE_SIZE)
         self.observation_space: spaces.Box = spaces.Box(
@@ -94,10 +100,6 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         self._episode_step = 0
         self._loop: asyncio.AbstractEventLoop | None = None
         self._owns_loop = False
-
-        # Stats tracking for reward calculation
-        self._prev_kills: int = 0
-        self._prev_deaths: int = 0
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         """Get or create event loop for async operations.
@@ -230,8 +232,6 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         """
         super().reset(seed=seed)
         self._episode_step = 0
-        self._prev_kills = 0
-        self._prev_deaths = 0
 
         # Handle options
         reset_map_type = self.map_type
@@ -239,6 +239,9 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             reset_map_type = options["map_type"]
 
         game_state, info = self._run_async(self._async_reset(reset_map_type))
+
+        # Reset reward function tracking
+        self._reward_fn.reset(None)
 
         # Build observation
         if self._client is None or self._client.player_id is None:
@@ -302,14 +305,12 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         game_state: GameState,
         stats: dict[str, Any],
     ) -> float:
-        """Calculate reward for current step.
+        """Calculate reward for current step using the reward function.
 
-        Basic reward shaping:
-        - +1.0 for each kill
-        - -1.0 for each death
-        - -0.001 per step (encourages efficiency)
-
-        Full reward shaping will be implemented in TASK-015.
+        Uses StandardRewardFunction with configurable reward shaping:
+        - +kill_reward for each kill (default: +1.0)
+        - +death_penalty for each death (default: -1.0)
+        - +timestep_penalty per step (default: -0.001)
 
         Args:
             game_state: Current game state.
@@ -318,30 +319,12 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         Returns:
             Reward value for this step.
         """
-        reward = 0.0
-
         # Get current player stats
+        player_stats = None
         if self._client and self._client.player_id and self._client.player_id in stats:
             player_stats = stats[self._client.player_id]
-            current_kills = player_stats.kills
-            current_deaths = player_stats.deaths
 
-            # Reward for kills
-            kill_diff = current_kills - self._prev_kills
-            reward += kill_diff * 1.0
-
-            # Penalty for deaths
-            death_diff = current_deaths - self._prev_deaths
-            reward -= death_diff * 1.0
-
-            # Update tracking
-            self._prev_kills = current_kills
-            self._prev_deaths = current_deaths
-
-        # Small negative reward per step to encourage efficiency
-        reward -= 0.001
-
-        return reward
+        return self._reward_fn.calculate(player_stats)
 
     def _check_terminated(self, game_state: GameState) -> bool:
         """Check if episode should terminate.
