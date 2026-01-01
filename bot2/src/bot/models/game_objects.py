@@ -7,6 +7,8 @@ This module contains Pydantic models for individual game objects:
 - BulletState: Bullet projectile state
 """
 
+from functools import cached_property
+
 from pydantic import ConfigDict, Field
 
 from bot.models.base import BaseObjectState, Point
@@ -64,6 +66,32 @@ class BlockState(BaseObjectState):
     model_config = ConfigDict(populate_by_name=True)
 
     points: list[Point] = Field(alias="pts")
+
+    @cached_property
+    def center(self) -> tuple[float, float]:
+        """Calculate the center point of the block.
+
+        Returns:
+            Tuple of (center_x, center_y) in pixels
+        """
+        if not self.points:
+            return (0.0, 0.0)
+        xs = [p.x for p in self.points]
+        ys = [p.y for p in self.points]
+        return ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
+
+    @cached_property
+    def bounds(self) -> tuple[float, float, float, float]:
+        """Get the bounding box of the block.
+
+        Returns:
+            Tuple of (min_x, min_y, max_x, max_y) in pixels
+        """
+        if not self.points:
+            return (0.0, 0.0, 0.0, 0.0)
+        xs = [p.x for p in self.points]
+        ys = [p.y for p in self.points]
+        return (min(xs), min(ys), max(xs), max(ys))
 
 
 class BulletState(BaseObjectState):

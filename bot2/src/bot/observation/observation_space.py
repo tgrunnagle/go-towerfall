@@ -11,6 +11,11 @@ import numpy as np
 from numpy.typing import NDArray
 
 from bot.models import ArrowState, GameState, PlayerState
+from bot.observation.map_encoder import (
+    DEFAULT_MAP_CONFIG,
+    MapEncoder,
+    MapEncodingConfig,
+)
 from bot.observation.normalizer import (
     NORMALIZATION_CONSTANTS,
     NormalizationConstants,
@@ -34,10 +39,14 @@ class ObservationConfig:
     Attributes:
         max_other_players: Maximum number of other players to observe
         max_tracked_arrows: Maximum number of arrows to track
+        include_map: Whether to include map geometry in observations
+        map_encoding: Configuration for map encoding (grid dimensions, etc.)
     """
 
     max_other_players: int = 3
     max_tracked_arrows: int = 8
+    include_map: bool = True
+    map_encoding: MapEncodingConfig = DEFAULT_MAP_CONFIG
 
     @property
     def own_player_size(self) -> int:
@@ -65,9 +74,21 @@ class ObservationConfig:
         return self.max_tracked_arrows * self.per_arrow_size
 
     @property
+    def map_size(self) -> int:
+        """Total size of map observation section."""
+        if self.include_map:
+            return self.map_encoding.total_size
+        return 0
+
+    @property
     def total_size(self) -> int:
         """Total size of observation vector."""
-        return self.own_player_size + self.other_players_size + self.arrows_size
+        return (
+            self.own_player_size
+            + self.other_players_size
+            + self.arrows_size
+            + self.map_size
+        )
 
 
 # Default configuration
@@ -81,6 +102,7 @@ class ObservationBuilder:
     - Own player state (14 values)
     - Other players' states (max_other_players * 12 values)
     - Arrow states (max_tracked_arrows * 8 values)
+    - Map geometry (grid_width * grid_height values, if include_map=True)
 
     All values are normalized to [-1, 1] range.
     """
@@ -98,6 +120,12 @@ class ObservationBuilder:
         """
         self.config = config or DEFAULT_CONFIG
         self.constants = constants or NORMALIZATION_CONSTANTS
+
+        # Initialize map encoder if map encoding is enabled
+        if self.config.include_map:
+            self._map_encoder = MapEncoder(config=self.config.map_encoding)
+        else:
+            self._map_encoder = None
 
     def build(
         self,
@@ -166,6 +194,13 @@ class ObservationBuilder:
                 arrow_obs = np.zeros(self.config.per_arrow_size, dtype=np.float32)
             obs[offset : offset + self.config.per_arrow_size] = arrow_obs
             offset += self.config.per_arrow_size
+
+        # 4. Map geometry (if enabled)
+        if self.config.include_map and self._map_encoder is not None:
+            blocks = list(game_state.blocks.values())
+            map_obs = self._map_encoder.encode(blocks)
+            obs[offset : offset + self.config.map_size] = map_obs
+            offset += self.config.map_size
 
         return obs
 
