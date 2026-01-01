@@ -915,7 +915,8 @@ class TestRuleBasedBotDecideActions:
         bot.update_state(state)
 
         actions = await bot.decide_actions()
-        actions_dict = dict(actions)
+        # Filter to keyboard actions only (length 2 tuples)
+        actions_dict = {a[0]: a[1] for a in actions if len(a) == 2}
 
         # Should move right toward enemy
         assert actions_dict["d"] is True
@@ -970,7 +971,8 @@ class TestRuleBasedBotDecideActions:
         bot.update_state(state)
 
         actions = await bot.decide_actions()
-        actions_dict = dict(actions)
+        # Filter to keyboard actions only (length 2 tuples)
+        actions_dict = {a[0]: a[1] for a in actions if len(a) == 2}
 
         # Should move right and jump
         assert actions_dict["d"] is True
