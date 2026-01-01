@@ -366,6 +366,19 @@ class GameClient:
                 )
             )
 
+    async def send_direction(self, direction: float) -> None:
+        """Send aim direction update.
+
+        Args:
+            direction: Direction in radians (0 to 2π).
+        """
+        if self.mode == ClientMode.WEBSOCKET:
+            await self._send_ws_direction(direction)
+        else:
+            await self._send_rest_action(
+                BotAction(type="direction", direction=direction)
+            )
+
     async def _send_ws_keyboard(self, key: str, pressed: bool) -> None:
         """Send keyboard input via WebSocket."""
         if self._websocket is None:
@@ -396,6 +409,18 @@ class GameClient:
             "type": "Click",
             "payload": {"x": x, "y": y, "button": button, "isDown": pressed},
         }
+        await self._websocket.send(json.dumps(message))
+
+    async def _send_ws_direction(self, direction: float) -> None:
+        """Send direction update via WebSocket.
+
+        Args:
+            direction: Direction in radians.
+        """
+        if self._websocket is None:
+            raise GameClientError("WebSocket not connected")
+
+        message = {"type": "ClientState", "payload": {"direction": direction}}
         await self._websocket.send(json.dumps(message))
 
     async def _send_rest_action(self, action: BotAction) -> None:

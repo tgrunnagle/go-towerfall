@@ -267,6 +267,7 @@ class TestExecuteAction:
         client = MagicMock()
         client.send_keyboard_input = AsyncMock()
         client.send_mouse_input = AsyncMock()
+        client.send_direction = AsyncMock()
         client.room_id = "room-123"
         client.player_id = "player-456"
         client._http_client = MagicMock()
@@ -345,36 +346,22 @@ class TestExecuteAction:
         mock_client.send_keyboard_input.assert_called_once_with("S", False)
 
     @pytest.mark.asyncio
-    async def test_aim_action_rest_mode(self, mock_client: MagicMock) -> None:
-        """Test aim action sends direction update in REST mode."""
+    async def test_aim_action_sends_direction(self, mock_client: MagicMock) -> None:
+        """Test aim action sends direction update via send_direction()."""
         await execute_action(mock_client, Action.AIM_4)
 
-        mock_client._http_client.submit_action.assert_called_once()
-        call_args = mock_client._http_client.submit_action.call_args
-        assert call_args[1]["room_id"] == "room-123"
-        assert call_args[1]["player_id"] == "player-456"
-        actions = call_args[1]["actions"]
-        assert len(actions) == 1
-        assert actions[0].type == "direction"
-        assert actions[0].direction == pytest.approx(math.pi / 2)
+        mock_client.send_direction.assert_called_once()
+        call_args = mock_client.send_direction.call_args
+        assert call_args[0][0] == pytest.approx(math.pi / 2)
 
     @pytest.mark.asyncio
-    async def test_aim_action_websocket_mode(self, mock_client: MagicMock) -> None:
-        """Test aim action sends WebSocket message in WebSocket mode."""
-        from bot.client.game_client import ClientMode
-
-        mock_client.mode = ClientMode.WEBSOCKET
-        mock_client._websocket = MagicMock()
-        mock_client._websocket.send = AsyncMock()
-
+    async def test_aim_action_correct_radians(self, mock_client: MagicMock) -> None:
+        """Test aim action sends correct radians for AIM_8 (π radians)."""
         await execute_action(mock_client, Action.AIM_8)
 
-        mock_client._websocket.send.assert_called_once()
-        import json
-
-        sent_message = json.loads(mock_client._websocket.send.call_args[0][0])
-        assert sent_message["type"] == "ClientState"
-        assert sent_message["payload"]["direction"] == pytest.approx(math.pi)
+        mock_client.send_direction.assert_called_once()
+        call_args = mock_client.send_direction.call_args
+        assert call_args[0][0] == pytest.approx(math.pi)
 
     @pytest.mark.asyncio
     async def test_shoot_start(self, mock_client: MagicMock) -> None:

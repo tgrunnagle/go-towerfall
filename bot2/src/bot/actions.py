@@ -24,12 +24,8 @@ from __future__ import annotations
 
 import math
 from enum import IntEnum
-from typing import TYPE_CHECKING
 
-from bot.models import BotAction
-
-if TYPE_CHECKING:
-    from bot.client import GameClient
+from bot.client import GameClient
 
 
 class Action(IntEnum):
@@ -258,26 +254,7 @@ async def _send_direction(client: GameClient, direction: float) -> None:
         client: The GameClient instance.
         direction: Direction in radians.
     """
-    # Import here to avoid circular imports
-    from bot.client.game_client import ClientMode, GameClientError
-
-    if client.mode == ClientMode.WEBSOCKET:
-        # WebSocket mode: send ClientState message
-        if client._websocket is None:
-            raise GameClientError("WebSocket not connected")
-        import json
-
-        message = {"type": "ClientState", "payload": {"direction": direction}}
-        await client._websocket.send(json.dumps(message))
-    else:
-        # REST mode: submit direction action
-        if client.room_id is None or client.player_id is None:
-            raise GameClientError("Not connected to a game")
-        await client._http_client.submit_action(
-            room_id=client.room_id,
-            player_id=client.player_id,
-            actions=[BotAction(type="direction", direction=direction)],
-        )
+    await client.send_direction(direction)
 
 
 def action_to_string(action: Action | int) -> str:
