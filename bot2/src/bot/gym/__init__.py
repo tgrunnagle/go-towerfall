@@ -4,15 +4,23 @@ This module provides a gymnasium environment for training RL agents
 to play TowerFall through the go-towerfall game server.
 
 Usage:
-    from bot.gym import TowerfallEnv
+    from bot.gym import TowerfallEnv, RewardConfig
 
-    # Direct instantiation
+    # Direct instantiation with default rewards
     env = TowerfallEnv(
         http_url="http://localhost:4000",
         player_name="TrainingBot",
         map_type="arena1",
         tick_rate_multiplier=10.0,
     )
+
+    # Custom reward configuration
+    reward_config = RewardConfig(
+        kill_reward=2.0,
+        death_penalty=-1.5,
+        timestep_penalty=-0.002,
+    )
+    env = TowerfallEnv(reward_config=reward_config)
 
     # Or via gymnasium registry
     import gymnasium as gym
@@ -28,9 +36,10 @@ Usage:
     env.close()
 """
 
+from bot.gym.reward import RewardConfig, RewardFunction, StandardRewardFunction
 from bot.gym.towerfall_env import TowerfallEnv
 
-__all__ = ["TowerfallEnv"]
+__all__ = ["TowerfallEnv", "RewardConfig", "RewardFunction", "StandardRewardFunction"]
 
 # Register with gymnasium
 from gymnasium.envs.registration import register

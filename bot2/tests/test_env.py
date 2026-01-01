@@ -465,8 +465,8 @@ class TestTowerfallEnvReward:
         env = TowerfallEnv()
         env._client = MagicMock()
         env._client.player_id = "player-456"
-        env._prev_kills = 0
-        env._prev_deaths = 0
+        # Reset reward function to initial state
+        env._reward_fn.reset(None)
 
         player_state = make_player_state_dict()
         game_state = GameState(
@@ -482,15 +482,15 @@ class TestTowerfallEnvReward:
 
         # Should be +1.0 for kill, -0.001 for step
         assert reward == pytest.approx(1.0 - 0.001, abs=0.0001)
-        assert env._prev_kills == 1
+        assert env._reward_fn.get_episode_stats()["prev_kills"] == 1
 
     def test_reward_for_death(self) -> None:
         """Test reward decreases for deaths."""
         env = TowerfallEnv()
         env._client = MagicMock()
         env._client.player_id = "player-456"
-        env._prev_kills = 0
-        env._prev_deaths = 0
+        # Reset reward function to initial state
+        env._reward_fn.reset(None)
 
         player_state = make_player_state_dict()
         game_state = GameState(
@@ -506,15 +506,15 @@ class TestTowerfallEnvReward:
 
         # Should be -1.0 for death, -0.001 for step
         assert reward == pytest.approx(-1.0 - 0.001, abs=0.0001)
-        assert env._prev_deaths == 1
+        assert env._reward_fn.get_episode_stats()["prev_deaths"] == 1
 
     def test_reward_step_penalty(self) -> None:
         """Test small negative reward per step."""
         env = TowerfallEnv()
         env._client = MagicMock()
         env._client.player_id = "player-456"
-        env._prev_kills = 0
-        env._prev_deaths = 0
+        # Reset reward function to initial state
+        env._reward_fn.reset(None)
 
         player_state = make_player_state_dict()
         game_state = GameState(
@@ -536,8 +536,8 @@ class TestTowerfallEnvReward:
         env = TowerfallEnv()
         env._client = MagicMock()
         env._client.player_id = "player-456"
-        env._prev_kills = 5
-        env._prev_deaths = 2
+        # Initialize reward function with previous state
+        env._reward_fn.reset(make_player_stats(kills=5, deaths=2))
 
         player_state = make_player_state_dict()
         game_state = GameState(
