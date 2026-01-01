@@ -4,7 +4,7 @@ Converts static map geometry (blocks) into a normalized occupancy grid
 for spatial awareness in RL training.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
@@ -48,7 +48,6 @@ class MapEncodingConfig:
 DEFAULT_MAP_CONFIG = MapEncodingConfig()
 
 
-@dataclass
 class MapEncoder:
     """Encodes map geometry (blocks) into a normalized occupancy grid.
 
@@ -59,13 +58,15 @@ class MapEncoder:
     Caching is used since map geometry is static during a game session.
     """
 
-    config: MapEncodingConfig = field(default_factory=MapEncodingConfig)
+    def __init__(self, config: MapEncodingConfig | None = None) -> None:
+        """Initialize the map encoder.
 
-    # Cache for the encoded grid (since maps are static)
-    _cached_grid: NDArray[np.float32] | None = field(
-        default=None, init=False, repr=False
-    )
-    _cached_blocks_hash: int | None = field(default=None, init=False, repr=False)
+        Args:
+            config: Configuration for map encoding. Uses default if not provided.
+        """
+        self.config = config if config is not None else MapEncodingConfig()
+        self._cached_grid: NDArray[np.float32] | None = None
+        self._cached_blocks_hash: int | None = None
 
     def encode(self, blocks: list[BlockState]) -> NDArray[np.float32]:
         """Convert block states to a flattened occupancy grid.
@@ -89,8 +90,8 @@ class MapEncoder:
         flattened = grid_2d.flatten().astype(np.float32)
 
         # Cache the result
-        object.__setattr__(self, "_cached_grid", flattened)
-        object.__setattr__(self, "_cached_blocks_hash", blocks_hash)
+        self._cached_grid = flattened
+        self._cached_blocks_hash = blocks_hash
 
         return flattened
 
@@ -160,8 +161,8 @@ class MapEncoder:
 
     def clear_cache(self) -> None:
         """Clear the cached grid (useful when starting a new game)."""
-        object.__setattr__(self, "_cached_grid", None)
-        object.__setattr__(self, "_cached_blocks_hash", None)
+        self._cached_grid = None
+        self._cached_blocks_hash = None
 
     def get_grid_shape(self) -> tuple[int, int]:
         """Get the shape of the 2D grid (height, width).
