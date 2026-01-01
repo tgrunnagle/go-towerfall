@@ -12,7 +12,7 @@ Tests cover:
 """
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import gymnasium as gym
 import numpy as np
@@ -225,20 +225,20 @@ class TestTowerfallEnvReset:
         env = TowerfallEnv()
 
         player_state = make_player_state_dict()
+        game_state = GameState(
+            players={"player-456": PlayerState.model_validate(player_state)},
+            canvas_size_x=800,
+            canvas_size_y=600,
+        )
+        info_dict = {
+            "room_id": "room-123",
+            "room_code": "ABC123",
+            "player_id": "player-456",
+        }
 
-        with patch.object(env, "_run_async") as mock_run_async:
-            mock_run_async.return_value = (
-                GameState(
-                    players={"player-456": PlayerState.model_validate(player_state)},
-                    canvas_size_x=800,
-                    canvas_size_y=600,
-                ),
-                {
-                    "room_id": "room-123",
-                    "room_code": "ABC123",
-                    "player_id": "player-456",
-                },
-            )
+        with patch.object(
+            env, "_async_reset", new=AsyncMock(return_value=(game_state, info_dict))
+        ):
             env._client = MagicMock()
             env._client.player_id = "player-456"
 
@@ -253,20 +253,20 @@ class TestTowerfallEnvReset:
         env = TowerfallEnv()
 
         player_state = make_player_state_dict()
+        game_state = GameState(
+            players={"player-456": PlayerState.model_validate(player_state)},
+            canvas_size_x=800,
+            canvas_size_y=600,
+        )
+        info_dict = {
+            "room_id": "room-123",
+            "room_code": "ABC123",
+            "player_id": "player-456",
+        }
 
-        with patch.object(env, "_run_async") as mock_run_async:
-            mock_run_async.return_value = (
-                GameState(
-                    players={"player-456": PlayerState.model_validate(player_state)},
-                    canvas_size_x=800,
-                    canvas_size_y=600,
-                ),
-                {
-                    "room_id": "room-123",
-                    "room_code": "ABC123",
-                    "player_id": "player-456",
-                },
-            )
+        with patch.object(
+            env, "_async_reset", new=AsyncMock(return_value=(game_state, info_dict))
+        ):
             env._client = MagicMock()
             env._client.player_id = "player-456"
 
@@ -280,20 +280,20 @@ class TestTowerfallEnvReset:
         env._episode_step = 100
 
         player_state = make_player_state_dict()
+        game_state = GameState(
+            players={"player-456": PlayerState.model_validate(player_state)},
+            canvas_size_x=800,
+            canvas_size_y=600,
+        )
+        info_dict = {
+            "room_id": "room-123",
+            "room_code": "ABC123",
+            "player_id": "player-456",
+        }
 
-        with patch.object(env, "_run_async") as mock_run_async:
-            mock_run_async.return_value = (
-                GameState(
-                    players={"player-456": PlayerState.model_validate(player_state)},
-                    canvas_size_x=800,
-                    canvas_size_y=600,
-                ),
-                {
-                    "room_id": "room-123",
-                    "room_code": "ABC123",
-                    "player_id": "player-456",
-                },
-            )
+        with patch.object(
+            env, "_async_reset", new=AsyncMock(return_value=(game_state, info_dict))
+        ):
             env._client = MagicMock()
             env._client.player_id = "player-456"
 
@@ -306,20 +306,20 @@ class TestTowerfallEnvReset:
         env = TowerfallEnv()
 
         player_state = make_player_state_dict()
+        game_state = GameState(
+            players={"player-456": PlayerState.model_validate(player_state)},
+            canvas_size_x=800,
+            canvas_size_y=600,
+        )
+        info_dict = {
+            "room_id": "room-123",
+            "room_code": "ABC123",
+            "player_id": "player-456",
+        }
 
-        with patch.object(env, "_run_async") as mock_run_async:
-            mock_run_async.return_value = (
-                GameState(
-                    players={"player-456": PlayerState.model_validate(player_state)},
-                    canvas_size_x=800,
-                    canvas_size_y=600,
-                ),
-                {
-                    "room_id": "room-123",
-                    "room_code": "ABC123",
-                    "player_id": "player-456",
-                },
-            )
+        with patch.object(
+            env, "_async_reset", new=AsyncMock(return_value=(game_state, info_dict))
+        ):
             env._client = MagicMock()
             env._client.player_id = "player-456"
 
@@ -348,9 +348,9 @@ class TestTowerfallEnvStep:
         )
         stats = {"player-456": make_player_stats()}
 
-        with patch.object(env, "_run_async") as mock_run_async:
-            mock_run_async.return_value = (game_state, stats)
-
+        with patch.object(
+            env, "_async_step", new=AsyncMock(return_value=(game_state, stats))
+        ):
             obs, reward, terminated, truncated, info = env.step(0)
 
             assert isinstance(obs, np.ndarray)
@@ -374,9 +374,9 @@ class TestTowerfallEnvStep:
         )
         stats = {"player-456": make_player_stats()}
 
-        with patch.object(env, "_run_async") as mock_run_async:
-            mock_run_async.return_value = (game_state, stats)
-
+        with patch.object(
+            env, "_async_step", new=AsyncMock(return_value=(game_state, stats))
+        ):
             obs, _, _, _, _ = env.step(0)
 
             assert obs.shape == env.observation_space.shape
@@ -396,9 +396,9 @@ class TestTowerfallEnvStep:
         )
         stats = {"player-456": make_player_stats()}
 
-        with patch.object(env, "_run_async") as mock_run_async:
-            mock_run_async.return_value = (game_state, stats)
-
+        with patch.object(
+            env, "_async_step", new=AsyncMock(return_value=(game_state, stats))
+        ):
             env.step(0)
 
             assert env._episode_step == 6
@@ -418,10 +418,10 @@ class TestTowerfallEnvStep:
         )
         stats = {"player-456": make_player_stats()}
 
-        with patch.object(env, "_run_async") as mock_run_async:
-            mock_run_async.return_value = (game_state, stats)
-
-            _, _, terminated, truncated, _ = env.step(0)
+        with patch.object(
+            env, "_async_step", new=AsyncMock(return_value=(game_state, stats))
+        ):
+            _, _, _, truncated, _ = env.step(0)
 
             assert truncated is True
 
@@ -448,9 +448,9 @@ class TestTowerfallEnvStep:
         )
         stats = {"player-456": make_player_stats()}
 
-        with patch.object(env, "_run_async") as mock_run_async:
-            mock_run_async.return_value = (game_state, stats)
-
+        with patch.object(
+            env, "_async_step", new=AsyncMock(return_value=(game_state, stats))
+        ):
             _, _, _, _, info = env.step(0)
 
             assert "episode_step" in info
@@ -666,9 +666,9 @@ class TestTowerfallEnvClose:
         """Test close clears client reference."""
         env = TowerfallEnv()
         env._client = MagicMock()
+        env._client.close = AsyncMock()
 
-        with patch.object(env, "_run_async"):
-            env.close()
+        env.close()
 
         assert env._client is None
 

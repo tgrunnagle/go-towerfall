@@ -130,6 +130,84 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         loop = self._get_loop()
         return loop.run_until_complete(coro)
 
+    async def _async_reset(
+        self, reset_map_type: str
+    ) -> tuple[GameState, dict[str, Any]]:
+        """Async implementation of reset logic.
+
+        Args:
+            reset_map_type: Map type to use for this reset.
+
+        Returns:
+            Tuple of (game_state, info_dict).
+        """
+        # If we already have a client with a room, reset the game
+        if self._client is not None and self._client.room_id is not None:
+            await self._client.reset_game(map_type=reset_map_type)
+            game_state = await self._client.get_game_state()
+            info = {
+                "room_id": self._client.room_id,
+                "room_code": self._client.room_code,
+                "player_id": self._client.player_id,
+            }
+            return game_state, info
+
+        # Close existing client if any
+        if self._client is not None:
+            await self._client.close()
+
+        # Create new client in REST mode
+        self._client = GameClient(
+            http_url=self.http_url,
+            mode=ClientMode.REST,
+        )
+        await self._client._http_client.connect()
+
+        # Create training game
+        await self._client.create_game(
+            player_name=self.player_name,
+            room_name=self.room_name,
+            map_type=reset_map_type,
+            training_mode=True,
+            tick_rate_multiplier=self.tick_rate_multiplier,
+        )
+
+        # Get initial state
+        game_state = await self._client.get_game_state()
+
+        info = {
+            "room_id": self._client.room_id,
+            "room_code": self._client.room_code,
+            "player_id": self._client.player_id,
+        }
+        return game_state, info
+
+    async def _async_step(self, action: int) -> tuple[GameState, dict[str, Any]]:
+        """Async implementation of step logic.
+
+        Args:
+            action: Discrete action index (0-26).
+
+        Returns:
+            Tuple of (game_state, stats_dict).
+        """
+        assert self._client is not None
+
+        # Execute the action
+        action_enum = Action(action)
+        await execute_action(self._client, action_enum)
+
+        # Wait for next game tick
+        # Server processes at 50 ticks/sec = 20ms base
+        # With tick_rate_multiplier, this is faster
+        await asyncio.sleep(0.02 / self.tick_rate_multiplier)
+
+        # Get new state
+        game_state = await self._client.get_game_state()
+        stats = await self._client.get_stats()
+
+        return game_state, stats
+
     def reset(
         self,
         *,
@@ -160,49 +238,7 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         if options and "map_type" in options:
             reset_map_type = options["map_type"]
 
-        async def _async_reset() -> tuple[GameState, dict[str, Any]]:
-            # If we already have a client with a room, reset the game
-            if self._client is not None and self._client.room_id is not None:
-                await self._client.reset_game(map_type=reset_map_type)
-                game_state = await self._client.get_game_state()
-                info = {
-                    "room_id": self._client.room_id,
-                    "room_code": self._client.room_code,
-                    "player_id": self._client.player_id,
-                }
-                return game_state, info
-
-            # Close existing client if any
-            if self._client is not None:
-                await self._client.close()
-
-            # Create new client in REST mode
-            self._client = GameClient(
-                http_url=self.http_url,
-                mode=ClientMode.REST,
-            )
-            await self._client._http_client.connect()
-
-            # Create training game
-            await self._client.create_game(
-                player_name=self.player_name,
-                room_name=self.room_name,
-                map_type=reset_map_type,
-                training_mode=True,
-                tick_rate_multiplier=self.tick_rate_multiplier,
-            )
-
-            # Get initial state
-            game_state = await self._client.get_game_state()
-
-            info = {
-                "room_id": self._client.room_id,
-                "room_code": self._client.room_code,
-                "player_id": self._client.player_id,
-            }
-            return game_state, info
-
-        game_state, info = self._run_async(_async_reset())
+        game_state, info = self._run_async(self._async_reset(reset_map_type))
 
         # Build observation
         if self._client is None or self._client.player_id is None:
@@ -239,25 +275,7 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
 
         self._episode_step += 1
 
-        async def _async_step() -> tuple[GameState, dict[str, Any]]:
-            assert self._client is not None
-
-            # Execute the action
-            action_enum = Action(action)
-            await execute_action(self._client, action_enum)
-
-            # Wait for next game tick
-            # Server processes at 50 ticks/sec = 20ms base
-            # With tick_rate_multiplier, this is faster
-            await asyncio.sleep(0.02 / self.tick_rate_multiplier)
-
-            # Get new state
-            game_state = await self._client.get_game_state()
-            stats = await self._client.get_stats()
-
-            return game_state, stats
-
-        game_state, stats = self._run_async(_async_step())
+        game_state, stats = self._run_async(self._async_step(action))
 
         # Build observation
         observation = self._obs_builder.build(
