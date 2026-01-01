@@ -444,6 +444,53 @@ class GameClient:
             )
             return self._game_state
 
+    async def wait_for_game_state(
+        self,
+        timeout: float = 5.0,
+        poll_interval: float = 0.05,
+    ) -> GameState:
+        """Wait for game state to be available.
+
+        In WEBSOCKET mode: Waits for the first game state broadcast from server.
+        In REST mode: Equivalent to get_game_state() (polls immediately).
+
+        This is useful after joining a game in WebSocket mode, where the first
+        game state may not be immediately available.
+
+        Args:
+            timeout: Maximum time to wait in seconds.
+            poll_interval: Time between checks in seconds (WebSocket mode only).
+
+        Returns:
+            Current GameState once available.
+
+        Raises:
+            GameClientError: If not connected to a game.
+            TimeoutError: If no game state received within timeout.
+
+        Example:
+            async with GameClient(mode=ClientMode.WEBSOCKET) as client:
+                await client.join_game(player_name="Bot", room_code="ABC123")
+                state = await client.wait_for_game_state(timeout=10.0)
+        """
+        if self.mode == ClientMode.REST:
+            return await self.get_game_state()
+
+        if self._websocket is None:
+            raise GameClientError("Not connected to a game")
+
+        elapsed = 0.0
+        while elapsed < timeout:
+            if self._game_state is not None:
+                return self._game_state
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        raise TimeoutError(
+            f"No game state received within {timeout} seconds. "
+            "Ensure the game has started and WebSocket is connected."
+        )
+
     async def reset_game(self, map_type: str | None = None) -> None:
         """Reset game for new training episode (REST mode only).
 

@@ -475,6 +475,101 @@ class TestGameClientGameState:
             await client.get_game_state()
 
 
+class TestGameClientWaitForGameState:
+    """Tests for wait_for_game_state() method."""
+
+    @pytest.mark.asyncio
+    async def test_wait_for_game_state_returns_immediately_if_available(self) -> None:
+        """Test wait_for_game_state returns immediately when state is available."""
+        client = GameClient(mode=ClientMode.WEBSOCKET)
+        client._websocket = AsyncMock()
+
+        # Pre-populate cached state
+        expected_state = GameState(
+            players={},
+            canvas_size_x=800,
+            canvas_size_y=600,
+        )
+        client._game_state = expected_state
+
+        state = await client.wait_for_game_state(timeout=1.0)
+        assert state is expected_state
+
+    @pytest.mark.asyncio
+    async def test_wait_for_game_state_waits_for_state(self) -> None:
+        """Test wait_for_game_state waits until state becomes available."""
+        import asyncio
+
+        client = GameClient(mode=ClientMode.WEBSOCKET)
+        client._websocket = AsyncMock()
+        client._game_state = None
+
+        expected_state = GameState(
+            players={},
+            canvas_size_x=800,
+            canvas_size_y=600,
+        )
+
+        async def set_state_after_delay() -> None:
+            await asyncio.sleep(0.1)
+            client._game_state = expected_state
+
+        # Start task to set state after delay
+        task = asyncio.create_task(set_state_after_delay())
+
+        state = await client.wait_for_game_state(timeout=2.0, poll_interval=0.02)
+        assert state is expected_state
+
+        await task
+
+    @pytest.mark.asyncio
+    async def test_wait_for_game_state_timeout(self) -> None:
+        """Test wait_for_game_state raises TimeoutError when state not received."""
+        client = GameClient(mode=ClientMode.WEBSOCKET)
+        client._websocket = AsyncMock()
+        client._game_state = None
+
+        with pytest.raises(TimeoutError, match="No game state received within"):
+            await client.wait_for_game_state(timeout=0.1, poll_interval=0.02)
+
+    @pytest.mark.asyncio
+    async def test_wait_for_game_state_not_connected_raises(self) -> None:
+        """Test wait_for_game_state raises if WebSocket not connected."""
+        client = GameClient(mode=ClientMode.WEBSOCKET)
+        client._websocket = None
+
+        with pytest.raises(GameClientError, match="Not connected to a game"):
+            await client.wait_for_game_state()
+
+    @pytest.mark.asyncio
+    async def test_wait_for_game_state_rest_mode_delegates_to_get(self) -> None:
+        """Test wait_for_game_state in REST mode just calls get_game_state."""
+        client = GameClient(mode=ClientMode.REST)
+        client.room_id = "room-123"
+        client.canvas_size_x = 800
+        client.canvas_size_y = 600
+
+        mock_response = make_get_game_state_response(
+            gameUpdate={
+                "fullUpdate": True,
+                "objectStates": {},
+            },
+        )
+
+        with patch.object(client._http_client, "connect", new_callable=AsyncMock):
+            with patch.object(client._http_client, "close", new_callable=AsyncMock):
+                with patch.object(
+                    client._http_client, "get_game_state", new_callable=AsyncMock
+                ) as mock_get_state:
+                    mock_get_state.return_value = mock_response
+
+                    async with client:
+                        state = await client.wait_for_game_state()
+
+                        assert isinstance(state, GameState)
+                        mock_get_state.assert_called_once_with("room-123")
+
+
 class TestGameClientResetGame:
     """Tests for reset_game() method."""
 
