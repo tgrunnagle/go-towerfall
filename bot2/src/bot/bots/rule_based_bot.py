@@ -69,7 +69,8 @@ class RuleBasedBot(BaseBot):
 
         # Shooting state
         self._shooting_start_time: float | None = None
-        self._last_shot_time: float = 0.0
+        # None indicates no shot has been fired yet (no cooldown applies)
+        self._last_shot_time: float | None = None
 
     def _find_nearest_enemy(self) -> PlayerState | None:
         """Find the nearest alive enemy player.
@@ -288,8 +289,11 @@ class RuleBasedBot(BaseBot):
 
         current_time = time.time()
 
-        # Check shooting cooldown
-        if current_time - self._last_shot_time < shooting_config.shot_cooldown_sec:
+        # Check shooting cooldown (None means no previous shot, so no cooldown)
+        if (
+            self._last_shot_time is not None
+            and current_time - self._last_shot_time < shooting_config.shot_cooldown_sec
+        ):
             return actions
 
         # Calculate aim point with medium power estimate
@@ -364,7 +368,7 @@ class RuleBasedBot(BaseBot):
         to clear any charging state and cooldown timers.
         """
         self._shooting_start_time = None
-        self._last_shot_time = 0.0
+        self._last_shot_time = None
 
 
 class RuleBasedBotRunner:
