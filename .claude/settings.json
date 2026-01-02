@@ -4,7 +4,8 @@
       "Bash(gh issue view:*)",
       "Bash(go test:*)",
       "Bash(go build:*)",
-      "Bash(task:*)"
+      "Bash(task:*)",
+      "Bash(uv run pytest:*)"
     ]
   }
 }
