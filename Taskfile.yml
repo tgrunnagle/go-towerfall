@@ -1,6 +1,15 @@
 version: '3'
 
 tasks:
+  compose:
+    desc: Docker compose backend and frontend services
+    cmds:
+      - docker compose down
+      - docker compose up --build -d
+
+  #
+  # bot2 (python) tasks
+  # 
   bot2:install:
     dir: bot2
     desc: Install bot2 dependencies
@@ -43,9 +52,25 @@ tasks:
 
   bot2:test:
     dir: bot2
-    desc: Run bot2 unit tests
+    desc: Run all bot2 tests (unit + integration if server available)
     cmds:
       - uv run pytest tests/ -v
+    deps:
+      - bot2:install
+
+  bot2:test:unit:
+    dir: bot2
+    desc: Run bot2 unit tests only (no server required)
+    cmds:
+      - uv run pytest tests/unit/ -v
+    deps:
+      - bot2:install
+
+  bot2:test:integration:
+    dir: bot2
+    desc: Run bot2 integration tests (requires running server)
+    cmds:
+      - uv run pytest tests/integration/ -v
     deps:
       - bot2:install
 
@@ -58,6 +83,9 @@ tasks:
       - bot2:typecheck
       - bot2:test
 
+  #
+  # backend (golang) tasks
+  #
   be:build:
     dir: backend
     desc: Build the backend Go application
@@ -107,3 +135,9 @@ tasks:
       - task: be:build
       - task: be:vet
       - task: be:test
+
+  be:run:
+    dir: backend
+    desc: Run backend application
+    cmds:
+      - go run main.go

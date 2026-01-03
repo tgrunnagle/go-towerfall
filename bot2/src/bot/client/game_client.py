@@ -67,7 +67,7 @@ class GameClient:
             await client.create_game(
                 player_name="MLBot",
                 room_name="Training",
-                map_type="arena1",
+                map_type="default",
                 training_mode=True,
             )
             state = await client.get_game_state()
@@ -196,6 +196,9 @@ class GameClient:
         self.canvas_size_x = response.canvas_size_x
         self.canvas_size_y = response.canvas_size_y
 
+        # Set token on HTTP client for authenticated requests
+        self._http_client.set_player_token(self.player_token)
+
         if self.mode == ClientMode.WEBSOCKET:
             await self._connect_websocket()
 
@@ -232,6 +235,9 @@ class GameClient:
         self.room_code = room_code
         self.canvas_size_x = response.canvas_size_x
         self.canvas_size_y = response.canvas_size_y
+
+        # Set token on HTTP client for authenticated requests
+        self._http_client.set_player_token(self.player_token)
 
         if self.mode == ClientMode.WEBSOCKET:
             await self._connect_websocket()
@@ -285,8 +291,9 @@ class GameClient:
         try:
             data = json.loads(message)
 
-            # Update cached game state if this is a GameUpdate message
-            if data.get("type") == "GameUpdate":
+            # Update cached game state if this is a GameState message
+            # Note: Server sends "GameState" type for game updates
+            if data.get("type") == "GameState":
                 payload = data.get("payload", {})
                 game_update = GameUpdate.model_validate(payload)
                 self._game_state = GameState.from_update(
@@ -466,9 +473,17 @@ class GameClient:
             if self.room_id is None:
                 raise GameClientError("Not connected to a game")
             response = await self._http_client.get_game_state(self.room_id)
-            if response.game_update is None:
+            if response.object_states is None:
                 raise GameClientError("No game state available from server")
-            game_update = GameUpdate.model_validate(response.game_update)
+            # Convert REST response to GameUpdate format
+            game_update = GameUpdate.model_validate(
+                {
+                    "fullUpdate": True,
+                    "objectStates": response.object_states,
+                    "events": [],
+                    "trainingComplete": response.training_complete,
+                }
+            )
             self._game_state = GameState.from_update(
                 game_update,
                 existing_state=self._game_state,
@@ -485,14 +500,14 @@ class GameClient:
         """Wait for game state to be available.
 
         In WEBSOCKET mode: Waits for the first game state broadcast from server.
-        In REST mode: Equivalent to get_game_state() (polls immediately).
+        In REST mode: Polls the server until game state is available.
 
-        This is useful after joining a game in WebSocket mode, where the first
-        game state may not be immediately available.
+        This is useful after creating or resetting a game, where the first
+        game state may not be immediately available due to server initialization.
 
         Args:
             timeout: Maximum time to wait in seconds.
-            poll_interval: Time between checks in seconds (WebSocket mode only).
+            poll_interval: Time between checks in seconds.
 
         Returns:
             Current GameState once available.
@@ -507,7 +522,36 @@ class GameClient:
                 state = await client.wait_for_game_state(timeout=10.0)
         """
         if self.mode == ClientMode.REST:
-            return await self.get_game_state()
+            if self.room_id is None:
+                raise GameClientError("Not connected to a game")
+
+            elapsed = 0.0
+            while elapsed < timeout:
+                response = await self._http_client.get_game_state(self.room_id)
+                if response.object_states is not None:
+                    # Convert REST response to GameUpdate format
+                    game_update = GameUpdate.model_validate(
+                        {
+                            "fullUpdate": True,
+                            "objectStates": response.object_states,
+                            "events": [],
+                            "trainingComplete": response.training_complete,
+                        }
+                    )
+                    self._game_state = GameState.from_update(
+                        game_update,
+                        existing_state=self._game_state,
+                        canvas_size_x=self.canvas_size_x,
+                        canvas_size_y=self.canvas_size_y,
+                    )
+                    return self._game_state
+                await asyncio.sleep(poll_interval)
+                elapsed += poll_interval
+
+            raise TimeoutError(
+                f"No game state available within {timeout} seconds. "
+                "Server may still be initializing the game."
+            )
 
         if self._websocket is None:
             raise GameClientError("Not connected to a game")
@@ -590,6 +634,9 @@ class GameClient:
             except Exception as e:
                 self._logger.warning("Error closing WebSocket: %s", e)
             self._websocket = None
+
+        # Clear token from HTTP client
+        self._http_client.set_player_token(None)
 
         # Close HTTP client
         await self._http_client.close()

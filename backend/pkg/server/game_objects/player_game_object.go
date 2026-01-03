@@ -242,7 +242,7 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 
 		// Start shooting
 		p.SetState(constants.StateShooting, true)
-		p.SetState(constants.StateShootingStartTime, time.Now())
+		p.SetState(constants.StateShootingStartTime, float64(time.Now().UnixMilli()))
 		return true, nil
 	}
 
@@ -265,8 +265,9 @@ func (p *PlayerGameObject) handlePlayerClickInput(event *GameEvent) (bool, []*Ga
 			p.SetState(constants.StateArrowCount, arrowCount.(int)-1) // Decrement arrow count
 
 			// create an arrow
-			startTime, _ := p.GetStateValue(constants.StateShootingStartTime)
-			powerRatio := math.Min(time.Since(startTime.(time.Time)).Seconds()/constants.ArrowMaxPowerTimeSec, 1.0)
+			startTimeMs, _ := p.GetStateValue(constants.StateShootingStartTime)
+			elapsedSec := float64(time.Now().UnixMilli()-int64(startTimeMs.(float64))) / 1000.0
+			powerRatio := math.Min(elapsedSec/constants.ArrowMaxPowerTimeSec, 1.0)
 			xClick := event.Data["x"].(float64)
 			yClick := event.Data["y"].(float64)
 			arrow := NewArrowGameObject(uuid.New().String(), p, xClick, yClick, powerRatio, p.wrapPosition)

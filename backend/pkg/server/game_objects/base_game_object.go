@@ -103,7 +103,8 @@ func (g *BaseGameObject) GetState() map[string]interface{} {
 	for k, v := range g.State {
 		stateCopy[k] = v
 	}
-	// Add object type to state for the client
+	// Add id and object type to state for the client
+	stateCopy["id"] = g.ID
 	stateCopy["objectType"] = g.ObjectType
 
 	return stateCopy

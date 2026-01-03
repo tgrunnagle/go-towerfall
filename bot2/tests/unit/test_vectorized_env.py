@@ -91,7 +91,7 @@ class TestVectorizedEnvInit:
         assert env.http_url == "http://localhost:4000"
         assert env.player_name == "MLBot"
         assert env.room_name_prefix == "Training"
-        assert env.map_type == "arena1"
+        assert env.map_type == "default"
         assert env.opponent_type == "rule_based"
         assert env.tick_rate_multiplier == 1.0
         assert env.max_episode_steps == 1000

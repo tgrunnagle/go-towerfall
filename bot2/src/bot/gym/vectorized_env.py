@@ -70,7 +70,7 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         http_url: str = "http://localhost:4000",
         player_name: str = "MLBot",
         room_name_prefix: str = "Training",
-        map_type: str = "arena1",
+        map_type: str = "default",
         opponent_type: str = "rule_based",
         tick_rate_multiplier: float = 1.0,
         max_episode_steps: int = 1000,
@@ -243,7 +243,8 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         # If we already have a client with a room, reset the game
         if client is not None and client.room_id is not None:
             await client.reset_game(map_type=map_type)
-            game_state = await client.get_game_state()
+            # Wait for game state to be available after reset
+            game_state = await client.wait_for_game_state()
         else:
             # Close existing client if any
             if client is not None:
@@ -266,7 +267,8 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             )
 
             self._clients[env_idx] = client
-            game_state = await client.get_game_state()
+            # Wait for initial state to be available
+            game_state = await client.wait_for_game_state()
 
         # Reset episode tracking
         self._episode_steps[env_idx] = 0
@@ -660,11 +662,12 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             # No event loop, nothing to clean up
             return
 
+        coro = self._async_close()
         try:
-            self._run_async(self._async_close())
+            self._run_async(coro)
         except RuntimeError:
-            # Event loop may already be closed
-            pass
+            # Event loop may already be closed, close the coroutine to avoid warning
+            coro.close()
 
         # Clear client references
         self._clients = [None] * self.num_envs

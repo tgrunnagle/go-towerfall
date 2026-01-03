@@ -5,7 +5,7 @@ This module contains models for game state updates and the overall game state co
 
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from bot.models.game_objects import ArrowState, BlockState, BulletState, PlayerState
 
@@ -31,6 +31,12 @@ class GameUpdate(BaseModel):
     object_states: dict[str, dict[str, Any] | None] = Field(alias="objectStates")
     events: list[GameUpdateEvent] = Field(default_factory=list)
     training_complete: bool = Field(default=False, alias="trainingComplete")
+
+    @field_validator("events", mode="before")
+    @classmethod
+    def events_null_to_empty(cls, v: list[GameUpdateEvent] | None) -> list:
+        """Convert null events to empty list (server may send null)."""
+        return v if v is not None else []
 
 
 class GameState(BaseModel):

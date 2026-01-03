@@ -729,7 +729,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Player-Token")
 
 	// Handle preflight requests
 	if r.Method == "OPTIONS" {
@@ -758,18 +758,20 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get player token from Authorization header (Bearer token format)
-	playerToken := ""
-	auth := r.Header.Get("Authorization")
-	if strings.HasPrefix(auth, "Bearer ") {
-		playerToken = strings.TrimPrefix(auth, "Bearer ")
+	// Get player token from X-Player-Token header or Authorization header (Bearer token format)
+	playerToken := r.Header.Get("X-Player-Token")
+	if playerToken == "" {
+		auth := r.Header.Get("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			playerToken = strings.TrimPrefix(auth, "Bearer ")
+		}
 	}
 	if playerToken == "" {
-		log.Printf("HandleBotAction: Missing authorization header for room %s, player %s", roomID, playerID)
+		log.Printf("HandleBotAction: Missing player token for room %s, player %s", roomID, playerID)
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(types.BotActionResponse{
 			Success: false,
-			Error:   "Authorization header with Bearer token is required",
+			Error:   "Player token is required (provide via X-Player-Token header or Authorization: Bearer header)",
 		})
 		return
 	}

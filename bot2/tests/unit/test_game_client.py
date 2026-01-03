@@ -80,10 +80,8 @@ def make_get_game_state_response(**overrides: Any) -> GetGameStateResponse:
     data: dict[str, Any] = {
         "success": True,
         "roomId": "room-123",
-        "gameUpdate": {
-            "fullUpdate": True,
-            "objectStates": {},
-        },
+        "objectStates": {},
+        "trainingComplete": False,
     }
     data.update(overrides)
     return GetGameStateResponse.model_validate(data)
@@ -405,26 +403,23 @@ class TestGameClientGameState:
         client.canvas_size_y = 600
 
         mock_response = make_get_game_state_response(
-            gameUpdate={
-                "fullUpdate": True,
-                "objectStates": {
-                    "player-1": {
-                        "id": "player-1",
-                        "objectType": "player",
-                        "name": "TestPlayer",
-                        "x": 100.0,
-                        "y": 200.0,
-                        "dx": 0.0,
-                        "dy": 0.0,
-                        "dir": 0.0,
-                        "rad": 20.0,
-                        "h": 100,
-                        "dead": False,
-                        "sht": False,
-                        "jc": 2,
-                        "ac": 3,
-                    }
-                },
+            objectStates={
+                "player-1": {
+                    "id": "player-1",
+                    "objectType": "player",
+                    "name": "TestPlayer",
+                    "x": 100.0,
+                    "y": 200.0,
+                    "dx": 0.0,
+                    "dy": 0.0,
+                    "dir": 0.0,
+                    "rad": 20.0,
+                    "h": 100,
+                    "dead": False,
+                    "sht": False,
+                    "jc": 2,
+                    "ac": 3,
+                }
             },
         )
 
@@ -550,10 +545,7 @@ class TestGameClientWaitForGameState:
         client.canvas_size_y = 600
 
         mock_response = make_get_game_state_response(
-            gameUpdate={
-                "fullUpdate": True,
-                "objectStates": {},
-            },
+            objectStates={},
         )
 
         with patch.object(client._http_client, "connect", new_callable=AsyncMock):
@@ -694,13 +686,14 @@ class TestGameClientHandleMessage:
 
     @pytest.mark.asyncio
     async def test_handle_game_update_message(self) -> None:
-        """Test handling GameUpdate message updates cached state."""
+        """Test handling GameState message updates cached state."""
         client = GameClient(mode=ClientMode.WEBSOCKET)
         client.canvas_size_x = 800
         client.canvas_size_y = 600
 
+        # Server sends "GameState" type for game updates
         message = """{
-            "type": "GameUpdate",
+            "type": "GameState",
             "payload": {
                 "fullUpdate": true,
                 "objectStates": {

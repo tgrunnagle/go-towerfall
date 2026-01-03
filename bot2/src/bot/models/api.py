@@ -144,13 +144,23 @@ class GetRoomStatsResponse(BaseModel):
 
 
 class GetGameStateResponse(BaseModel):
-    """Response from GET /api/rooms/{roomId}/state endpoint."""
+    """Response from GET /api/rooms/{roomId}/state endpoint.
+
+    The server returns game state data directly at the top level:
+    - objectStates: dict of object ID -> object state
+    - timestamp: server timestamp
+    - trainingComplete: whether training episode is complete (optional)
+    """
 
     model_config = ConfigDict(populate_by_name=True)
 
     success: bool
     room_id: str | None = Field(default=None, alias="roomId")
-    game_update: dict[str, Any] | None = Field(default=None, alias="gameUpdate")
+    timestamp: str | None = None
+    object_states: dict[str, dict[str, Any] | None] | None = Field(
+        default=None, alias="objectStates"
+    )
+    training_complete: bool = Field(default=False, alias="trainingComplete")
     error: str | None = None
 
 

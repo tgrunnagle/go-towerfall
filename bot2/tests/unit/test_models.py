@@ -38,7 +38,8 @@ class TestPointModel:
 
     def test_point_creation(self) -> None:
         """Test basic point creation."""
-        point = Point(x=100.0, y=200.0)
+        # Use alias names (X, Y) for type checker compatibility
+        point = Point(X=100.0, Y=200.0)
         assert point.x == 100.0
         assert point.y == 200.0
 
@@ -51,7 +52,8 @@ class TestPointModel:
 
     def test_point_serialization(self) -> None:
         """Test point serialization to dict."""
-        point = Point(x=100.0, y=200.0)
+        # Use alias names (X, Y) for type checker compatibility
+        point = Point(X=100.0, Y=200.0)
         data = point.model_dump()
         assert data == {"x": 100.0, "y": 200.0}
 
