@@ -96,6 +96,15 @@ class GameHTTPClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self._client: AsyncClient | None = None
+        self._player_token: str | None = None
+
+    def set_player_token(self, token: str | None) -> None:
+        """Set the player token for authenticated requests.
+
+        Args:
+            token: Player token returned from create_game or join_game.
+        """
+        self._player_token = token
 
     async def __aenter__(self) -> GameHTTPClient:
         """Async context manager entry."""
@@ -272,7 +281,7 @@ class GameHTTPClient:
         """
         request = BotActionRequest(actions=actions)
         return await self._post(
-            f"/api/rooms/{room_id}/players/{player_id}/actions",
+            f"/api/rooms/{room_id}/players/{player_id}/action",
             request,
             BotActionResponse,
         )
@@ -389,6 +398,12 @@ class GameHTTPClient:
         if self._client is None:
             raise GameConnectionError("Client not connected. Call connect() first.")
 
+        # Add player token header if available
+        headers = kwargs.pop("headers", {})
+        if self._player_token:
+            headers["X-Player-Token"] = self._player_token
+            headers["Authorization"] = f"Bearer {self._player_token}"
+
         last_error: Exception | None = None
 
         for attempt in range(self.max_retries):
@@ -401,7 +416,9 @@ class GameHTTPClient:
                     self.max_retries,
                 )
 
-                response = await self._client.request(method, endpoint, **kwargs)
+                response = await self._client.request(
+                    method, endpoint, headers=headers, **kwargs
+                )
 
                 # Check for HTTP-level errors
                 if response.status_code >= 400:

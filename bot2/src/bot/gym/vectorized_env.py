@@ -243,7 +243,8 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         # If we already have a client with a room, reset the game
         if client is not None and client.room_id is not None:
             await client.reset_game(map_type=map_type)
-            game_state = await client.get_game_state()
+            # Wait for game state to be available after reset
+            game_state = await client.wait_for_game_state()
         else:
             # Close existing client if any
             if client is not None:
@@ -266,7 +267,8 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             )
 
             self._clients[env_idx] = client
-            game_state = await client.get_game_state()
+            # Wait for initial state to be available
+            game_state = await client.wait_for_game_state()
 
         # Reset episode tracking
         self._episode_steps[env_idx] = 0

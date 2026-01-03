@@ -171,7 +171,8 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         # If we already have a client with a room, reset the game
         if self._client is not None and self._client.room_id is not None:
             await self._client.reset_game(map_type=reset_map_type)
-            game_state = await self._client.get_game_state()
+            # Wait for game state to be available after reset
+            game_state = await self._client.wait_for_game_state()
             info = {
                 "room_id": self._client.room_id,
                 "room_code": self._client.room_code,
@@ -199,8 +200,8 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             tick_rate_multiplier=self.tick_rate_multiplier,
         )
 
-        # Get initial state
-        game_state = await self._client.get_game_state()
+        # Wait for initial state to be available
+        game_state = await self._client.wait_for_game_state()
 
         info = {
             "room_id": self._client.room_id,

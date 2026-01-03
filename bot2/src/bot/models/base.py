@@ -11,8 +11,8 @@ class Point(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    x: float
-    y: float
+    x: float = Field(alias="X")
+    y: float = Field(alias="Y")
 
 
 class BaseObjectState(BaseModel):
