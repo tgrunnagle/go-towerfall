@@ -25,6 +25,7 @@ from bot.client import ClientMode, GameClient
 from bot.gym.reward import RewardConfig, StandardRewardFunction
 from bot.gym.termination import TerminationConfig, TerminationTracker
 from bot.models import PlayerStatsDTO
+from bot.models.constants import GAME_CONSTANTS
 from bot.observation import ObservationBuilder, ObservationConfig
 
 
@@ -168,6 +169,10 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         """Get or create event loop for async operations.
+
+        Note: This method is not thread-safe. The environment should only be
+        accessed from a single thread, which is the standard usage pattern for
+        gymnasium environments.
 
         Returns:
             An asyncio event loop for running async operations.
@@ -316,8 +321,10 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         action_enum = Action(action)
         await execute_action(client, action_enum)
 
-        # Wait for next game tick
-        await asyncio.sleep(0.02 / self.tick_rate_multiplier)
+        # Wait for next game tick (adjusted by tick rate multiplier)
+        await asyncio.sleep(
+            GAME_CONSTANTS.BASE_TICK_DURATION_SEC / self.tick_rate_multiplier
+        )
 
         # Get new state
         game_state = await client.get_game_state()
@@ -444,16 +451,33 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             map_type = options["map_type"]
 
         # Reset all environments concurrently
+        # Use return_exceptions=True so one environment failure doesn't stop others
         tasks = [
             self._reset_single_env(env_idx, map_type)
             for env_idx in range(self.num_envs)
         ]
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results, handling any exceptions
+        processed_results: list[tuple[NDArray[np.float32], dict[str, Any]]] = []
+        for env_idx, result in enumerate(results):
+            if isinstance(result, BaseException):
+                # Environment failed - return zero observation and include error
+                obs_size = self._obs_builders[env_idx].config.total_size
+                error_obs = np.zeros(obs_size, dtype=np.float32)
+                error_info: dict[str, Any] = {
+                    "env_idx": env_idx,
+                    "error": str(result),
+                    "error_type": type(result).__name__,
+                }
+                processed_results.append((error_obs, error_info))
+            else:
+                processed_results.append(result)
 
         # Stack results
-        observations = np.stack([obs for obs, _ in results], axis=0)
+        observations = np.stack([obs for obs, _ in processed_results], axis=0)
         infos: dict[str, Any] = {
-            "env_infos": [info for _, info in results],
+            "env_infos": [info for _, info in processed_results],
         }
 
         return observations, infos
@@ -477,24 +501,50 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             Tuple of (observations, rewards, terminated, truncated, infos).
         """
         # Step all environments concurrently
+        # Use return_exceptions=True so one environment failure doesn't stop others
         tasks = [
             self._step_single_env(env_idx, int(actions[env_idx]))
             for env_idx in range(self.num_envs)
         ]
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results, handling any exceptions
+        processed_results: list[
+            tuple[NDArray[np.float32], float, bool, bool, dict[str, Any]]
+        ] = []
+        for env_idx, result in enumerate(results):
+            if isinstance(result, BaseException):
+                # Environment failed - return zero observation, truncate, and include error
+                obs_size = self._obs_builders[env_idx].config.total_size
+                error_obs = np.zeros(obs_size, dtype=np.float32)
+                error_info: dict[str, Any] = {
+                    "env_idx": env_idx,
+                    "error": str(result),
+                    "error_type": type(result).__name__,
+                }
+                processed_results.append((error_obs, 0.0, False, True, error_info))
+            else:
+                processed_results.append(result)
 
         # Stack results
-        observations = np.stack([obs for obs, _, _, _, _ in results], axis=0)
-        rewards = np.array([reward for _, reward, _, _, _ in results], dtype=np.float32)
-        terminated = np.array([term for _, _, term, _, _ in results], dtype=np.bool_)
-        truncated = np.array([trunc for _, _, _, trunc, _ in results], dtype=np.bool_)
+        observations = np.stack([obs for obs, _, _, _, _ in processed_results], axis=0)
+        rewards = np.array(
+            [reward for _, reward, _, _, _ in processed_results], dtype=np.float32
+        )
+        terminated = np.array(
+            [term for _, _, term, _, _ in processed_results], dtype=np.bool_
+        )
+        truncated = np.array(
+            [trunc for _, _, _, trunc, _ in processed_results], dtype=np.bool_
+        )
         infos: dict[str, Any] = {
-            "env_infos": [info for _, _, _, _, info in results],
+            "env_infos": [info for _, _, _, _, info in processed_results],
             # Extract terminal observations and episode info for convenience
             "_terminal_observation": [
-                info.get("terminal_observation") for _, _, _, _, info in results
+                info.get("terminal_observation")
+                for _, _, _, _, info in processed_results
             ],
-            "_episode": [info.get("episode") for _, _, _, _, info in results],
+            "_episode": [info.get("episode") for _, _, _, _, info in processed_results],
         }
 
         return observations, rewards, terminated, truncated, infos
@@ -511,7 +561,10 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         returning batched initial observations.
 
         Args:
-            seed: Random seed for reproducibility.
+            seed: Random seed for the environment's numpy random generator.
+                This seeds `self.np_random` used for action space sampling and
+                any client-side randomization. Game-level randomization (spawns,
+                pickups, AI behavior) is handled by the game server independently.
             options: Optional reset configuration. Supported keys:
                 - map_type: Override the map type for all environments.
 
