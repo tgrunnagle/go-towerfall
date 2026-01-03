@@ -37,9 +37,17 @@ Usage:
 """
 
 from bot.gym.reward import RewardConfig, RewardFunction, StandardRewardFunction
+from bot.gym.termination import TerminationConfig, TerminationTracker
 from bot.gym.towerfall_env import TowerfallEnv
 
-__all__ = ["TowerfallEnv", "RewardConfig", "RewardFunction", "StandardRewardFunction"]
+__all__ = [
+    "TowerfallEnv",
+    "RewardConfig",
+    "RewardFunction",
+    "StandardRewardFunction",
+    "TerminationConfig",
+    "TerminationTracker",
+]
 
 # Register with gymnasium
 from gymnasium.envs.registration import register
