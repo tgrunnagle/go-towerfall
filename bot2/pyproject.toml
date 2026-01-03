@@ -31,6 +31,10 @@ explicit = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
+asyncio_mode = "auto"
 
 [tool.mypy]
 python_version = "3.11"
