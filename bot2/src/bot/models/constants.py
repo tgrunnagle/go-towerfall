@@ -14,6 +14,10 @@ class GameConstants(BaseModel):
     This model can be instantiated if custom values are needed for testing.
     """
 
+    # Tick/timing constants
+    TICK_RATE_HZ: float = 50.0  # Server processes at 50 ticks per second
+    BASE_TICK_DURATION_SEC: float = 0.02  # 1 / TICK_RATE_HZ = 20ms
+
     # Physics constants
     GRAVITY_METERS_PER_SEC2: float = 20.0
     MAX_VELOCITY_METERS_PER_SEC: float = 30.0

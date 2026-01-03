@@ -19,6 +19,7 @@ from bot.client import ClientMode, GameClient
 from bot.gym.reward import RewardConfig, StandardRewardFunction
 from bot.gym.termination import TerminationConfig, TerminationTracker
 from bot.models import GameState, PlayerStatsDTO
+from bot.models.constants import GAME_CONSTANTS
 from bot.observation import ObservationBuilder, ObservationConfig
 
 
@@ -124,6 +125,10 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         """Get or create event loop for async operations.
 
+        Note: This method is not thread-safe. The environment should only be
+        accessed from a single thread, which is the standard usage pattern for
+        gymnasium environments.
+
         Returns:
             An asyncio event loop for running async operations.
         """
@@ -219,10 +224,10 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         action_enum = Action(action)
         await execute_action(self._client, action_enum)
 
-        # Wait for next game tick
-        # Server processes at 50 ticks/sec = 20ms base
-        # With tick_rate_multiplier, this is faster
-        await asyncio.sleep(0.02 / self.tick_rate_multiplier)
+        # Wait for next game tick (adjusted by tick rate multiplier)
+        await asyncio.sleep(
+            GAME_CONSTANTS.BASE_TICK_DURATION_SEC / self.tick_rate_multiplier
+        )
 
         # Get new state
         game_state = await self._client.get_game_state()
@@ -242,7 +247,10 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         the initial observation.
 
         Args:
-            seed: Random seed for reproducibility (passed to parent).
+            seed: Random seed for the environment's numpy random generator.
+                This seeds `self.np_random` used for action space sampling and
+                any client-side randomization. Game-level randomization (spawns,
+                pickups, AI behavior) is handled by the game server independently.
             options: Optional reset configuration. Supported keys:
                 - map_type: Override the map type for this episode.
 
