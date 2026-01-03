@@ -409,6 +409,8 @@ class TestTowerfallEnvStep:
         env._client = MagicMock()
         env._client.player_id = "player-456"
         env._episode_step = 99  # Will become 100 after step
+        # Sync termination tracker with episode step
+        env._termination_tracker._episode_timesteps = 99
 
         player_state = make_player_state_dict()
         game_state = GameState(
@@ -556,44 +558,14 @@ class TestTowerfallEnvReward:
 
 
 class TestTowerfallEnvTermination:
-    """Tests for termination detection."""
+    """Tests for termination detection.
 
-    def test_terminated_when_player_dead(self) -> None:
-        """Test terminated is True when player is dead."""
-        env = TowerfallEnv()
-        env._client = MagicMock()
-        env._client.player_id = "player-456"
+    Note: Detailed termination tests are in test_termination.py.
+    These tests verify the _check_game_over method used for game signals.
+    """
 
-        player_state = make_player_state_dict(dead=True)
-        game_state = GameState(
-            players={"player-456": PlayerState.model_validate(player_state)},
-            canvas_size_x=800,
-            canvas_size_y=600,
-        )
-
-        terminated = env._check_terminated(game_state)
-
-        assert terminated is True
-
-    def test_not_terminated_when_player_alive(self) -> None:
-        """Test terminated is False when player is alive."""
-        env = TowerfallEnv()
-        env._client = MagicMock()
-        env._client.player_id = "player-456"
-
-        player_state = make_player_state_dict(dead=False)
-        game_state = GameState(
-            players={"player-456": PlayerState.model_validate(player_state)},
-            canvas_size_x=800,
-            canvas_size_y=600,
-        )
-
-        terminated = env._check_terminated(game_state)
-
-        assert terminated is False
-
-    def test_terminated_when_player_not_found(self) -> None:
-        """Test terminated is True when player not in game state."""
+    def test_game_over_when_player_not_found(self) -> None:
+        """Test game over when player not in game state."""
         env = TowerfallEnv()
         env._client = MagicMock()
         env._client.player_id = "player-456"
@@ -606,12 +578,12 @@ class TestTowerfallEnvTermination:
             canvas_size_y=600,
         )
 
-        terminated = env._check_terminated(game_state)
+        is_game_over = env._check_game_over(game_state)
 
-        assert terminated is True
+        assert is_game_over is True
 
-    def test_terminated_when_no_client(self) -> None:
-        """Test terminated is True when client is None."""
+    def test_game_over_when_no_client(self) -> None:
+        """Test game over when client is None."""
         env = TowerfallEnv()
         env._client = None
 
@@ -621,9 +593,26 @@ class TestTowerfallEnvTermination:
             canvas_size_y=600,
         )
 
-        terminated = env._check_terminated(game_state)
+        is_game_over = env._check_game_over(game_state)
 
-        assert terminated is True
+        assert is_game_over is True
+
+    def test_not_game_over_when_player_alive(self) -> None:
+        """Test not game over when player is alive in game."""
+        env = TowerfallEnv()
+        env._client = MagicMock()
+        env._client.player_id = "player-456"
+
+        player_state = make_player_state_dict(dead=False)
+        game_state = GameState(
+            players={"player-456": PlayerState.model_validate(player_state)},
+            canvas_size_x=800,
+            canvas_size_y=600,
+        )
+
+        is_game_over = env._check_game_over(game_state)
+
+        assert is_game_over is False
 
 
 class TestTowerfallEnvRender:

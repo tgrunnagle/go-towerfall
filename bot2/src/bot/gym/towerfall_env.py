@@ -17,7 +17,8 @@ from numpy.typing import NDArray
 from bot.actions import ACTION_SPACE_SIZE, Action, execute_action
 from bot.client import ClientMode, GameClient
 from bot.gym.reward import RewardConfig, StandardRewardFunction
-from bot.models import GameState
+from bot.gym.termination import TerminationConfig, TerminationTracker
+from bot.models import GameState, PlayerStatsDTO
 from bot.observation import ObservationBuilder, ObservationConfig
 
 
@@ -52,6 +53,7 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         render_mode: str | None = None,
         observation_config: ObservationConfig | None = None,
         reward_config: RewardConfig | None = None,
+        termination_config: TerminationConfig | None = None,
     ):
         """Initialize the TowerFall environment.
 
@@ -63,9 +65,13 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             opponent_type: Type of opponent ("rule_based" or "none").
             tick_rate_multiplier: Game speed multiplier (requires server support).
             max_episode_steps: Maximum steps per episode before truncation.
+                Note: This is deprecated in favor of termination_config.max_timesteps.
+                If termination_config is provided, its max_timesteps takes precedence.
             render_mode: Gymnasium render mode ("human", "rgb_array", or None).
             observation_config: Optional custom observation configuration.
             reward_config: Optional custom reward function configuration.
+            termination_config: Optional episode termination configuration.
+                Controls when episodes end based on timesteps, deaths, kills, etc.
         """
         super().__init__()
 
@@ -86,6 +92,16 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         # Reward configuration
         self._reward_fn = StandardRewardFunction(reward_config)
 
+        # Termination configuration
+        # If no termination config provided, create one using max_episode_steps for backward compatibility
+        if termination_config is None:
+            self._termination_config = TerminationConfig(
+                max_timesteps=max_episode_steps
+            )
+        else:
+            self._termination_config = termination_config
+        self._termination_tracker = TerminationTracker(self._termination_config)
+
         # Define spaces
         self.action_space: spaces.Discrete = spaces.Discrete(ACTION_SPACE_SIZE)
         self.observation_space: spaces.Box = spaces.Box(
@@ -100,6 +116,10 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         self._episode_step = 0
         self._loop: asyncio.AbstractEventLoop | None = None
         self._owns_loop = False
+
+        # Stats tracking for termination logic
+        self._prev_player_stats: PlayerStatsDTO | None = None
+        self._prev_opponent_deaths: int = 0
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         """Get or create event loop for async operations.
@@ -243,6 +263,11 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         # Reset reward function tracking
         self._reward_fn.reset(None)
 
+        # Reset termination tracking
+        self._termination_tracker.reset()
+        self._prev_player_stats = None
+        self._prev_opponent_deaths = 0
+
         # Build observation
         if self._client is None or self._client.player_id is None:
             raise RuntimeError("Client not properly initialized after reset")
@@ -289,13 +314,28 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         # Calculate reward
         reward = self._calculate_reward(game_state, stats)
 
-        # Check termination
-        terminated = self._check_terminated(game_state)
-        truncated = self._episode_step >= self.max_episode_steps
+        # Update termination tracking
+        self._termination_tracker.increment_timestep()
+        self._update_episode_stats(stats)
 
+        # Check termination using the tracker
+        is_game_over = self._check_game_over(game_state)
+        terminated, truncated = self._termination_tracker.check_termination(
+            is_game_over
+        )
+        termination_reason = self._termination_tracker.get_termination_reason(
+            terminated, truncated
+        )
+
+        # Build info dict with episode stats
+        episode_stats = self._termination_tracker.get_episode_stats()
         info: dict[str, Any] = {
             "episode_step": self._episode_step,
             "stats": stats,
+            "episode_timesteps": episode_stats["episode_timesteps"],
+            "episode_deaths": episode_stats["episode_deaths"],
+            "episode_kills": episode_stats["episode_kills"],
+            "termination_reason": termination_reason,
         }
 
         return observation, reward, terminated, truncated, info
@@ -326,31 +366,74 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
 
         return self._reward_fn.calculate(player_stats)
 
-    def _check_terminated(self, game_state: GameState) -> bool:
-        """Check if episode should terminate.
+    def _update_episode_stats(self, stats: dict[str, Any]) -> None:
+        """Update episode statistics from game stats.
 
-        Episode terminates when:
-        - Own player is dead
-        - Player not found in game state (disconnected)
+        Tracks kill/death deltas for termination logic by comparing
+        current stats with previous stats.
 
-        Full termination logic will be implemented in TASK-016.
+        Args:
+            stats: Player statistics dictionary from server.
+        """
+        if self._client is None or self._client.player_id is None:
+            return
+
+        # Get current player stats
+        current_stats: PlayerStatsDTO | None = None
+        if self._client.player_id in stats:
+            current_stats = stats[self._client.player_id]
+
+        if current_stats is None:
+            return
+
+        # Get previous values (default to 0 if first step)
+        prev_kills = self._prev_player_stats.kills if self._prev_player_stats else 0
+        prev_deaths = self._prev_player_stats.deaths if self._prev_player_stats else 0
+
+        # Calculate opponent deaths
+        current_opponent_deaths = 0
+        prev_opponent_deaths_total = self._prev_opponent_deaths
+        for player_id, player_stats in stats.items():
+            if player_id != self._client.player_id:
+                current_opponent_deaths += player_stats.deaths
+
+        # Update termination tracker
+        self._termination_tracker.update_from_stats(
+            current_kills=current_stats.kills,
+            current_deaths=current_stats.deaths,
+            prev_kills=prev_kills,
+            prev_deaths=prev_deaths,
+            current_opponent_deaths=current_opponent_deaths,
+            prev_opponent_deaths=prev_opponent_deaths_total,
+        )
+
+        # Store for next step
+        self._prev_player_stats = current_stats
+        self._prev_opponent_deaths = current_opponent_deaths
+
+    def _check_game_over(self, game_state: GameState) -> bool:
+        """Check if game signals episode should end.
+
+        This checks game-level termination signals that indicate
+        the match or round is over, independent of death/kill counts.
 
         Args:
             game_state: Current game state.
 
         Returns:
-            True if episode should terminate.
+            True if game signals it's over.
         """
         if self._client is None or self._client.player_id is None:
             return True
 
-        # Check if own player exists and is dead
+        # Check if own player exists
         own_player = game_state.players.get(self._client.player_id)
-
         if own_player is None:
-            return True  # Player not found, terminate
+            return True  # Player not found, consider game over
 
-        return own_player.dead
+        # TODO: Add is_game_over check when GameState supports it
+        # For now, we don't have a game_over signal from the server
+        return False
 
     def render(self) -> NDArray[np.uint8] | None:
         """Render the environment.
