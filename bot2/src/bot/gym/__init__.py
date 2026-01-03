@@ -39,9 +39,11 @@ Usage:
 from bot.gym.reward import RewardConfig, RewardFunction, StandardRewardFunction
 from bot.gym.termination import TerminationConfig, TerminationTracker
 from bot.gym.towerfall_env import TowerfallEnv
+from bot.gym.vectorized_env import VectorizedTowerfallEnv
 
 __all__ = [
     "TowerfallEnv",
+    "VectorizedTowerfallEnv",
     "RewardConfig",
     "RewardFunction",
     "StandardRewardFunction",
