@@ -329,10 +329,8 @@ class TestTrainingModeEndpoints:
         mock_response_data = {
             "success": True,
             "roomId": "room-123",
-            "gameUpdate": {
-                "fullUpdate": True,
-                "objects": [],
-            },
+            "objectStates": {},
+            "trainingComplete": False,
         }
 
         client = GameHTTPClient()
@@ -350,7 +348,10 @@ class TestTrainingModeEndpoints:
 
             assert result.success is True
             assert result.room_id == "room-123"
-            mock_request.assert_called_once_with("GET", "/api/rooms/room-123/state")
+            # Verify endpoint is correct (headers may be added by _request)
+            call_args = mock_request.call_args
+            assert call_args[0][0] == "GET"
+            assert "/api/rooms/room-123/state" in call_args[0][1]
 
         await client.close()
 
@@ -385,7 +386,8 @@ class TestTrainingModeEndpoints:
             assert result.actions_processed == 2
 
             call_args = mock_request.call_args
-            assert "/api/rooms/room-123/players/player-456/actions" in call_args[0][1]
+            # Note: endpoint is /action (singular), not /actions
+            assert "/api/rooms/room-123/players/player-456/action" in call_args[0][1]
 
         await client.close()
 

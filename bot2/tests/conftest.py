@@ -10,10 +10,17 @@ This module provides:
 
 import asyncio
 import os
+import sys
 import uuid
 
 import httpx
 import pytest
+
+# Fix Windows ProactorEventLoop "Error on reading from the event loop self pipe" issue.
+# On Windows, ProactorEventLoop (the default since Python 3.8) has issues with cleanup
+# during pytest-asyncio test teardown. Using SelectorEventLoop avoids this.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 def pytest_configure(config: pytest.Config) -> None:

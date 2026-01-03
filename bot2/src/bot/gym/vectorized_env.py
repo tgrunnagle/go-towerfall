@@ -662,11 +662,12 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             # No event loop, nothing to clean up
             return
 
+        coro = self._async_close()
         try:
-            self._run_async(self._async_close())
+            self._run_async(coro)
         except RuntimeError:
-            # Event loop may already be closed
-            pass
+            # Event loop may already be closed, close the coroutine to avoid warning
+            coro.close()
 
         # Clear client references
         self._clients = [None] * self.num_envs
