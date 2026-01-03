@@ -476,12 +476,14 @@ class GameClient:
             if response.object_states is None:
                 raise GameClientError("No game state available from server")
             # Convert REST response to GameUpdate format
-            game_update = GameUpdate.model_validate({
-                "fullUpdate": True,
-                "objectStates": response.object_states,
-                "events": [],
-                "trainingComplete": response.training_complete,
-            })
+            game_update = GameUpdate.model_validate(
+                {
+                    "fullUpdate": True,
+                    "objectStates": response.object_states,
+                    "events": [],
+                    "trainingComplete": response.training_complete,
+                }
+            )
             self._game_state = GameState.from_update(
                 game_update,
                 existing_state=self._game_state,
@@ -528,12 +530,14 @@ class GameClient:
                 response = await self._http_client.get_game_state(self.room_id)
                 if response.object_states is not None:
                     # Convert REST response to GameUpdate format
-                    game_update = GameUpdate.model_validate({
-                        "fullUpdate": True,
-                        "objectStates": response.object_states,
-                        "events": [],
-                        "trainingComplete": response.training_complete,
-                    })
+                    game_update = GameUpdate.model_validate(
+                        {
+                            "fullUpdate": True,
+                            "objectStates": response.object_states,
+                            "events": [],
+                            "trainingComplete": response.training_complete,
+                        }
+                    )
                     self._game_state = GameState.from_update(
                         game_update,
                         existing_state=self._game_state,

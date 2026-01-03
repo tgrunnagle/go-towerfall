@@ -130,7 +130,7 @@ class TestErrorHandling:
 
         # Reset after close should work by creating a new connection
         # Use a new room name to avoid conflicts
-        env._room_name = unique_room_name("ErrResetAfterClose2")
+        env.room_name = unique_room_name("ErrResetAfterClose2")
         obs2, info2 = env.reset()
 
         try:
@@ -206,7 +206,7 @@ class TestDuplicateRoomHandling:
             )
 
             assert response1.success is True
-            first_room_id = response1.room_id
+            assert response1.room_id is not None
 
             # Creating another game replaces the client's connection
             # The server may reuse or create a new room

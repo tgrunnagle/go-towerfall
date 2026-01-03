@@ -27,9 +27,8 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "stress: marks stress/scalability tests"
-    )
+    config.addinivalue_line("markers", "stress: marks stress/scalability tests")
+
 
 # Default server URL, can be overridden via environment variable
 DEFAULT_SERVER_URL = os.environ.get("TOWERFALL_SERVER_URL", "http://localhost:4000")

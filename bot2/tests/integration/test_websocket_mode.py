@@ -123,12 +123,8 @@ class TestWebSocketMode:
             ]
             assert len(game_state_messages) > 0
 
-            # Unregister handler and verify it stops receiving
+            # Unregister handler and verify it's removed
             client.unregister_message_handler(message_handler)
-            count_before = len(received_messages)
-            await asyncio.sleep(0.2)
-            # After unregistering, no new messages should be added
-            # (this is a weak assertion since timing is involved)
             assert message_handler not in client._message_handlers
 
     @requires_server
@@ -163,18 +159,22 @@ class TestWebSocketMode:
 
             # Use the same client's HTTP client to poll REST state
             # (This works because the client has proper auth token set)
-            rest_response = await ws_client._http_client.get_game_state(response.room_id)
+            rest_response = await ws_client._http_client.get_game_state(
+                response.room_id
+            )
             assert rest_response.object_states is not None
 
             # Parse REST response into GameState for comparison
             from bot.models import GameUpdate
 
-            game_update = GameUpdate.model_validate({
-                "fullUpdate": True,
-                "objectStates": rest_response.object_states,
-                "events": [],
-                "trainingComplete": rest_response.training_complete,
-            })
+            game_update = GameUpdate.model_validate(
+                {
+                    "fullUpdate": True,
+                    "objectStates": rest_response.object_states,
+                    "events": [],
+                    "trainingComplete": rest_response.training_complete,
+                }
+            )
             rest_state = GameState.from_update(
                 game_update,
                 existing_state=None,
