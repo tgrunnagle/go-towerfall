@@ -30,7 +30,7 @@ class TestGameClientIntegration:
             response = await client.create_game(
                 player_name="IntegrationTestBot",
                 room_name=room_name,
-                map_type="arena1",
+                map_type="default",
                 training_mode=True,
                 tick_rate_multiplier=10.0,
             )
@@ -52,7 +52,7 @@ class TestGameClientIntegration:
             await client.create_game(
                 player_name="IntegrationTestBot",
                 room_name=room_name,
-                map_type="arena1",
+                map_type="default",
                 training_mode=True,
                 tick_rate_multiplier=10.0,
             )
@@ -77,7 +77,7 @@ class TestGameClientIntegration:
             await client.create_game(
                 player_name="IntegrationTestBot",
                 room_name=room_name,
-                map_type="arena1",
+                map_type="default",
                 training_mode=True,
                 tick_rate_multiplier=10.0,
             )
@@ -103,7 +103,7 @@ class TestGameClientIntegration:
             await client.create_game(
                 player_name="IntegrationTestBot",
                 room_name=room_name,
-                map_type="arena1",
+                map_type="default",
                 training_mode=True,
                 tick_rate_multiplier=10.0,
             )
@@ -114,7 +114,7 @@ class TestGameClientIntegration:
             assert client.player_id in initial_state.players
 
             # Reset the game
-            await client.reset_game(map_type="arena1")
+            await client.reset_game(map_type="default")
 
             # Get state after reset
             reset_state = await client.get_game_state()
@@ -137,7 +137,7 @@ class TestGameClientIntegration:
             await client.create_game(
                 player_name="IntegrationTestBot",
                 room_name=room_name,
-                map_type="arena1",
+                map_type="default",
                 training_mode=True,
                 tick_rate_multiplier=10.0,
             )

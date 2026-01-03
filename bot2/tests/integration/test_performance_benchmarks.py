@@ -14,6 +14,9 @@ import pytest
 from bot.gym import TowerfallEnv, VectorizedTowerfallEnv
 from tests.conftest import requires_server, unique_room_name
 
+# Default map type for integration tests (must match server's available maps)
+DEFAULT_MAP_TYPE = "default"
+
 
 @pytest.mark.integration
 class TestPerformanceBenchmarks:
@@ -26,6 +29,7 @@ class TestPerformanceBenchmarks:
         env = TowerfallEnv(
             http_url=server_url,
             room_name=room_name,
+            map_type=DEFAULT_MAP_TYPE,
             opponent_type="none",
             tick_rate_multiplier=10.0,
             max_episode_steps=1000,
@@ -66,6 +70,7 @@ class TestPerformanceBenchmarks:
             num_envs=num_envs,
             http_url=server_url,
             room_name_prefix=room_prefix,
+            map_type=DEFAULT_MAP_TYPE,
             opponent_type="none",
             tick_rate_multiplier=10.0,
             max_episode_steps=1000,
@@ -109,6 +114,7 @@ class TestPerformanceBenchmarks:
         env = TowerfallEnv(
             http_url=server_url,
             room_name=room_name,
+            map_type=DEFAULT_MAP_TYPE,
             opponent_type="none",
             tick_rate_multiplier=10.0,
             max_episode_steps=100,
