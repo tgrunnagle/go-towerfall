@@ -67,7 +67,7 @@ class GameClient:
             await client.create_game(
                 player_name="MLBot",
                 room_name="Training",
-                map_type="arena1",
+                map_type="default",
                 training_mode=True,
             )
             state = await client.get_game_state()

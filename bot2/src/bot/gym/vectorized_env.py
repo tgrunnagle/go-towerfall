@@ -70,7 +70,7 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         http_url: str = "http://localhost:4000",
         player_name: str = "MLBot",
         room_name_prefix: str = "Training",
-        map_type: str = "arena1",
+        map_type: str = "default",
         opponent_type: str = "rule_based",
         tick_rate_multiplier: float = 1.0,
         max_episode_steps: int = 1000,

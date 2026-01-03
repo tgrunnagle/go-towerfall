@@ -10,7 +10,7 @@ Usage:
     env = TowerfallEnv(
         http_url="http://localhost:4000",
         player_name="TrainingBot",
-        map_type="arena1",
+        map_type="default",
         tick_rate_multiplier=10.0,
     )
 
