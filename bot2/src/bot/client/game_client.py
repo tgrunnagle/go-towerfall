@@ -291,8 +291,9 @@ class GameClient:
         try:
             data = json.loads(message)
 
-            # Update cached game state if this is a GameUpdate message
-            if data.get("type") == "GameUpdate":
+            # Update cached game state if this is a GameState message
+            # Note: Server sends "GameState" type for game updates
+            if data.get("type") == "GameState":
                 payload = data.get("payload", {})
                 game_update = GameUpdate.model_validate(payload)
                 self._game_state = GameState.from_update(

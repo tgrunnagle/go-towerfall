@@ -5,6 +5,7 @@ This module provides:
 - The `requires_server` decorator to skip tests when server is unavailable
 - Shared fixtures for both unit and integration tests
 - Utility functions for generating unique room names
+- Custom markers for test categorization
 """
 
 import asyncio
@@ -13,6 +14,22 @@ import uuid
 
 import httpx
 import pytest
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register custom markers for test categorization."""
+    config.addinivalue_line(
+        "markers", "integration: marks tests as integration tests requiring server"
+    )
+    config.addinivalue_line(
+        "markers", "websocket: marks tests as WebSocket-specific tests"
+    )
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
+    config.addinivalue_line(
+        "markers", "stress: marks stress/scalability tests"
+    )
 
 # Default server URL, can be overridden via environment variable
 DEFAULT_SERVER_URL = os.environ.get("TOWERFALL_SERVER_URL", "http://localhost:4000")
