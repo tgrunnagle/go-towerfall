@@ -48,6 +48,7 @@ class GameState(BaseModel):
     bullets: dict[str, BulletState] = Field(default_factory=dict)
     canvas_size_x: int = Field(default=800)
     canvas_size_y: int = Field(default=800)
+    is_game_over: bool = Field(default=False)
 
     # Object type constants matching Go server
     OBJECT_TYPE_PLAYER: ClassVar[str] = "player"
@@ -115,6 +116,7 @@ class GameState(BaseModel):
             bullets=bullets,
             canvas_size_x=canvas_size_x,
             canvas_size_y=canvas_size_y,
+            is_game_over=update.training_complete,
         )
 
     def get_player_by_name(self, name: str) -> PlayerState | None:

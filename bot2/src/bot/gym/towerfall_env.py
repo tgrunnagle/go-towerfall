@@ -335,6 +335,7 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             "episode_timesteps": episode_stats["episode_timesteps"],
             "episode_deaths": episode_stats["episode_deaths"],
             "episode_kills": episode_stats["episode_kills"],
+            "episode_opponent_deaths": episode_stats["episode_opponent_deaths"],
             "termination_reason": termination_reason,
         }
 
@@ -423,17 +424,8 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         Returns:
             True if game signals it's over.
         """
-        if self._client is None or self._client.player_id is None:
-            return True
-
-        # Check if own player exists
-        own_player = game_state.players.get(self._client.player_id)
-        if own_player is None:
-            return True  # Player not found, consider game over
-
-        # TODO: Add is_game_over check when GameState supports it
-        # For now, we don't have a game_over signal from the server
-        return False
+        # Use the is_game_over signal from the server (training_complete)
+        return game_state.is_game_over
 
     def render(self) -> NDArray[np.uint8] | None:
         """Render the environment.

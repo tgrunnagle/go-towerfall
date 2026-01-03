@@ -57,7 +57,7 @@ class TerminationConfig:
     """
 
     # Time-based termination
-    max_timesteps: int = 10_000  # ~200 seconds at 50 ticks/sec
+    max_timesteps: int | None = 10_000  # ~200 seconds at 50 ticks/sec
 
     # Death-based termination
     max_deaths: int | None = 5  # End episode after N agent deaths

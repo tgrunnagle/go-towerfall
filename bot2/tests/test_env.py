@@ -561,51 +561,46 @@ class TestTowerfallEnvTermination:
     """Tests for termination detection.
 
     Note: Detailed termination tests are in test_termination.py.
-    These tests verify the _check_game_over method used for game signals.
+    These tests verify the _check_game_over method uses the server's is_game_over signal.
     """
 
-    def test_game_over_when_player_not_found(self) -> None:
-        """Test game over when player not in game state."""
+    def test_game_over_when_server_signals_game_over(self) -> None:
+        """Test game over when server sets is_game_over to True."""
         env = TowerfallEnv()
-        env._client = MagicMock()
-        env._client.player_id = "player-456"
-
-        # Game state with different player
-        other_player = make_player_state_dict(player_id="other-player")
-        game_state = GameState(
-            players={"other-player": PlayerState.model_validate(other_player)},
-            canvas_size_x=800,
-            canvas_size_y=600,
-        )
-
-        is_game_over = env._check_game_over(game_state)
-
-        assert is_game_over is True
-
-    def test_game_over_when_no_client(self) -> None:
-        """Test game over when client is None."""
-        env = TowerfallEnv()
-        env._client = None
 
         game_state = GameState(
             players={},
             canvas_size_x=800,
             canvas_size_y=600,
+            is_game_over=True,
         )
 
         is_game_over = env._check_game_over(game_state)
 
         assert is_game_over is True
 
-    def test_not_game_over_when_player_alive(self) -> None:
-        """Test not game over when player is alive in game."""
+    def test_not_game_over_when_server_signals_not_over(self) -> None:
+        """Test not game over when server sets is_game_over to False."""
         env = TowerfallEnv()
-        env._client = MagicMock()
-        env._client.player_id = "player-456"
 
-        player_state = make_player_state_dict(dead=False)
         game_state = GameState(
-            players={"player-456": PlayerState.model_validate(player_state)},
+            players={},
+            canvas_size_x=800,
+            canvas_size_y=600,
+            is_game_over=False,
+        )
+
+        is_game_over = env._check_game_over(game_state)
+
+        assert is_game_over is False
+
+    def test_not_game_over_by_default(self) -> None:
+        """Test is_game_over defaults to False."""
+        env = TowerfallEnv()
+
+        # No is_game_over specified, should default to False
+        game_state = GameState(
+            players={},
             canvas_size_x=800,
             canvas_size_y=600,
         )
