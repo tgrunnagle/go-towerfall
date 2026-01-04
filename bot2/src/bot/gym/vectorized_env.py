@@ -298,10 +298,6 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
 
             self._clients[env_idx] = client
 
-            # Get initial player count before adding opponent
-            initial_state = await client.wait_for_game_state()
-            initial_player_count = len(initial_state.players)
-
             # Create and start opponent
             opponent = create_opponent(
                 opponent_type=self.opponent_type,
@@ -309,16 +305,30 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
                 ws_url=self.ws_url,
                 player_name=self._get_opponent_name(env_idx),
             )
-            await opponent.start(
-                room_code=client.room_code or "",
-                room_password=client.room_password or "",
-            )
-            self._opponents[env_idx] = opponent
 
-            # Wait for opponent to connect (player count increases by 1)
-            game_state = await self._wait_for_player_count(
-                client, initial_player_count + 1
-            )
+            # For real opponents, get player count before starting, then wait for +1
+            if self.opponent_type != "none":
+                initial_state = await client.wait_for_game_state()
+                initial_player_count = len(initial_state.players)
+
+                await opponent.start(
+                    room_code=client.room_code or "",
+                    room_password=client.room_password or "",
+                )
+                self._opponents[env_idx] = opponent
+
+                # Wait for opponent to connect (player count increases by 1)
+                game_state = await self._wait_for_player_count(
+                    client, initial_player_count + 1
+                )
+            else:
+                # No opponent - just wait for initial state
+                await opponent.start(
+                    room_code=client.room_code or "",
+                    room_password=client.room_password or "",
+                )
+                self._opponents[env_idx] = opponent
+                game_state = await client.wait_for_game_state()
 
         # Reset episode tracking
         self._episode_steps[env_idx] = 0

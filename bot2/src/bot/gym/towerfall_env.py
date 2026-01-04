@@ -219,10 +219,6 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             tick_rate_multiplier=self.tick_rate_multiplier,
         )
 
-        # Get initial player count before adding opponent
-        initial_state = await self._client.wait_for_game_state()
-        initial_player_count = len(initial_state.players)
-
         # Create and start opponent
         self._opponent = create_opponent(
             opponent_type=self.opponent_type,
@@ -230,13 +226,26 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             ws_url=self.ws_url,
             player_name=self.opponent_name,
         )
-        await self._opponent.start(
-            room_code=self._client.room_code or "",
-            room_password=self._client.room_password or "",
-        )
 
-        # Wait for opponent to connect (player count increases by 1)
-        game_state = await self._wait_for_player_count(initial_player_count + 1)
+        # For real opponents, get player count before starting, then wait for +1
+        if self.opponent_type != "none":
+            initial_state = await self._client.wait_for_game_state()
+            initial_player_count = len(initial_state.players)
+
+            await self._opponent.start(
+                room_code=self._client.room_code or "",
+                room_password=self._client.room_password or "",
+            )
+
+            # Wait for opponent to connect (player count increases by 1)
+            game_state = await self._wait_for_player_count(initial_player_count + 1)
+        else:
+            # No opponent - just wait for initial state
+            await self._opponent.start(
+                room_code=self._client.room_code or "",
+                room_password=self._client.room_password or "",
+            )
+            game_state = await self._client.wait_for_game_state()
 
         info = {
             "room_id": self._client.room_id,
@@ -273,7 +282,9 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         elapsed = 0.0
         game_state: GameState | None = None
         while elapsed < timeout:
-            game_state = await self._client.wait_for_game_state(timeout=timeout - elapsed)
+            game_state = await self._client.wait_for_game_state(
+                timeout=timeout - elapsed
+            )
             if len(game_state.players) >= expected_count:
                 return game_state
             await asyncio.sleep(poll_interval)
