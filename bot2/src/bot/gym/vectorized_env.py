@@ -22,6 +22,7 @@ from numpy.typing import NDArray
 
 from bot.actions import ACTION_SPACE_SIZE, Action, execute_action
 from bot.client import ClientMode, GameClient
+from bot.gym.opponent_manager import OpponentProtocol, create_opponent
 from bot.gym.reward import RewardConfig, StandardRewardFunction
 from bot.gym.termination import TerminationConfig, TerminationTracker
 from bot.models import PlayerStatsDTO
@@ -68,10 +69,12 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         self,
         num_envs: int,
         http_url: str = "http://localhost:4000",
+        ws_url: str = "ws://localhost:4000/ws",
         player_name: str = "MLBot",
         room_name_prefix: str = "Training",
         map_type: str = "default",
         opponent_type: str = "rule_based",
+        opponent_name: str = "RuleBot",
         tick_rate_multiplier: float = 1.0,
         max_episode_steps: int = 1000,
         render_mode: str | None = None,
@@ -84,10 +87,12 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         Args:
             num_envs: Number of parallel environments to create.
             http_url: Base URL for game server REST API.
+            ws_url: WebSocket URL for game server.
             player_name: Name prefix for the RL agent players.
             room_name_prefix: Prefix for training room names.
             map_type: Map to use for training (e.g., "arena1").
             opponent_type: Type of opponent ("rule_based" or "none").
+            opponent_name: Name prefix for the opponent players.
             tick_rate_multiplier: Game speed multiplier (requires server support).
             max_episode_steps: Maximum steps per episode before truncation.
             render_mode: Gymnasium render mode ("human", "rgb_array", or None).
@@ -97,10 +102,12 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         """
         self.num_envs = num_envs
         self.http_url = http_url
+        self.ws_url = ws_url
         self.player_name = player_name
         self.room_name_prefix = room_name_prefix
         self.map_type = map_type
         self.opponent_type = opponent_type
+        self.opponent_name = opponent_name
         self.tick_rate_multiplier = tick_rate_multiplier
         self.max_episode_steps = max_episode_steps
         self.render_mode = render_mode
@@ -149,6 +156,7 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
 
         # Runtime state for each environment
         self._clients: list[GameClient | None] = [None] * num_envs
+        self._opponents: list[OpponentProtocol | None] = [None] * num_envs
         self._episode_steps: list[int] = [0] * num_envs
         self._prev_player_stats: list[PlayerStatsDTO | None] = [None] * num_envs
         self._prev_opponent_deaths: list[int] = [0] * num_envs
@@ -224,6 +232,17 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         """
         return f"{self.player_name}_{env_idx}"
 
+    def _get_opponent_name(self, env_idx: int) -> str:
+        """Generate unique opponent name for an environment.
+
+        Args:
+            env_idx: Index of the environment.
+
+        Returns:
+            Unique opponent name string.
+        """
+        return f"{self.opponent_name}_{env_idx}"
+
     async def _reset_single_env(
         self,
         env_idx: int,
@@ -239,13 +258,23 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             Tuple of (observation, info).
         """
         client = self._clients[env_idx]
+        opponent = self._opponents[env_idx]
 
         # If we already have a client with a room, reset the game
         if client is not None and client.room_id is not None:
+            # Reset opponent state for new episode
+            if opponent is not None:
+                opponent.reset()
+
             await client.reset_game(map_type=map_type)
             # Wait for game state to be available after reset
             game_state = await client.wait_for_game_state()
         else:
+            # Stop existing opponent if any
+            if opponent is not None:
+                await opponent.stop()
+                self._opponents[env_idx] = None
+
             # Close existing client if any
             if client is not None:
                 await client.close()
@@ -253,6 +282,7 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             # Create new client in REST mode
             client = GameClient(
                 http_url=self.http_url,
+                ws_url=self.ws_url,
                 mode=ClientMode.REST,
             )
             await client.connect()
@@ -267,6 +297,23 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             )
 
             self._clients[env_idx] = client
+
+            # Create and start opponent
+            opponent = create_opponent(
+                opponent_type=self.opponent_type,
+                http_url=self.http_url,
+                ws_url=self.ws_url,
+                player_name=self._get_opponent_name(env_idx),
+            )
+            await opponent.start(
+                room_code=client.room_code or "",
+                room_password="",
+            )
+            self._opponents[env_idx] = opponent
+
+            # Wait briefly for opponent to connect and server to process
+            await asyncio.sleep(0.1)
+
             # Wait for initial state to be available
             game_state = await client.wait_for_game_state()
 
@@ -291,6 +338,7 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             "room_code": client.room_code,
             "player_id": client.player_id,
             "env_idx": env_idx,
+            "opponent_type": self.opponent_type,
         }
 
         return observation, info
@@ -331,6 +379,11 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         # Get new state
         game_state = await client.get_game_state()
         stats = await client.get_stats()
+
+        # Update opponent with current state (for synchronization)
+        opponent = self._opponents[env_idx]
+        if opponent is not None:
+            await opponent.on_game_state(game_state)
 
         # Build observation
         observation = self._obs_builders[env_idx].build(
@@ -646,6 +699,13 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
     async def _async_close(self) -> None:
         """Async implementation of close for all environments."""
         close_tasks = []
+
+        # Stop all opponents
+        for opponent in self._opponents:
+            if opponent is not None:
+                close_tasks.append(opponent.stop())
+
+        # Close all clients
         for client in self._clients:
             if client is not None:
                 close_tasks.append(client.close())
@@ -669,8 +729,9 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             # Event loop may already be closed, close the coroutine to avoid warning
             coro.close()
 
-        # Clear client references
+        # Clear client and opponent references
         self._clients = [None] * self.num_envs
+        self._opponents = [None] * self.num_envs
 
         # Clean up event loop if we own it
         if self._loop is not None and self._owns_loop and not self._loop.is_running():
