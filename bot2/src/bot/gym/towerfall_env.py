@@ -282,9 +282,8 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         elapsed = 0.0
         game_state: GameState | None = None
         while elapsed < timeout:
-            game_state = await self._client.wait_for_game_state(
-                timeout=timeout - elapsed
-            )
+            remaining = max(0.1, timeout - elapsed)
+            game_state = await self._client.wait_for_game_state(timeout=remaining)
             if len(game_state.players) >= expected_count:
                 return game_state
             await asyncio.sleep(poll_interval)
