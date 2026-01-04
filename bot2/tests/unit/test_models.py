@@ -492,6 +492,7 @@ class TestHTTPAPIModels:
             "roomId": "room-123",
             "roomCode": "ABC123",
             "roomName": "Test Room",
+            "roomPassword": "secret-pass",
             "playerId": "player-456",
             "playerToken": "secret-token",
             "canvasSizeX": 800,
@@ -501,6 +502,7 @@ class TestHTTPAPIModels:
         assert response.success is True
         assert response.room_id == "room-123"
         assert response.room_code == "ABC123"
+        assert response.room_password == "secret-pass"
         assert response.player_id == "player-456"
         assert response.player_token == "secret-token"
         assert response.canvas_size_x == 800

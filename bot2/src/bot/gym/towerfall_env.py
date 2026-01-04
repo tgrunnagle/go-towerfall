@@ -219,6 +219,10 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             tick_rate_multiplier=self.tick_rate_multiplier,
         )
 
+        # Get initial player count before adding opponent
+        initial_state = await self._client.wait_for_game_state()
+        initial_player_count = len(initial_state.players)
+
         # Create and start opponent
         self._opponent = create_opponent(
             opponent_type=self.opponent_type,
@@ -228,14 +232,11 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         )
         await self._opponent.start(
             room_code=self._client.room_code or "",
-            room_password="",
+            room_password=self._client.room_password or "",
         )
 
-        # Wait briefly for opponent to connect and server to process
-        await asyncio.sleep(0.1)
-
-        # Wait for initial state to be available
-        game_state = await self._client.wait_for_game_state()
+        # Wait for opponent to connect (player count increases by 1)
+        game_state = await self._wait_for_player_count(initial_player_count + 1)
 
         info = {
             "room_id": self._client.room_id,
@@ -244,6 +245,45 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             "opponent_type": self.opponent_type,
         }
         return game_state, info
+
+    async def _wait_for_player_count(
+        self,
+        expected_count: int,
+        timeout: float = 5.0,
+        poll_interval: float = 0.05,
+    ) -> GameState:
+        """Wait for expected number of players to be in game state.
+
+        Polls the game state until the player count reaches the expected value.
+        For no-opponent mode (expected_count equals current), returns immediately.
+
+        Args:
+            expected_count: Number of players to wait for.
+            timeout: Maximum time to wait in seconds.
+            poll_interval: Time between polls in seconds.
+
+        Returns:
+            GameState with expected player count.
+
+        Raises:
+            TimeoutError: If player count doesn't reach expected within timeout.
+        """
+        assert self._client is not None
+
+        elapsed = 0.0
+        game_state: GameState | None = None
+        while elapsed < timeout:
+            game_state = await self._client.wait_for_game_state(timeout=timeout - elapsed)
+            if len(game_state.players) >= expected_count:
+                return game_state
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        player_count = len(game_state.players) if game_state else 0
+        raise TimeoutError(
+            f"Expected {expected_count} players but only {player_count} connected "
+            f"within {timeout}s."
+        )
 
     async def _async_step(self, action: int) -> tuple[GameState, dict[str, Any]]:
         """Async implementation of step logic.

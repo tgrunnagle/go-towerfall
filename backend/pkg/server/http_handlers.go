@@ -86,15 +86,16 @@ type CreateGameHTTPRequest struct {
 
 // CreateGameResponse represents the response to a create game request
 type CreateGameHTTPResponse struct {
-	Success     bool   `json:"success"`
-	PlayerID    string `json:"playerId,omitempty"`
-	PlayerToken string `json:"playerToken,omitempty"`
-	RoomID      string `json:"roomId,omitempty"`
-	RoomCode    string `json:"roomCode,omitempty"`
-	RoomName    string `json:"roomName,omitempty"`
-	CanvasSizeX int    `json:"canvasSizeX,omitempty"`
-	CanvasSizeY int    `json:"canvasSizeY,omitempty"`
-	Error       string `json:"error,omitempty"`
+	Success      bool   `json:"success"`
+	PlayerID     string `json:"playerId,omitempty"`
+	PlayerToken  string `json:"playerToken,omitempty"`
+	RoomID       string `json:"roomId,omitempty"`
+	RoomCode     string `json:"roomCode,omitempty"`
+	RoomName     string `json:"roomName,omitempty"`
+	RoomPassword string `json:"roomPassword,omitempty"`
+	CanvasSizeX  int    `json:"canvasSizeX,omitempty"`
+	CanvasSizeY  int    `json:"canvasSizeY,omitempty"`
+	Error        string `json:"error,omitempty"`
 	// Training mode settings (returned when training mode is enabled)
 	TrainingMode        bool    `json:"trainingMode,omitempty"`
 	TickMultiplier      float64 `json:"tickMultiplier,omitempty"`
@@ -249,14 +250,15 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	// Build response
 	canvasSizeX, canvasSizeY := room.ObjectManager.Map.GetCanvasSize()
 	response := CreateGameHTTPResponse{
-		Success:     true,
-		RoomID:      room.ID,
-		RoomCode:    room.RoomCode,
-		RoomName:    room.Name,
-		PlayerID:    player.ID,
-		PlayerToken: player.Token,
-		CanvasSizeX: canvasSizeX,
-		CanvasSizeY: canvasSizeY,
+		Success:      true,
+		RoomID:       room.ID,
+		RoomCode:     room.RoomCode,
+		RoomName:     room.Name,
+		RoomPassword: room.Password,
+		PlayerID:     player.ID,
+		PlayerToken:  player.Token,
+		CanvasSizeX:  canvasSizeX,
+		CanvasSizeY:  canvasSizeY,
 	}
 
 	// Include training settings in response if training mode is enabled

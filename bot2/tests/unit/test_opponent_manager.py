@@ -191,9 +191,7 @@ class TestRuleBasedOpponent:
     async def test_on_game_state_calls_runner(self) -> None:
         """RuleBasedOpponent.on_game_state() calls runner.on_game_state()."""
         with patch("bot.gym.opponent_manager.GameClient") as MockClient:
-            with patch(
-                "bot.gym.opponent_manager.RuleBasedBotRunner"
-            ) as MockRunner:
+            with patch("bot.gym.opponent_manager.RuleBasedBotRunner") as MockRunner:
                 mock_client = AsyncMock()
                 mock_client.player_id = "player-1"
                 MockClient.return_value = mock_client
@@ -251,9 +249,7 @@ class TestRuleBasedOpponent:
     async def test_on_game_state_handles_errors(self) -> None:
         """RuleBasedOpponent.on_game_state() logs errors but doesn't raise."""
         with patch("bot.gym.opponent_manager.GameClient") as MockClient:
-            with patch(
-                "bot.gym.opponent_manager.RuleBasedBotRunner"
-            ) as MockRunner:
+            with patch("bot.gym.opponent_manager.RuleBasedBotRunner") as MockRunner:
                 mock_client = AsyncMock()
                 mock_client.player_id = "player-1"
                 MockClient.return_value = mock_client

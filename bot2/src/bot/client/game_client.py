@@ -110,6 +110,7 @@ class GameClient:
         self.player_token: str | None = None
         self.room_id: str | None = None
         self.room_code: str | None = None
+        self.room_password: str | None = None
 
         # Canvas dimensions (set after joining/creating game)
         self.canvas_size_x: int = 800
@@ -193,6 +194,7 @@ class GameClient:
         self.player_token = response.player_token
         self.room_id = response.room_id
         self.room_code = response.room_code
+        self.room_password = response.room_password
         self.canvas_size_x = response.canvas_size_x
         self.canvas_size_y = response.canvas_size_y
 

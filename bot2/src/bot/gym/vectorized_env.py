@@ -25,7 +25,7 @@ from bot.client import ClientMode, GameClient
 from bot.gym.opponent_manager import OpponentProtocol, create_opponent
 from bot.gym.reward import RewardConfig, StandardRewardFunction
 from bot.gym.termination import TerminationConfig, TerminationTracker
-from bot.models import PlayerStatsDTO
+from bot.models import GameState, PlayerStatsDTO
 from bot.models.constants import GAME_CONSTANTS
 from bot.observation import ObservationBuilder, ObservationConfig
 
@@ -298,6 +298,10 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
 
             self._clients[env_idx] = client
 
+            # Get initial player count before adding opponent
+            initial_state = await client.wait_for_game_state()
+            initial_player_count = len(initial_state.players)
+
             # Create and start opponent
             opponent = create_opponent(
                 opponent_type=self.opponent_type,
@@ -307,15 +311,14 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             )
             await opponent.start(
                 room_code=client.room_code or "",
-                room_password="",
+                room_password=client.room_password or "",
             )
             self._opponents[env_idx] = opponent
 
-            # Wait briefly for opponent to connect and server to process
-            await asyncio.sleep(0.1)
-
-            # Wait for initial state to be available
-            game_state = await client.wait_for_game_state()
+            # Wait for opponent to connect (player count increases by 1)
+            game_state = await self._wait_for_player_count(
+                client, initial_player_count + 1
+            )
 
         # Reset episode tracking
         self._episode_steps[env_idx] = 0
@@ -342,6 +345,45 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
         }
 
         return observation, info
+
+    async def _wait_for_player_count(
+        self,
+        client: GameClient,
+        expected_count: int,
+        timeout: float = 5.0,
+        poll_interval: float = 0.05,
+    ) -> GameState:
+        """Wait for expected number of players to be in game state.
+
+        Polls the game state until the player count reaches the expected value.
+        For no-opponent mode (expected_count equals current), returns immediately.
+
+        Args:
+            client: The game client to poll.
+            expected_count: Number of players to wait for.
+            timeout: Maximum time to wait in seconds.
+            poll_interval: Time between polls in seconds.
+
+        Returns:
+            GameState with expected player count.
+
+        Raises:
+            TimeoutError: If player count doesn't reach expected within timeout.
+        """
+        elapsed = 0.0
+        game_state: GameState | None = None
+        while elapsed < timeout:
+            game_state = await client.wait_for_game_state(timeout=timeout - elapsed)
+            if len(game_state.players) >= expected_count:
+                return game_state
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        player_count = len(game_state.players) if game_state else 0
+        raise TimeoutError(
+            f"Expected {expected_count} players but only {player_count} connected "
+            f"within {timeout}s."
+        )
 
     async def _step_single_env(
         self,

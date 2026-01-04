@@ -238,10 +238,9 @@ class TestVectorizedEnvWithOpponent:
 
             # Execute multiple steps
             for _ in range(10):
-                actions = np.array([
-                    env.single_action_space.sample()
-                    for _ in range(env.num_envs)
-                ])
+                actions = np.array(
+                    [env.single_action_space.sample() for _ in range(env.num_envs)]
+                )
                 observations, rewards, terminated, truncated, infos = env.step(actions)
 
                 assert observations.shape == (2, env.single_observation_space.shape[0])
@@ -274,10 +273,9 @@ class TestVectorizedEnvWithOpponent:
 
             # Take some steps
             for _ in range(5):
-                actions = np.array([
-                    env.single_action_space.sample()
-                    for _ in range(env.num_envs)
-                ])
+                actions = np.array(
+                    [env.single_action_space.sample() for _ in range(env.num_envs)]
+                )
                 env.step(actions)
         finally:
             env.close()
