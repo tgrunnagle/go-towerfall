@@ -700,7 +700,7 @@ func TestHandleBotAction(t *testing.T) {
 			request:        types.BotActionRequest{Actions: []types.BotAction{}},
 			wantStatusCode: http.StatusUnauthorized,
 			wantSuccess:    false,
-			wantError:      "Authorization header with Bearer token is required",
+			wantError:      "Player token is required",
 		},
 		{
 			name:           "Invalid player token",

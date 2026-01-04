@@ -16,6 +16,7 @@ from numpy.typing import NDArray
 
 from bot.actions import ACTION_SPACE_SIZE, Action, execute_action
 from bot.client import ClientMode, GameClient
+from bot.gym.opponent_manager import OpponentProtocol, create_opponent
 from bot.gym.reward import RewardConfig, StandardRewardFunction
 from bot.gym.termination import TerminationConfig, TerminationTracker
 from bot.models import GameState, PlayerStatsDTO
@@ -45,10 +46,12 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
     def __init__(
         self,
         http_url: str = "http://localhost:4000",
+        ws_url: str = "ws://localhost:4000/ws",
         player_name: str = "MLBot",
         room_name: str = "Training",
         map_type: str = "default",
         opponent_type: str = "rule_based",
+        opponent_name: str = "RuleBot",
         tick_rate_multiplier: float = 1.0,
         max_episode_steps: int = 1000,
         render_mode: str | None = None,
@@ -60,10 +63,12 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
 
         Args:
             http_url: Base URL for game server REST API.
+            ws_url: WebSocket URL for game server.
             player_name: Name for the RL agent player.
             room_name: Name for the training room.
             map_type: Map to use for training (e.g., "arena1").
             opponent_type: Type of opponent ("rule_based" or "none").
+            opponent_name: Name for the opponent player.
             tick_rate_multiplier: Game speed multiplier (requires server support).
             max_episode_steps: Maximum steps per episode before truncation.
                 Note: This is deprecated in favor of termination_config.max_timesteps.
@@ -78,10 +83,12 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
 
         # Configuration
         self.http_url = http_url
+        self.ws_url = ws_url
         self.player_name = player_name
         self.room_name = room_name
         self.map_type = map_type
         self.opponent_type = opponent_type
+        self.opponent_name = opponent_name
         self.tick_rate_multiplier = tick_rate_multiplier
         self.max_episode_steps = max_episode_steps
         self.render_mode = render_mode
@@ -114,6 +121,7 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
 
         # Runtime state
         self._client: GameClient | None = None
+        self._opponent: OpponentProtocol | None = None
         self._episode_step = 0
         self._loop: asyncio.AbstractEventLoop | None = None
         self._owns_loop = False
@@ -170,6 +178,10 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         """
         # If we already have a client with a room, reset the game
         if self._client is not None and self._client.room_id is not None:
+            # Reset opponent state for new episode
+            if self._opponent is not None:
+                self._opponent.reset()
+
             await self._client.reset_game(map_type=reset_map_type)
             # Wait for game state to be available after reset
             game_state = await self._client.wait_for_game_state()
@@ -177,8 +189,14 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
                 "room_id": self._client.room_id,
                 "room_code": self._client.room_code,
                 "player_id": self._client.player_id,
+                "opponent_type": self.opponent_type,
             }
             return game_state, info
+
+        # Stop existing opponent if any
+        if self._opponent is not None:
+            await self._opponent.stop()
+            self._opponent = None
 
         # Close existing client if any
         if self._client is not None:
@@ -187,6 +205,7 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         # Create new client in REST mode
         self._client = GameClient(
             http_url=self.http_url,
+            ws_url=self.ws_url,
             mode=ClientMode.REST,
         )
         await self._client.connect()
@@ -200,15 +219,81 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
             tick_rate_multiplier=self.tick_rate_multiplier,
         )
 
-        # Wait for initial state to be available
-        game_state = await self._client.wait_for_game_state()
+        # Create and start opponent
+        self._opponent = create_opponent(
+            opponent_type=self.opponent_type,
+            http_url=self.http_url,
+            ws_url=self.ws_url,
+            player_name=self.opponent_name,
+        )
+
+        # For real opponents, get player count before starting, then wait for +1
+        if self.opponent_type != "none":
+            initial_state = await self._client.wait_for_game_state()
+            initial_player_count = len(initial_state.players)
+
+            await self._opponent.start(
+                room_code=self._client.room_code or "",
+                room_password=self._client.room_password or "",
+            )
+
+            # Wait for opponent to connect (player count increases by 1)
+            game_state = await self._wait_for_player_count(initial_player_count + 1)
+        else:
+            # No opponent - just wait for initial state
+            await self._opponent.start(
+                room_code=self._client.room_code or "",
+                room_password=self._client.room_password or "",
+            )
+            game_state = await self._client.wait_for_game_state()
 
         info = {
             "room_id": self._client.room_id,
             "room_code": self._client.room_code,
             "player_id": self._client.player_id,
+            "opponent_type": self.opponent_type,
         }
         return game_state, info
+
+    async def _wait_for_player_count(
+        self,
+        expected_count: int,
+        timeout: float = 5.0,
+        poll_interval: float = 0.05,
+    ) -> GameState:
+        """Wait for expected number of players to be in game state.
+
+        Polls the game state until the player count reaches the expected value.
+        For no-opponent mode (expected_count equals current), returns immediately.
+
+        Args:
+            expected_count: Number of players to wait for.
+            timeout: Maximum time to wait in seconds.
+            poll_interval: Time between polls in seconds.
+
+        Returns:
+            GameState with expected player count.
+
+        Raises:
+            TimeoutError: If player count doesn't reach expected within timeout.
+        """
+        assert self._client is not None
+
+        elapsed = 0.0
+        game_state: GameState | None = None
+        while elapsed < timeout:
+            remaining = max(0.1, timeout - elapsed)
+            game_state = await self._client.wait_for_game_state(timeout=remaining)
+            if len(game_state.players) >= expected_count:
+                return game_state
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        player_count = len(game_state.players) if game_state else 0
+        raise TimeoutError(
+            f"Expected {expected_count} players but only {player_count} connected "
+            f"within {timeout}s."
+        )
 
     async def _async_step(self, action: int) -> tuple[GameState, dict[str, Any]]:
         """Async implementation of step logic.
@@ -233,6 +318,10 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         # Get new state
         game_state = await self._client.get_game_state()
         stats = await self._client.get_stats()
+
+        # Update opponent with current state (for synchronization)
+        if self._opponent is not None:
+            await self._opponent.on_game_state(game_state)
 
         return game_state, stats
 
@@ -459,11 +548,19 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
 
         return None
 
+    async def _async_close(self) -> None:
+        """Async implementation of close logic."""
+        if self._opponent is not None:
+            await self._opponent.stop()
+            self._opponent = None
+
+        if self._client is not None:
+            await self._client.close()
+            self._client = None
+
     def close(self) -> None:
         """Clean up environment resources."""
-        if self._client is not None:
-            self._run_async(self._client.close())
-            self._client = None
+        self._run_async(self._async_close())
 
         if self._loop is not None and self._owns_loop and not self._loop.is_running():
             self._loop.close()

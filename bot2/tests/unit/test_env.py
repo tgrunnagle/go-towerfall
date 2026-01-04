@@ -38,6 +38,7 @@ def make_create_game_response(**overrides: Any) -> CreateGameResponse:
         "roomId": "room-123",
         "roomCode": "ABC123",
         "roomName": "Test Room",
+        "roomPassword": "test-pass",
         "playerId": "player-456",
         "playerToken": "token-789",
         "canvasSizeX": 800,

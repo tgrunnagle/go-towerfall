@@ -36,6 +36,12 @@ Usage:
     env.close()
 """
 
+from bot.gym.opponent_manager import (
+    NoOpponent,
+    OpponentProtocol,
+    RuleBasedOpponent,
+    create_opponent,
+)
 from bot.gym.reward import RewardConfig, RewardFunction, StandardRewardFunction
 from bot.gym.termination import TerminationConfig, TerminationTracker
 from bot.gym.towerfall_env import TowerfallEnv
@@ -49,6 +55,10 @@ __all__ = [
     "StandardRewardFunction",
     "TerminationConfig",
     "TerminationTracker",
+    "OpponentProtocol",
+    "RuleBasedOpponent",
+    "NoOpponent",
+    "create_opponent",
 ]
 
 # Register with gymnasium

@@ -63,6 +63,7 @@ class CreateGameResponse(BaseModel):
     room_id: str = Field(alias="roomId")
     room_code: str = Field(alias="roomCode")
     room_name: str = Field(alias="roomName")
+    room_password: str = Field(alias="roomPassword")
     player_id: str = Field(alias="playerId")
     player_token: str = Field(alias="playerToken")
     canvas_size_x: int = Field(alias="canvasSizeX")
