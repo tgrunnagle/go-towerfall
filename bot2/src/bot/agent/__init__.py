@@ -7,10 +7,24 @@ for training PPO (Proximal Policy Optimization) agents.
 from bot.agent.network import ActorCriticNetwork
 from bot.agent.ppo_trainer import PPOConfig, PPOTrainer
 from bot.agent.rollout_buffer import RolloutBuffer
+from bot.agent.serialization import (
+    ModelCheckpoint,
+    ModelMetadata,
+    generate_model_filename,
+    get_checkpoint_info,
+    load_model,
+    save_model,
+)
 
 __all__ = [
     "ActorCriticNetwork",
+    "ModelCheckpoint",
+    "ModelMetadata",
     "PPOConfig",
     "PPOTrainer",
     "RolloutBuffer",
+    "generate_model_filename",
+    "get_checkpoint_info",
+    "load_model",
+    "save_model",
 ]
