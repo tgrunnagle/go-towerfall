@@ -10,8 +10,11 @@ Tests cover:
 - Device support (CPU/CUDA)
 """
 
+from typing import cast
+
 import pytest
 import torch
+import torch.nn as nn
 
 from bot.actions import ACTION_SPACE_SIZE
 from bot.agent.network import ActorCriticNetwork
@@ -60,12 +63,12 @@ class TestActorCriticNetworkInit:
         network = ActorCriticNetwork()
 
         # Check that actor output layer has small weights (gain=0.01)
-        actor_output_weight = network.actor[-1].weight
-        assert actor_output_weight.abs().max() < 0.1
+        actor_output = cast(nn.Linear, network.actor[-1])
+        assert actor_output.weight.abs().max() < 0.1
 
         # Check that biases are zero
         for module in network.modules():
-            if isinstance(module, torch.nn.Linear):
+            if isinstance(module, nn.Linear):
                 assert torch.allclose(module.bias, torch.zeros_like(module.bias))
 
 
@@ -197,8 +200,9 @@ class TestGetActionAndValue:
         network = ActorCriticNetwork(observation_size=114, action_size=27)
         # Use uniform-ish logits to increase variation
         torch.manual_seed(42)
-        network.actor[-1].weight.data.fill_(0.0)
-        network.actor[-1].bias.data.fill_(0.0)
+        actor_output = cast(nn.Linear, network.actor[-1])
+        actor_output.weight.data.fill_(0.0)
+        actor_output.bias.data.fill_(0.0)
 
         obs = torch.randn(1, 114)
         actions = []
@@ -346,8 +350,9 @@ class TestGradients:
         loss.backward()
 
         # Check gradients exist in actor
-        assert network.actor[-1].weight.grad is not None
-        assert network.actor[-1].weight.grad.abs().sum() > 0
+        actor_output = cast(nn.Linear, network.actor[-1])
+        assert actor_output.weight.grad is not None
+        assert actor_output.weight.grad.abs().sum() > 0
 
     def test_gradients_flow_through_critic(self) -> None:
         """Test gradients flow through critic head."""
@@ -359,8 +364,9 @@ class TestGradients:
         loss.backward()
 
         # Check gradients exist in critic
-        assert network.critic[-1].weight.grad is not None
-        assert network.critic[-1].weight.grad.abs().sum() > 0
+        critic_output = cast(nn.Linear, network.critic[-1])
+        assert critic_output.weight.grad is not None
+        assert critic_output.weight.grad.abs().sum() > 0
 
     def test_gradients_flow_through_shared_features(self) -> None:
         """Test gradients from both heads flow through shared features."""
@@ -372,8 +378,9 @@ class TestGradients:
         loss.backward()
 
         # Check gradients exist in shared features
-        assert network.features[0].weight.grad is not None
-        assert network.features[0].weight.grad.abs().sum() > 0
+        features_input = cast(nn.Linear, network.features[0])
+        assert features_input.weight.grad is not None
+        assert features_input.weight.grad.abs().sum() > 0
 
 
 class TestIntegrationWithGameConstants:

@@ -4,6 +4,8 @@ This module implements the neural network for Proximal Policy Optimization (PPO)
 with a shared feature extractor and separate actor/critic heads.
 """
 
+from typing import cast
+
 import torch
 import torch.nn as nn
 from torch.distributions import Categorical
@@ -33,6 +35,13 @@ class ActorCriticNetwork(nn.Module):
         critic_hidden: Size of critic head hidden layer
     """
 
+    # Type annotations for instance attributes (required for nn.Module subclasses)
+    observation_size: int
+    action_size: int
+    hidden_size: int
+    actor_hidden: int
+    critic_hidden: int
+
     def __init__(
         self,
         observation_size: int | None = None,
@@ -54,15 +63,18 @@ class ActorCriticNetwork(nn.Module):
         super().__init__()
 
         # Use defaults from existing modules
-        self.observation_size = (
+        # Note: ty type checker doesn't understand nn.Module.__setattr__, so we ignore these
+        self.observation_size = (  # type: ignore[unresolved-attribute]
             observation_size
             if observation_size is not None
             else DEFAULT_CONFIG.total_size
         )
-        self.action_size = action_size if action_size is not None else ACTION_SPACE_SIZE
-        self.hidden_size = hidden_size
-        self.actor_hidden = actor_hidden
-        self.critic_hidden = critic_hidden
+        self.action_size = (  # type: ignore[unresolved-attribute]
+            action_size if action_size is not None else ACTION_SPACE_SIZE
+        )
+        self.hidden_size = hidden_size  # type: ignore[unresolved-attribute]
+        self.actor_hidden = actor_hidden  # type: ignore[unresolved-attribute]
+        self.critic_hidden = critic_hidden  # type: ignore[unresolved-attribute]
 
         # Shared feature extractor
         self.features = nn.Sequential(
@@ -103,12 +115,14 @@ class ActorCriticNetwork(nn.Module):
 
         # Smaller initialization for output layers
         # Actor output: small gain encourages initial exploration
-        nn.init.orthogonal_(self.actor[-1].weight, gain=0.01)
-        nn.init.zeros_(self.actor[-1].bias)
+        actor_output = cast(nn.Linear, self.actor[-1])
+        nn.init.orthogonal_(actor_output.weight, gain=0.01)
+        nn.init.zeros_(actor_output.bias)
 
         # Critic output: standard gain for value estimation
-        nn.init.orthogonal_(self.critic[-1].weight, gain=1.0)
-        nn.init.zeros_(self.critic[-1].bias)
+        critic_output = cast(nn.Linear, self.critic[-1])
+        nn.init.orthogonal_(critic_output.weight, gain=1.0)
+        nn.init.zeros_(critic_output.bias)
 
     def forward(self, obs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass returning action logits and state value.
@@ -163,11 +177,14 @@ class ActorCriticNetwork(nn.Module):
 
         return action, log_prob, entropy, value
 
+    @torch.no_grad()
     def get_value(self, obs: torch.Tensor) -> torch.Tensor:
         """Get state value only.
 
         This method is more efficient than get_action_and_value when only
         the value is needed, such as for bootstrapping at the end of a rollout.
+        Uses @torch.no_grad() since this is typically called during rollout
+        collection where gradients aren't needed.
 
         Args:
             obs: Observation tensor of shape (batch, observation_size).
