@@ -5,5 +5,12 @@ for training PPO (Proximal Policy Optimization) agents.
 """
 
 from bot.agent.network import ActorCriticNetwork
+from bot.agent.ppo_trainer import PPOConfig, PPOTrainer
+from bot.agent.rollout_buffer import RolloutBuffer
 
-__all__ = ["ActorCriticNetwork"]
+__all__ = [
+    "ActorCriticNetwork",
+    "PPOConfig",
+    "PPOTrainer",
+    "RolloutBuffer",
+]
