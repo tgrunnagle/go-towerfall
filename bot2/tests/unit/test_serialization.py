@@ -263,8 +263,98 @@ class TestArchitectureValidation:
             with pytest.raises(ValueError, match="architecture mismatch"):
                 load_model(path, network=wrong_network)
 
-    def test_compatible_hidden_sizes(self):
-        """Different hidden sizes but same obs/action should work with new network."""
+    def test_hidden_size_mismatch(self):
+        """Different hidden size should raise ValueError."""
+        network = ActorCriticNetwork(
+            observation_size=114,
+            action_size=27,
+            hidden_size=256,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "model.pt"
+            save_model(network, path, version="v1")
+
+            wrong_network = ActorCriticNetwork(
+                observation_size=114,
+                action_size=27,
+                hidden_size=512,
+            )
+
+            with pytest.raises(ValueError, match="hidden_size"):
+                load_model(path, network=wrong_network)
+
+    def test_actor_hidden_mismatch(self):
+        """Different actor_hidden should raise ValueError."""
+        network = ActorCriticNetwork(
+            observation_size=114,
+            action_size=27,
+            actor_hidden=128,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "model.pt"
+            save_model(network, path, version="v1")
+
+            wrong_network = ActorCriticNetwork(
+                observation_size=114,
+                action_size=27,
+                actor_hidden=256,
+            )
+
+            with pytest.raises(ValueError, match="actor_hidden"):
+                load_model(path, network=wrong_network)
+
+    def test_critic_hidden_mismatch(self):
+        """Different critic_hidden should raise ValueError."""
+        network = ActorCriticNetwork(
+            observation_size=114,
+            action_size=27,
+            critic_hidden=128,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "model.pt"
+            save_model(network, path, version="v1")
+
+            wrong_network = ActorCriticNetwork(
+                observation_size=114,
+                action_size=27,
+                critic_hidden=256,
+            )
+
+            with pytest.raises(ValueError, match="critic_hidden"):
+                load_model(path, network=wrong_network)
+
+    def test_multiple_mismatches_reported(self):
+        """Multiple architecture mismatches should all be reported."""
+        network = ActorCriticNetwork(
+            observation_size=114,
+            action_size=27,
+            hidden_size=256,
+            actor_hidden=128,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "model.pt"
+            save_model(network, path, version="v1")
+
+            wrong_network = ActorCriticNetwork(
+                observation_size=114,
+                action_size=27,
+                hidden_size=512,
+                actor_hidden=256,
+            )
+
+            with pytest.raises(ValueError) as exc_info:
+                load_model(path, network=wrong_network)
+
+            error_msg = str(exc_info.value)
+            assert "hidden_size" in error_msg
+            assert "actor_hidden" in error_msg
+
+    def test_load_without_network_creates_correct_architecture(self):
+        """Loading without providing network should create one with saved architecture."""
         network = ActorCriticNetwork(
             observation_size=114,
             action_size=27,

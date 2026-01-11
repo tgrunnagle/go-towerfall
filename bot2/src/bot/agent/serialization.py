@@ -9,6 +9,7 @@ of the successive training pipeline.
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import torch
 
@@ -43,7 +44,7 @@ class ModelMetadata:
     total_episodes: int = 0
     final_reward: float = 0.0
     opponent_version: str | None = None
-    extra: dict = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -59,12 +60,12 @@ class ModelCheckpoint:
         hyperparameters: Hyperparameters used during training
     """
 
-    model_state_dict: dict
-    optimizer_state_dict: dict | None
+    model_state_dict: dict[str, Any]
+    optimizer_state_dict: dict[str, Any] | None
     training_step: int
     total_timesteps: int
     metadata: ModelMetadata
-    hyperparameters: dict = field(default_factory=dict)
+    hyperparameters: dict[str, Any] = field(default_factory=dict)
 
 
 def save_model(
@@ -173,14 +174,35 @@ def load_model(
         )
     else:
         # Validate network matches checkpoint architecture
-        if (
-            network.observation_size != arch["observation_size"]
-            or network.action_size != arch["action_size"]
-        ):
+        mismatches = []
+        if network.observation_size != arch["observation_size"]:
+            mismatches.append(
+                f"observation_size: expected {arch['observation_size']}, "
+                f"got {network.observation_size}"
+            )
+        if network.action_size != arch["action_size"]:
+            mismatches.append(
+                f"action_size: expected {arch['action_size']}, "
+                f"got {network.action_size}"
+            )
+        if network.hidden_size != arch["hidden_size"]:
+            mismatches.append(
+                f"hidden_size: expected {arch['hidden_size']}, "
+                f"got {network.hidden_size}"
+            )
+        if network.actor_hidden != arch["actor_hidden"]:
+            mismatches.append(
+                f"actor_hidden: expected {arch['actor_hidden']}, "
+                f"got {network.actor_hidden}"
+            )
+        if network.critic_hidden != arch["critic_hidden"]:
+            mismatches.append(
+                f"critic_hidden: expected {arch['critic_hidden']}, "
+                f"got {network.critic_hidden}"
+            )
+        if mismatches:
             raise ValueError(
-                f"Network architecture mismatch: "
-                f"expected obs={arch['observation_size']}, action={arch['action_size']}, "
-                f"got obs={network.observation_size}, action={network.action_size}"
+                f"Network architecture mismatch: {'; '.join(mismatches)}"
             )
 
     # Load weights
@@ -222,9 +244,13 @@ def load_model(
 
 
 def get_checkpoint_info(path: str | Path) -> ModelMetadata:
-    """Read checkpoint metadata without loading the full model.
+    """Read checkpoint metadata from a checkpoint file.
 
     Useful for listing available models or checking compatibility.
+
+    Note:
+        This function loads the full checkpoint file to extract metadata.
+        For large models, consider caching the result if calling repeatedly.
 
     Args:
         path: Path to the checkpoint file
@@ -277,12 +303,12 @@ def generate_model_filename(
     Args:
         prefix: Filename prefix (e.g., "ppo", "model")
         version: Version string (e.g., "v1", "gen-001")
-        include_timestamp: Whether to include a timestamp in the filename
+        include_timestamp: Whether to include a UTC timestamp in the filename
 
     Returns:
         Filename string with .pt extension
     """
     if include_timestamp:
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         return f"{prefix}_{version}_{timestamp}.pt"
     return f"{prefix}_{version}.pt"
