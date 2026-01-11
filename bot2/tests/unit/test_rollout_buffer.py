@@ -203,6 +203,7 @@ class TestComputeAdvantages:
             gamma=0.99,
             gae_lambda=0.95,
         )
+        assert buffer.advantages is not None
         adv_high_lambda = buffer.advantages.clone()
 
         # Reset and compute with lower lambda
