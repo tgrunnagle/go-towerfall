@@ -175,16 +175,20 @@ class RolloutBuffer:
             batch_indices = indices[start:end]
 
             # Convert numpy indices to tensor for indexing
-            idx = torch.as_tensor(batch_indices, dtype=torch.long, device=flat["observations"].device)
+            idx = torch.as_tensor(
+                batch_indices, dtype=torch.long, device=flat["observations"].device
+            )
 
-            batches.append({
-                "observations": flat["observations"][idx],
-                "actions": flat["actions"][idx],
-                "log_probs": flat["log_probs"][idx],
-                "advantages": flat["advantages"][idx],
-                "returns": flat["returns"][idx],
-                "values": flat["values"][idx],
-            })
+            batches.append(
+                {
+                    "observations": flat["observations"][idx],
+                    "actions": flat["actions"][idx],
+                    "log_probs": flat["log_probs"][idx],
+                    "advantages": flat["advantages"][idx],
+                    "returns": flat["returns"][idx],
+                    "values": flat["values"][idx],
+                }
+            )
 
         return batches
 

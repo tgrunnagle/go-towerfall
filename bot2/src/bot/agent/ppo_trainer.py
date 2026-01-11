@@ -181,8 +181,12 @@ class PPOTrainer:
             )
             done = np.logical_or(terminated, truncated)
 
-            buffer.rewards[step] = torch.as_tensor(reward, dtype=torch.float32, device=self.device)
-            buffer.dones[step] = torch.as_tensor(done, dtype=torch.float32, device=self.device)
+            buffer.rewards[step] = torch.as_tensor(
+                reward, dtype=torch.float32, device=self.device
+            )
+            buffer.dones[step] = torch.as_tensor(
+                done, dtype=torch.float32, device=self.device
+            )
 
             # Environment handles auto-reset, so next_obs is always valid
             obs = torch.as_tensor(next_obs, dtype=torch.float32)
@@ -255,8 +259,8 @@ class PPOTrainer:
                     approx_kl = ((ratio - 1) - log_ratio).mean()
                     # Fraction of samples where clipping was applied
                     clip_fraction = (
-                        (ratio - 1.0).abs() > self.config.clip_range
-                    ).float().mean()
+                        ((ratio - 1.0).abs() > self.config.clip_range).float().mean()
+                    )
 
                 # PPO clipped surrogate objective
                 policy_loss_1 = -advantages * ratio
