@@ -203,6 +203,7 @@ class TestComputeAdvantages:
             gamma=0.99,
             gae_lambda=0.95,
         )
+        assert buffer.advantages is not None
         adv_high_lambda = buffer.advantages.clone()
 
         # Reset and compute with lower lambda
@@ -410,7 +411,14 @@ class TestGetMinibatches:
 
         batches = buffer.get_minibatches(minibatch_size=16)
 
-        expected_keys = {"observations", "actions", "log_probs", "advantages", "returns", "values"}
+        expected_keys = {
+            "observations",
+            "actions",
+            "log_probs",
+            "advantages",
+            "returns",
+            "values",
+        }
         for batch in batches:
             assert set(batch.keys()) == expected_keys
 
@@ -526,6 +534,12 @@ class TestGAEComputation:
         expected_1 = 1.0 + gae_coeff * expected_2
         expected_0 = 1.0 + gae_coeff * expected_1
 
-        assert torch.allclose(buffer.advantages[2, 0], torch.tensor(expected_2), atol=1e-6)
-        assert torch.allclose(buffer.advantages[1, 0], torch.tensor(expected_1), atol=1e-6)
-        assert torch.allclose(buffer.advantages[0, 0], torch.tensor(expected_0), atol=1e-6)
+        assert torch.allclose(
+            buffer.advantages[2, 0], torch.tensor(expected_2), atol=1e-6
+        )
+        assert torch.allclose(
+            buffer.advantages[1, 0], torch.tensor(expected_1), atol=1e-6
+        )
+        assert torch.allclose(
+            buffer.advantages[0, 0], torch.tensor(expected_0), atol=1e-6
+        )

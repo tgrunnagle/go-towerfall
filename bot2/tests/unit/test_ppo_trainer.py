@@ -237,7 +237,9 @@ class TestUpdate:
 
         return trainer, buffer
 
-    def test_returns_metrics_dict(self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]) -> None:
+    def test_returns_metrics_dict(
+        self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]
+    ) -> None:
         """Test update returns dictionary with expected metrics."""
         trainer, buffer = trainer_and_buffer
 
@@ -252,7 +254,9 @@ class TestUpdate:
         assert "total_timesteps" in metrics
         assert "num_updates" in metrics
 
-    def test_updates_num_updates(self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]) -> None:
+    def test_updates_num_updates(
+        self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]
+    ) -> None:
         """Test num_updates is incremented."""
         trainer, buffer = trainer_and_buffer
 
@@ -262,7 +266,9 @@ class TestUpdate:
         trainer.update(buffer)
         assert trainer.num_updates == 2
 
-    def test_metrics_are_floats(self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]) -> None:
+    def test_metrics_are_floats(
+        self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]
+    ) -> None:
         """Test all metrics are Python floats or ints."""
         trainer, buffer = trainer_and_buffer
 
@@ -274,7 +280,9 @@ class TestUpdate:
         assert isinstance(metrics["clip_fraction"], float)
         assert isinstance(metrics["approx_kl"], float)
 
-    def test_clip_fraction_in_valid_range(self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]) -> None:
+    def test_clip_fraction_in_valid_range(
+        self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]
+    ) -> None:
         """Test clip_fraction is between 0 and 1."""
         trainer, buffer = trainer_and_buffer
 
@@ -282,7 +290,9 @@ class TestUpdate:
 
         assert 0.0 <= metrics["clip_fraction"] <= 1.0
 
-    def test_entropy_is_positive(self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]) -> None:
+    def test_entropy_is_positive(
+        self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]
+    ) -> None:
         """Test entropy metric is positive."""
         trainer, buffer = trainer_and_buffer
 
@@ -290,7 +300,9 @@ class TestUpdate:
 
         assert metrics["entropy"] >= 0.0
 
-    def test_network_parameters_change(self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]) -> None:
+    def test_network_parameters_change(
+        self, trainer_and_buffer: tuple[PPOTrainer, RolloutBuffer]
+    ) -> None:
         """Test network parameters are updated during training."""
         trainer, buffer = trainer_and_buffer
 
@@ -331,7 +343,9 @@ class TestClipping:
 
         # Small clip range should cause more clipping
         config_small = PPOConfig(clip_range=0.05, num_epochs=1)
-        trainer_small = PPOTrainer(network, config=config_small, device=torch.device("cpu"))
+        trainer_small = PPOTrainer(
+            network, config=config_small, device=torch.device("cpu")
+        )
         metrics_small = trainer_small.update(buffer)
 
         # Reset network for fair comparison
@@ -340,7 +354,9 @@ class TestClipping:
 
         # Large clip range should cause less clipping
         config_large = PPOConfig(clip_range=0.5, num_epochs=1)
-        trainer_large = PPOTrainer(network2, config=config_large, device=torch.device("cpu"))
+        trainer_large = PPOTrainer(
+            network2, config=config_large, device=torch.device("cpu")
+        )
         metrics_large = trainer_large.update(buffer)
 
         # We expect smaller clip range to have higher clip fraction
@@ -421,6 +437,7 @@ class TestSaveLoad:
         trainer.save(checkpoint_path)
 
         import os
+
         assert os.path.exists(checkpoint_path)
 
     def test_load_restores_state(self, tmp_path: pytest.TempPathFactory) -> None:
@@ -441,7 +458,9 @@ class TestSaveLoad:
         assert trainer2.total_timesteps == 5000
         assert trainer2.num_updates == 10
 
-    def test_load_restores_network_weights(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_load_restores_network_weights(
+        self, tmp_path: pytest.TempPathFactory
+    ) -> None:
         """Test load restores network parameters."""
         network = ActorCriticNetwork(observation_size=114, action_size=27)
         trainer = PPOTrainer(network, device=torch.device("cpu"))
@@ -558,13 +577,17 @@ class TestEntropyBonus:
         # Both configs should work
         network1 = ActorCriticNetwork(observation_size=114, action_size=27)
         config_low = PPOConfig(entropy_coef=0.001, num_epochs=1)
-        trainer_low = PPOTrainer(network1, config=config_low, device=torch.device("cpu"))
+        trainer_low = PPOTrainer(
+            network1, config=config_low, device=torch.device("cpu")
+        )
         metrics_low = trainer_low.update(buffer)
 
         buffer.compute_advantages(torch.zeros(4), torch.zeros(4))  # Recompute
         network2 = ActorCriticNetwork(observation_size=114, action_size=27)
         config_high = PPOConfig(entropy_coef=0.1, num_epochs=1)
-        trainer_high = PPOTrainer(network2, config=config_high, device=torch.device("cpu"))
+        trainer_high = PPOTrainer(
+            network2, config=config_high, device=torch.device("cpu")
+        )
         metrics_high = trainer_high.update(buffer)
 
         # Both should produce valid entropy metrics

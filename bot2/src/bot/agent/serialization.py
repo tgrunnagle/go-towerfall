@@ -201,9 +201,7 @@ def load_model(
                 f"got {network.critic_hidden}"
             )
         if mismatches:
-            raise ValueError(
-                f"Network architecture mismatch: {'; '.join(mismatches)}"
-            )
+            raise ValueError(f"Network architecture mismatch: {'; '.join(mismatches)}")
 
     # Load weights
     network.load_state_dict(checkpoint["model_state_dict"])

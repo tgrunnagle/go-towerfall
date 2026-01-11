@@ -1,0 +1,34 @@
+# PPO Default Configuration
+# Standard hyperparameters for PPO training based on best practices
+
+core:
+  learning_rate: 0.0003
+  clip_range: 0.2
+  clip_range_vf: null
+  n_epochs: 10
+  batch_size: 64
+  n_steps: 2048
+  gamma: 0.99
+  gae_lambda: 0.95
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+
+network:
+  hidden_sizes: [64, 64]
+  activation: tanh
+  share_features: true
+  ortho_init: true
+
+training:
+  total_timesteps: 1000000
+  seed: null
+  device: auto
+  normalize_advantage: true
+  target_kl: null
+
+logging:
+  log_interval: 10
+  save_interval: 50
+  tensorboard: true
+  log_dir: logs/

@@ -276,7 +276,8 @@ class TestGetActionDistribution:
 
         dist = network.get_action_distribution(obs)
 
-        assert dist.probs.shape == (8, 27)
+        probs = cast(torch.Tensor, dist.probs)
+        assert probs.shape == (8, 27)
 
     def test_probabilities_sum_to_one(self) -> None:
         """Test that action probabilities sum to 1."""
@@ -285,7 +286,8 @@ class TestGetActionDistribution:
 
         dist = network.get_action_distribution(obs)
 
-        prob_sums = dist.probs.sum(dim=-1)
+        probs = cast(torch.Tensor, dist.probs)
+        prob_sums = probs.sum(dim=-1)
         assert torch.allclose(prob_sums, torch.ones(8))
 
 
