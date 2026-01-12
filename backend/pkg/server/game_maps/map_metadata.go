@@ -73,3 +73,37 @@ func GetAllMapsMetadata() ([]*MapMetadata, error) {
 
 	return metadata, nil
 }
+
+// IsValidMapType checks if a map type is valid (exists in the meta directory)
+func IsValidMapType(mapType string) bool {
+	metadata, err := GetAllMapsMetadata()
+	if err != nil {
+		return false
+	}
+
+	expectedMapType := MapType("meta/" + mapType + ".json")
+	for _, md := range metadata {
+		if md.MapType == expectedMapType {
+			return true
+		}
+	}
+	return false
+}
+
+// GetValidMapTypes returns a list of valid map type names (without path prefix/suffix)
+func GetValidMapTypes() ([]string, error) {
+	metadata, err := GetAllMapsMetadata()
+	if err != nil {
+		return nil, err
+	}
+
+	mapTypes := make([]string, 0, len(metadata))
+	for _, md := range metadata {
+		// Extract map type name from "meta/name.json" format
+		mapType := string(md.MapType)
+		mapType = mapType[5:]                   // Remove "meta/" prefix
+		mapType = mapType[:len(mapType)-5]      // Remove ".json" suffix
+		mapTypes = append(mapTypes, mapType)
+	}
+	return mapTypes, nil
+}

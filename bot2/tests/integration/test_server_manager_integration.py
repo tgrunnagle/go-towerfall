@@ -33,7 +33,7 @@ class TestGameServerManagerIntegration:
         """Test creating a training game instance."""
         config = TrainingGameConfig(
             room_name=unique_room_name("ServerManagerTest"),
-            map_type="basic",
+            map_type="default",
             tick_multiplier=10.0,
             max_game_duration_sec=60,
             disable_respawn_timer=True,
@@ -159,7 +159,7 @@ class TestGameServerManagerIntegration:
         """Test that training mode options are applied to created games."""
         config = TrainingGameConfig(
             room_name=unique_room_name("TrainingOptionsTest"),
-            map_type="basic",
+            map_type="default",
             tick_multiplier=5.0,
             max_game_duration_sec=120,
             disable_respawn_timer=True,

@@ -86,7 +86,7 @@ tasks:
     dir: bot2
     desc: Run all bot2 tests (including slow tests,requires running server)
     cmds:
-      - uv run pytest -v
+      - uv run pytest tests/ -v
     deps:
       - bot2:install
 

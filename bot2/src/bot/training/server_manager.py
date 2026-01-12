@@ -30,7 +30,7 @@ class TrainingGameConfig:
     """Configuration for a training game instance."""
 
     room_name: str
-    map_type: str = "basic"
+    map_type: str = "default"
     tick_multiplier: float = 10.0
     max_game_duration_sec: int = 60
     disable_respawn_timer: bool = True
@@ -232,7 +232,10 @@ class GameServerManager:
             raise GameNotFoundError(f"Game {room_id} not found")
 
         try:
-            response = await self._client.post(f"/api/rooms/{room_id}/reset", json={})
+            headers = {"X-Player-Token": instance.player_token}
+            response = await self._client.post(
+                f"/api/rooms/{room_id}/reset", json={}, headers=headers
+            )
             response.raise_for_status()
             data = response.json()
 
@@ -240,7 +243,9 @@ class GameServerManager:
                 raise GameServerError(data.get("error", "Reset failed"))
 
             # Fetch and return initial state after reset
-            return await self._fetch_game_state(room_id, instance.canvas_size)
+            return await self._fetch_game_state(
+                room_id, instance.canvas_size, instance.player_token
+            )
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
@@ -254,19 +259,22 @@ class GameServerManager:
                 await self.terminate_game(room_id)
                 new_instance = await self.create_game(config, player_name)
                 return await self._fetch_game_state(
-                    new_instance.room_id, new_instance.canvas_size
+                    new_instance.room_id,
+                    new_instance.canvas_size,
+                    new_instance.player_token,
                 )
             logger.error("HTTP error resetting game: %s", e)
             raise GameServerError(f"Reset failed: {e}") from e
 
     async def _fetch_game_state(
-        self, room_id: str, canvas_size: tuple[int, int]
+        self, room_id: str, canvas_size: tuple[int, int], player_token: str
     ) -> GameState:
         """Fetch the current game state from the server.
 
         Args:
             room_id: The room ID to fetch state for.
             canvas_size: Canvas dimensions (width, height).
+            player_token: The player token for authentication.
 
         Returns:
             Parsed GameState object.
@@ -278,7 +286,10 @@ class GameServerManager:
             raise GameServerError("Client not connected")
 
         try:
-            response = await self._client.get(f"/api/rooms/{room_id}/state")
+            headers = {"X-Player-Token": player_token}
+            response = await self._client.get(
+                f"/api/rooms/{room_id}/state", headers=headers
+            )
             response.raise_for_status()
             data = response.json()
 

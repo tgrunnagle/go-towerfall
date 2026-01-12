@@ -32,7 +32,7 @@ class TestTrainingGameConfig:
         """Test default configuration values."""
         config = TrainingGameConfig(room_name="Test Room")
         assert config.room_name == "Test Room"
-        assert config.map_type == "basic"
+        assert config.map_type == "default"
         assert config.tick_multiplier == 10.0
         assert config.max_game_duration_sec == 60
         assert config.disable_respawn_timer is True
