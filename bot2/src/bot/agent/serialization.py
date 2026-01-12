@@ -17,7 +17,7 @@ from bot.agent.network import ActorCriticNetwork
 
 
 @dataclass
-class ModelMetadata:
+class CheckpointMetadata:
     """Metadata for a saved model checkpoint.
 
     Attributes:
@@ -56,7 +56,7 @@ class ModelCheckpoint:
         optimizer_state_dict: Optional optimizer state for training resumption
         training_step: Current training step/update number
         total_timesteps: Total environment steps collected
-        metadata: Model metadata including version and architecture
+        metadata: Checkpoint metadata including version and architecture
         hyperparameters: Hyperparameters used during training
     """
 
@@ -64,7 +64,7 @@ class ModelCheckpoint:
     optimizer_state_dict: dict[str, Any] | None
     training_step: int
     total_timesteps: int
-    metadata: ModelMetadata
+    metadata: CheckpointMetadata
     hyperparameters: dict[str, Any] = field(default_factory=dict)
 
 
@@ -216,7 +216,7 @@ def load_model(
     meta = checkpoint["metadata"]
     training_info = meta.get("training_info", {})
 
-    metadata = ModelMetadata(
+    metadata = CheckpointMetadata(
         version=meta["version"],
         created_at=datetime.fromisoformat(meta["created_at"]),
         observation_size=arch["observation_size"],
@@ -241,7 +241,7 @@ def load_model(
     return network, checkpoint_data
 
 
-def get_checkpoint_info(path: str | Path) -> ModelMetadata:
+def get_checkpoint_info(path: str | Path) -> CheckpointMetadata:
     """Read checkpoint metadata from a checkpoint file.
 
     Useful for listing available models or checking compatibility.
@@ -254,7 +254,7 @@ def get_checkpoint_info(path: str | Path) -> ModelMetadata:
         path: Path to the checkpoint file
 
     Returns:
-        ModelMetadata with checkpoint information
+        CheckpointMetadata with checkpoint information
 
     Raises:
         FileNotFoundError: If checkpoint file doesn't exist
@@ -277,7 +277,7 @@ def get_checkpoint_info(path: str | Path) -> ModelMetadata:
     arch = meta["architecture"]
     training_info = meta.get("training_info", {})
 
-    return ModelMetadata(
+    return CheckpointMetadata(
         version=meta["version"],
         created_at=datetime.fromisoformat(meta["created_at"]),
         observation_size=arch["observation_size"],

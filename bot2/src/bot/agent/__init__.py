@@ -8,8 +8,8 @@ from bot.agent.network import ActorCriticNetwork
 from bot.agent.ppo_trainer import PPOConfig, PPOTrainer
 from bot.agent.rollout_buffer import RolloutBuffer
 from bot.agent.serialization import (
+    CheckpointMetadata,
     ModelCheckpoint,
-    ModelMetadata,
     generate_model_filename,
     get_checkpoint_info,
     load_model,
@@ -18,8 +18,8 @@ from bot.agent.serialization import (
 
 __all__ = [
     "ActorCriticNetwork",
+    "CheckpointMetadata",
     "ModelCheckpoint",
-    "ModelMetadata",
     "PPOConfig",
     "PPOTrainer",
     "RolloutBuffer",

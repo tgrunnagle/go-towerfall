@@ -9,8 +9,8 @@ import torch
 
 from bot.agent.network import ActorCriticNetwork
 from bot.agent.serialization import (
+    CheckpointMetadata,
     ModelCheckpoint,
-    ModelMetadata,
     generate_model_filename,
     get_checkpoint_info,
     load_model,
@@ -18,12 +18,12 @@ from bot.agent.serialization import (
 )
 
 
-class TestModelMetadata:
-    """Tests for ModelMetadata dataclass."""
+class TestCheckpointMetadata:
+    """Tests for CheckpointMetadata dataclass."""
 
     def test_create_minimal(self):
         """Test creating metadata with minimal required fields."""
-        metadata = ModelMetadata(
+        metadata = CheckpointMetadata(
             version="v1.0.0",
             created_at=datetime.now(timezone.utc),
             observation_size=114,
@@ -40,7 +40,7 @@ class TestModelMetadata:
 
     def test_create_full(self):
         """Test creating metadata with all fields."""
-        metadata = ModelMetadata(
+        metadata = CheckpointMetadata(
             version="gen-005",
             created_at=datetime.now(timezone.utc),
             observation_size=100,
@@ -65,7 +65,7 @@ class TestModelCheckpoint:
 
     def test_create_checkpoint(self):
         """Test creating a model checkpoint."""
-        metadata = ModelMetadata(
+        metadata = CheckpointMetadata(
             version="v1",
             created_at=datetime.now(timezone.utc),
             observation_size=114,
