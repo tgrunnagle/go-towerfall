@@ -74,6 +74,14 @@ tasks:
     deps:
       - bot2:install
 
+  bot2:test:integration:slow:
+    dir: bot2
+    desc: Run slow bot2 integration tests (requires running server)
+    cmds:
+      - uv run pytest tests/integration/ -v -m "slow"
+    deps:
+      - bot2:install
+
   bot2:test:all:
     dir: bot2
     desc: Run all bot2 tests (including slow tests,requires running server)
