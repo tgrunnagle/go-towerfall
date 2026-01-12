@@ -230,6 +230,17 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Validate map type before creating the game
+	if !game_maps.IsValidMapType(req.MapType) {
+		validTypes, _ := game_maps.GetValidMapTypes()
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid mapType '%s', valid types are: %v", req.MapType, validTypes),
+		})
+		return
+	}
+
 	// Create game with specified map type and training options
 	mapType := game_maps.MapType("meta/" + req.MapType + ".json")
 	room, player, err := NewGameWithPlayerAndTrainingConfig(req.RoomName, req.PlayerName, mapType, nil, trainingOptions)
