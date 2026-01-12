@@ -54,7 +54,7 @@ tasks:
     dir: bot2
     desc: Run all bot2 tests (unit + integration if server available)
     cmds:
-      - uv run pytest tests/ -v
+      - uv run pytest tests/ -v -m "not slow"
     deps:
       - bot2:install
 
@@ -68,9 +68,17 @@ tasks:
 
   bot2:test:integration:
     dir: bot2
-    desc: Run bot2 integration tests (requires running server)
+    desc: Run bot2 integration tests (excluding slow tests, requires running server)
     cmds:
-      - uv run pytest tests/integration/ -v
+      - uv run pytest tests/integration/ -v -m "not slow"
+    deps:
+      - bot2:install
+
+  bot2:test:all:
+    dir: bot2
+    desc: Run all bot2 tests (including slow tests,requires running server)
+    cmds:
+      - uv run pytest -v
     deps:
       - bot2:install
 
