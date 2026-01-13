@@ -426,7 +426,7 @@ class TrainingOrchestrator:
         eval_deaths: list[float] = []
         eval_lengths: list[int] = []
 
-        for episode in range(self.config.eval_episodes):
+        for _ in range(self.config.eval_episodes):
             # Use separate evaluation environment (single env)
             obs_array, _ = self._eval_env.reset()
             obs = torch.as_tensor(obs_array, dtype=torch.float32, device=self.device)
@@ -437,7 +437,7 @@ class TrainingOrchestrator:
             episode_deaths_count = 0.0
             done = False
 
-            while not done and episode_length < 1000:
+            while not done and episode_length < self.config.max_eval_episode_steps:
                 with torch.no_grad():
                     action, _, _, _ = self.network.get_action_and_value(
                         obs, deterministic=True

@@ -36,6 +36,7 @@ class OrchestratorConfig:
         log_interval: Timesteps between logging progress
         eval_interval: Timesteps between evaluation runs
         eval_episodes: Number of episodes per evaluation
+        max_eval_episode_steps: Maximum steps per evaluation episode
         seed: Random seed for reproducibility (None = random)
 
     Example:
@@ -73,6 +74,7 @@ class OrchestratorConfig:
     # Evaluation
     eval_interval: int = 50_000
     eval_episodes: int = 10
+    max_eval_episode_steps: int = 10_000
 
     # Seeds
     seed: int | None = None
@@ -91,6 +93,8 @@ class OrchestratorConfig:
             raise ValueError("eval_interval must be at least 1")
         if self.eval_episodes < 1:
             raise ValueError("eval_episodes must be at least 1")
+        if self.max_eval_episode_steps < 1:
+            raise ValueError("max_eval_episode_steps must be at least 1")
 
     @property
     def steps_per_rollout(self) -> int:
@@ -123,6 +127,7 @@ class OrchestratorConfig:
             "log_interval": self.log_interval,
             "eval_interval": self.eval_interval,
             "eval_episodes": self.eval_episodes,
+            "max_eval_episode_steps": self.max_eval_episode_steps,
             "seed": self.seed,
         }
 
@@ -160,8 +165,8 @@ class OrchestratorConfig:
             })
         """
         # Extract nested configs and convert them
-        ppo_config_data = data.pop("ppo_config", None)
-        game_config_data = data.pop("game_config", None)
+        ppo_config_data = data.get("ppo_config", None)
+        game_config_data = data.get("game_config", None)
 
         # Build nested config objects
         ppo_config = PPOConfig(**ppo_config_data) if ppo_config_data else PPOConfig()
@@ -171,10 +176,15 @@ class OrchestratorConfig:
             else TrainingGameConfig(room_name="Training")
         )
 
+        # Filter out nested config keys to avoid duplicate arguments
+        remaining_data = {
+            k: v for k, v in data.items() if k not in ("ppo_config", "game_config")
+        }
+
         return cls(
             ppo_config=ppo_config,
             game_config=game_config,
-            **data,
+            **remaining_data,
         )
 
     @classmethod
