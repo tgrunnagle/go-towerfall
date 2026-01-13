@@ -34,6 +34,7 @@ class TrainingOrchestrator:
     The TrainingOrchestrator coordinates all components of the training
     pipeline including:
     - Vectorized environments for parallel data collection
+    - Separate evaluation environment to avoid interfering with training
     - PPO trainer for policy updates
     - Model registry for storing trained models
     - Checkpointing for training recovery
@@ -52,7 +53,8 @@ class TrainingOrchestrator:
     Attributes:
         config: Orchestrator configuration
         device: Torch device for computation
-        env: Vectorized environment instance
+        env: Vectorized environment instance for training
+        eval_env: Separate environment instance for evaluation
         network: Actor-critic neural network
         trainer: PPO trainer instance
         registry: Model registry instance
@@ -73,6 +75,7 @@ class TrainingOrchestrator:
 
         # Components (initialized in setup)
         self.env: VectorizedTowerfallEnv | None = None
+        self._eval_env: VectorizedTowerfallEnv | None = None
         self.network: ActorCriticNetwork | None = None
         self.trainer: PPOTrainer | None = None
         self.registry: ModelRegistry | None = None
@@ -107,13 +110,25 @@ class TrainingOrchestrator:
             np.random.seed(self.config.seed)
             logger.info("Random seed set to %d", self.config.seed)
 
-        # Initialize vectorized environments
+        # Initialize vectorized environments for training
         self.env = VectorizedTowerfallEnv(
             num_envs=self.config.num_envs,
             http_url=self.config.game_server_url,
             ws_url=self.config.game_server_url.replace("http", "ws") + "/ws",
             player_name="TrainingBot",
             room_name_prefix="Training",
+            map_type=self.config.game_config.map_type,
+            tick_rate_multiplier=self.config.game_config.tick_multiplier,
+            max_episode_steps=self.config.game_config.max_game_duration_sec * 60,
+        )
+
+        # Initialize separate evaluation environment (single env, doesn't interfere with training)
+        self._eval_env = VectorizedTowerfallEnv(
+            num_envs=1,
+            http_url=self.config.game_server_url,
+            ws_url=self.config.game_server_url.replace("http", "ws") + "/ws",
+            player_name="EvalBot",
+            room_name_prefix="Evaluation",
             map_type=self.config.game_config.map_type,
             tick_rate_multiplier=self.config.game_config.tick_multiplier,
             max_episode_steps=self.config.game_config.max_game_duration_sec * 60,
@@ -394,10 +409,14 @@ class TrainingOrchestrator:
     async def _run_evaluation(self) -> dict[str, Any]:
         """Run evaluation episodes and compute metrics.
 
+        Uses a separate evaluation environment to avoid interfering with
+        training environment state. This ensures training can continue
+        seamlessly after evaluation completes.
+
         Returns:
             Dictionary of evaluation metrics
         """
-        if self.env is None or self.network is None:
+        if self._eval_env is None or self.network is None:
             return {}
 
         logger.info("Running evaluation (%d episodes)...", self.config.eval_episodes)
@@ -408,11 +427,14 @@ class TrainingOrchestrator:
         eval_lengths: list[int] = []
 
         for episode in range(self.config.eval_episodes):
-            obs_array, _ = self.env.reset()
+            # Use separate evaluation environment (single env)
+            obs_array, _ = self._eval_env.reset()
             obs = torch.as_tensor(obs_array, dtype=torch.float32, device=self.device)
 
             episode_reward = 0.0
             episode_length = 0
+            episode_kills_count = 0.0
+            episode_deaths_count = 0.0
             done = False
 
             while not done and episode_length < 1000:
@@ -421,7 +443,7 @@ class TrainingOrchestrator:
                         obs, deterministic=True
                     )
 
-                next_obs, reward, terminated, truncated, info = self.env.step(
+                next_obs, reward, terminated, truncated, info = self._eval_env.step(
                     action.cpu().numpy()
                 )
 
@@ -436,12 +458,14 @@ class TrainingOrchestrator:
                 if "env_infos" in info:
                     for env_info in info["env_infos"]:
                         if "episode_kills" in env_info:
-                            eval_kills.append(float(env_info["episode_kills"]))
+                            episode_kills_count = float(env_info["episode_kills"])
                         if "episode_deaths" in env_info:
-                            eval_deaths.append(float(env_info["episode_deaths"]))
+                            episode_deaths_count = float(env_info["episode_deaths"])
 
             eval_rewards.append(episode_reward)
             eval_lengths.append(episode_length)
+            eval_kills.append(episode_kills_count)
+            eval_deaths.append(episode_deaths_count)
 
         metrics: dict[str, Any] = {
             "eval_avg_reward": float(np.mean(eval_rewards)),
@@ -557,6 +581,10 @@ class TrainingOrchestrator:
         if self.env is not None:
             self.env.close()
             self.env = None
+
+        if self._eval_env is not None:
+            self._eval_env.close()
+            self._eval_env = None
 
         logger.info("Cleanup complete")
 

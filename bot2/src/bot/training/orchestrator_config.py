@@ -5,7 +5,11 @@ options for the TrainingOrchestrator, including environment settings, training
 hyperparameters, checkpointing, and logging.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 from bot.agent.ppo_trainer import PPOConfig
 from bot.training.server_manager import TrainingGameConfig
@@ -96,3 +100,101 @@ class OrchestratorConfig:
             num_steps * num_envs
         """
         return self.ppo_config.num_steps * self.num_envs
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert configuration to a nested dictionary.
+
+        Converts all dataclass fields to dictionaries, including nested
+        PPOConfig and TrainingGameConfig objects.
+
+        Returns:
+            Dictionary representation of the configuration.
+        """
+        return {
+            "num_envs": self.num_envs,
+            "game_server_url": self.game_server_url,
+            "game_config": asdict(self.game_config),
+            "ppo_config": asdict(self.ppo_config),
+            "total_timesteps": self.total_timesteps,
+            "checkpoint_interval": self.checkpoint_interval,
+            "checkpoint_dir": self.checkpoint_dir,
+            "registry_path": self.registry_path,
+            "opponent_model_id": self.opponent_model_id,
+            "log_interval": self.log_interval,
+            "eval_interval": self.eval_interval,
+            "eval_episodes": self.eval_episodes,
+            "seed": self.seed,
+        }
+
+    def to_yaml(self, path: str | Path) -> None:
+        """Save configuration to a YAML file.
+
+        Args:
+            path: Path to the output YAML file.
+
+        Example:
+            config = OrchestratorConfig(num_envs=8)
+            config.to_yaml("training_config.yaml")
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            yaml.dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "OrchestratorConfig":
+        """Create configuration from a dictionary.
+
+        Handles nested PPOConfig and TrainingGameConfig objects.
+
+        Args:
+            data: Dictionary containing configuration values.
+
+        Returns:
+            OrchestratorConfig instance.
+
+        Example:
+            config = OrchestratorConfig.from_dict({
+                "num_envs": 8,
+                "total_timesteps": 500_000,
+            })
+        """
+        # Extract nested configs and convert them
+        ppo_config_data = data.pop("ppo_config", None)
+        game_config_data = data.pop("game_config", None)
+
+        # Build nested config objects
+        ppo_config = PPOConfig(**ppo_config_data) if ppo_config_data else PPOConfig()
+        game_config = (
+            TrainingGameConfig(**game_config_data)
+            if game_config_data
+            else TrainingGameConfig(room_name="Training")
+        )
+
+        return cls(
+            ppo_config=ppo_config,
+            game_config=game_config,
+            **data,
+        )
+
+    @classmethod
+    def from_yaml(cls, path: str | Path) -> "OrchestratorConfig":
+        """Load configuration from a YAML file.
+
+        Args:
+            path: Path to the YAML configuration file.
+
+        Returns:
+            OrchestratorConfig instance.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            yaml.YAMLError: If the file is not valid YAML.
+
+        Example:
+            config = OrchestratorConfig.from_yaml("training_config.yaml")
+        """
+        path = Path(path)
+        with open(path) as f:
+            data = yaml.safe_load(f)
+        return cls.from_dict(data)

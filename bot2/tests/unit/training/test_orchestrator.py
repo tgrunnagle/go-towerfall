@@ -406,6 +406,25 @@ class TestContextManager:
         mock_env.close.assert_called_once()
         assert orchestrator.env is None
 
+    @pytest.mark.asyncio
+    async def test_cleanup_closes_eval_env(self) -> None:
+        """Test cleanup closes evaluation environment."""
+        config = OrchestratorConfig()
+        orchestrator = TrainingOrchestrator(config)
+
+        # Create mock envs
+        mock_env = MagicMock()
+        mock_eval_env = MagicMock()
+        orchestrator.env = mock_env
+        orchestrator._eval_env = mock_eval_env
+
+        await orchestrator.cleanup()
+
+        mock_env.close.assert_called_once()
+        mock_eval_env.close.assert_called_once()
+        assert orchestrator.env is None
+        assert orchestrator._eval_env is None
+
 
 class TestExtractEpisodeStats:
     """Tests for episode statistics extraction."""
