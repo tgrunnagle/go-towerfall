@@ -1,0 +1,70 @@
+# TowerFall ML Bot Training Configuration
+#
+# This configuration file controls the training parameters for the
+# reinforcement learning bot. All settings can be overridden via
+# command-line arguments.
+#
+# Usage:
+#   uv run python -m bot.cli train start --config config/training.yaml
+
+# Environment settings
+num_envs: 4                           # Number of parallel environments
+game_server_url: "http://localhost:4000"  # Game server HTTP API URL
+
+# Game instance configuration
+game_config:
+  room_name: "Training"               # Room name prefix
+  map_type: "default"                 # Map type to use
+  tick_multiplier: 10.0               # Speed up factor for training
+  max_game_duration_sec: 60           # Maximum game duration in seconds
+  disable_respawn_timer: true         # Instant respawn for training
+  max_kills: 20                       # Kills needed to end match
+
+# PPO hyperparameters
+ppo_config:
+  # Rollout collection
+  num_steps: 2048                     # Steps per environment per rollout
+
+  # Generalized Advantage Estimation
+  gamma: 0.99                         # Discount factor
+  gae_lambda: 0.95                    # GAE lambda
+
+  # PPO optimization
+  num_epochs: 10                      # Training epochs per update
+  minibatch_size: 64                  # Samples per minibatch
+  clip_range: 0.2                     # Policy clipping epsilon
+
+  # Loss coefficients
+  value_coef: 0.5                     # Value loss coefficient
+  entropy_coef: 0.01                  # Entropy bonus coefficient
+
+  # Optimizer settings
+  learning_rate: 0.0003               # Adam learning rate
+  max_grad_norm: 0.5                  # Gradient clipping norm
+
+  # Normalization
+  normalize_advantages: true          # Normalize advantages in minibatch
+
+# Training settings
+total_timesteps: 1000000              # Total environment steps to train
+
+# Checkpointing
+checkpoint_interval: 50000            # Steps between checkpoints
+checkpoint_dir: "./checkpoints"       # Where to save checkpoints
+
+# Model registry
+registry_path: "./model_registry"     # Where to store trained models
+
+# Opponent settings
+opponent_model_id: null               # null = rule-based bot, or model ID
+
+# Logging
+log_interval: 2048                    # Steps between log outputs
+
+# Evaluation
+eval_interval: 100000                 # Steps between evaluation runs
+eval_episodes: 10                     # Episodes per evaluation
+max_eval_episode_steps: 10000         # Max steps per eval episode
+
+# Reproducibility
+seed: null                            # Random seed (null = random)
