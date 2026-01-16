@@ -258,7 +258,9 @@ class TrainingOrchestrator:
                 # Evaluation
                 if self.total_timesteps - last_eval_step >= self.config.eval_interval:
                     eval_metrics = await self._run_evaluation()
-                    self._invoke_callbacks({"type": "evaluation", "metrics": eval_metrics})
+                    self._invoke_callbacks(
+                        {"type": "evaluation", "metrics": eval_metrics}
+                    )
                     last_eval_step = self.total_timesteps
 
         except KeyboardInterrupt:
@@ -370,9 +372,7 @@ class TrainingOrchestrator:
         )
 
         logger.info("Saved checkpoint: %s", checkpoint_path)
-        self._invoke_callbacks(
-            {"type": "checkpoint", "path": str(checkpoint_path)}
-        )
+        self._invoke_callbacks({"type": "checkpoint", "path": str(checkpoint_path)})
 
     def load_checkpoint(self, checkpoint_path: str) -> None:
         """Load a training checkpoint to resume training.
@@ -450,9 +450,7 @@ class TrainingOrchestrator:
                 episode_reward += float(reward.sum())
                 episode_length += 1
                 done = bool(np.any(terminated | truncated))
-                obs = torch.as_tensor(
-                    next_obs, dtype=torch.float32, device=self.device
-                )
+                obs = torch.as_tensor(next_obs, dtype=torch.float32, device=self.device)
 
                 # Extract kills/deaths from info if available
                 if "env_infos" in info:
@@ -479,8 +477,8 @@ class TrainingOrchestrator:
             metrics["eval_avg_deaths"] = float(np.mean(eval_deaths))
             if eval_kills:
                 avg_deaths = float(np.mean(eval_deaths))
-                metrics["eval_kd_ratio"] = (
-                    float(np.mean(eval_kills)) / max(avg_deaths, 1.0)
+                metrics["eval_kd_ratio"] = float(np.mean(eval_kills)) / max(
+                    avg_deaths, 1.0
                 )
 
         logger.info(
@@ -539,9 +537,7 @@ class TrainingOrchestrator:
         _, metadata = self.registry.get_model(model_id, device=self.device)
         return metadata
 
-    def register_callback(
-        self, callback: Callable[[dict[str, Any]], None]
-    ) -> None:
+    def register_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Register a callback for training events.
 
         Callbacks receive dictionaries with:

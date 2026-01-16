@@ -136,13 +136,19 @@ class TestOrchestratorSmoke:
             metadata = await orchestrator.train()
 
             # Verify training completed
-            assert orchestrator.total_timesteps >= orchestrator_config_smoke.total_timesteps
+            assert (
+                orchestrator.total_timesteps
+                >= orchestrator_config_smoke.total_timesteps
+            )
             assert orchestrator.num_updates > 0
 
             # Verify model was registered
             assert metadata is not None
             assert metadata.model_id is not None
-            assert metadata.training_metrics.total_timesteps == orchestrator.total_timesteps
+            assert (
+                metadata.training_metrics.total_timesteps
+                == orchestrator.total_timesteps
+            )
 
 
 # ============================================================================
@@ -238,7 +244,9 @@ class TestOrchestratorShortTraining:
             await orchestrator.train()
 
             # Should have stopped early
-            assert orchestrator.num_updates < 100  # Well before 10k timesteps would require
+            assert (
+                orchestrator.num_updates < 100
+            )  # Well before 10k timesteps would require
 
     @requires_server
     @pytest.mark.asyncio
@@ -255,9 +263,7 @@ class TestOrchestratorShortTraining:
             checkpoint_path = next(
                 Path(orchestrator_config_short.checkpoint_dir).glob("checkpoint_*.pt")
             )
-            timesteps_at_checkpoint = int(
-                checkpoint_path.stem.split("_")[1]
-            )
+            timesteps_at_checkpoint = int(checkpoint_path.stem.split("_")[1])
 
         # Phase 2: Create new orchestrator and load checkpoint
         orchestrator_config_short.total_timesteps = 512
@@ -271,7 +277,10 @@ class TestOrchestratorShortTraining:
             await orchestrator.train()
 
             # Should have trained beyond checkpoint
-            assert orchestrator.total_timesteps >= orchestrator_config_short.total_timesteps
+            assert (
+                orchestrator.total_timesteps
+                >= orchestrator_config_short.total_timesteps
+            )
 
 
 # ============================================================================
@@ -328,4 +337,7 @@ class TestOrchestratorRegistry:
         assert metadata.hyperparameters is not None
         assert "num_steps" in metadata.hyperparameters
         assert "learning_rate" in metadata.hyperparameters
-        assert metadata.hyperparameters["num_steps"] == orchestrator_config_smoke.ppo_config.num_steps
+        assert (
+            metadata.hyperparameters["num_steps"]
+            == orchestrator_config_smoke.ppo_config.num_steps
+        )

@@ -205,7 +205,9 @@ class TestCheckpointSaveLoad:
 
         orchestrator._save_checkpoint()
 
-        checkpoint_path = Path(orchestrator.config.checkpoint_dir) / "checkpoint_5000.pt"
+        checkpoint_path = (
+            Path(orchestrator.config.checkpoint_dir) / "checkpoint_5000.pt"
+        )
         assert checkpoint_path.exists()
 
     def test_save_checkpoint_contains_state(
@@ -217,7 +219,9 @@ class TestCheckpointSaveLoad:
 
         orchestrator._save_checkpoint()
 
-        checkpoint_path = Path(orchestrator.config.checkpoint_dir) / "checkpoint_5000.pt"
+        checkpoint_path = (
+            Path(orchestrator.config.checkpoint_dir) / "checkpoint_5000.pt"
+        )
         checkpoint = torch.load(checkpoint_path, weights_only=False)
 
         assert "network_state_dict" in checkpoint

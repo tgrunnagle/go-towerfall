@@ -376,7 +376,9 @@ game_config:
         assert restored.ppo_config.num_epochs == original.ppo_config.num_epochs
         assert restored.ppo_config.clip_range == original.ppo_config.clip_range
         assert restored.game_config.room_name == original.game_config.room_name
-        assert restored.game_config.tick_multiplier == original.game_config.tick_multiplier
+        assert (
+            restored.game_config.tick_multiplier == original.game_config.tick_multiplier
+        )
         assert (
             restored.game_config.max_game_duration_sec
             == original.game_config.max_game_duration_sec
