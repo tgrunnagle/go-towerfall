@@ -10,7 +10,126 @@ cd bot2
 uv sync --dev
 ```
 
-## Running Training
+## Training CLI
+
+The CLI provides commands to manage training runs, inspect models, and validate configuration.
+
+### Quick Start
+
+```bash
+# Validate your configuration
+uv run python -m bot.cli config validate config/training.yaml
+
+# Start training
+uv run python -m bot.cli train start --config config/training.yaml
+
+# Check training status
+uv run python -m bot.cli train status
+
+# List trained models
+uv run python -m bot.cli model list
+```
+
+### Train Commands
+
+```bash
+# Start a new training run
+uv run python -m bot.cli train start --config config/training.yaml
+uv run python -m bot.cli train start --timesteps 500000 --num-envs 4
+
+# Resume from checkpoint
+uv run python -m bot.cli train resume --run-id abc123
+uv run python -m bot.cli train resume --checkpoint checkpoints/checkpoint_50000.pt
+
+# Check status
+uv run python -m bot.cli train status
+uv run python -m bot.cli train status --run-id abc123 --verbose
+
+# Stop training gracefully
+uv run python -m bot.cli train stop --run-id abc123
+
+# List all runs
+uv run python -m bot.cli train list --limit 10 --status completed
+```
+
+### Background Training
+
+Run training in the background to free up your terminal for other work. The CLI saves the run ID so you can check status or stop training later.
+
+```bash
+# Start training in background
+uv run python -m bot.cli train start --background --config config/training.yaml
+
+# Output:
+#   Training started in background!
+#   Run ID: abc12345
+#   Process ID: 54321
+#
+#   Check status:
+#     uv run python -m bot.cli train status --run-id abc12345
+#
+#   Stop training:
+#     uv run python -m bot.cli train stop --run-id abc12345
+
+# List all running training sessions
+uv run python -m bot.cli train running
+
+# Check status of a specific run
+uv run python -m bot.cli train status --run-id abc12345
+
+# Stop a background run gracefully
+uv run python -m bot.cli train stop --run-id abc12345
+
+# Force stop (kills immediately)
+uv run python -m bot.cli train stop --run-id abc12345 --force
+```
+
+The background training process:
+1. Saves training progress to `.training_runs/runs.json`
+2. Updates progress as training continues
+3. Can be stopped gracefully (saves checkpoint) or force-killed
+4. Detects if a background process crashes and marks it as failed
+
+### Model Commands
+
+```bash
+# List all models
+uv run python -m bot.cli model list
+uv run python -m bot.cli model list --best
+uv run python -m bot.cli model list --generation 3
+
+# Show model details
+uv run python -m bot.cli model show ppo_gen_003
+
+# Compare models
+uv run python -m bot.cli model compare ppo_gen_002 ppo_gen_003
+
+# Evaluate against opponent
+uv run python -m bot.cli model evaluate ppo_gen_003 --episodes 100
+
+# Export model
+uv run python -m bot.cli model export ppo_gen_003 --output exported_model.pt
+```
+
+### Config Commands
+
+```bash
+# Validate configuration
+uv run python -m bot.cli config validate config/training.yaml --verbose
+
+# Generate config from preset
+uv run python -m bot.cli config generate config/new.yaml --preset quick  # 50k steps
+uv run python -m bot.cli config generate config/new.yaml --preset default  # 1M steps
+uv run python -m bot.cli config generate config/new.yaml --preset full  # 5M steps
+
+# Show config with syntax highlighting
+uv run python -m bot.cli config show config/training.yaml
+
+# Compare two configs
+uv run python -m bot.cli config diff config/old.yaml config/new.yaml
+```
+
+## Running Training Manually
 
 ### Prerequisites
 
@@ -129,6 +248,14 @@ task bot2:test       # All tests (requires server)
 
 ```
 bot2/src/bot/
+├── cli/             # Command-line interface
+│   ├── main.py          # Main Typer app entry point
+│   ├── run_tracker.py   # Persistent training run tracking
+│   ├── commands/        # Subcommand implementations
+│   │   ├── train.py     # train start|resume|status|stop|list
+│   │   ├── model.py     # model list|show|compare|evaluate|export
+│   │   └── config.py    # config validate|generate|show|diff
+│   └── utils/           # Output formatting and progress display
 ├── agent/           # Neural network and PPO training
 │   ├── network.py       # ActorCriticNetwork (shared features, actor/critic heads)
 │   ├── ppo_trainer.py   # PPOTrainer with rollout collection and updates
@@ -141,6 +268,7 @@ bot2/src/bot/
 │   ├── termination.py      # Episode termination logic
 │   └── opponent_manager.py # Opponent handling (rule-based, none)
 ├── training/        # Training infrastructure
+│   ├── orchestrator.py     # Training pipeline coordinator
 │   ├── server_manager.py   # Game server lifecycle management
 │   └── registry/           # Model versioning and storage
 ├── config/          # Hyperparameter configuration
@@ -207,11 +335,3 @@ env = TowerfallEnv(
     )
 )
 ```
-
-## Dependencies
-
-- Python ≥3.11
-- PyTorch ≥2.7.0 (with CUDA support)
-- Gymnasium ≥0.29.0
-- Pydantic ≥2.5.0
-- httpx, websockets, numpy, pyyaml

@@ -201,12 +201,38 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
     def _run_async(self, coro: Any) -> Any:
         """Run async coroutine synchronously.
 
+        Handles the case when called from within an already-running event loop
+        (e.g., during pytest-asyncio tests) by running the coroutine in a
+        separate thread with its own event loop.
+
         Args:
             coro: Async coroutine to run.
 
         Returns:
             Result of the coroutine.
         """
+        # Check if there's already a running event loop
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+
+        if running_loop is not None:
+            # We're inside an async context - run in a separate thread
+            import concurrent.futures
+
+            def run_in_thread() -> Any:
+                new_loop = asyncio.new_event_loop()
+                try:
+                    return new_loop.run_until_complete(coro)
+                finally:
+                    new_loop.close()
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(run_in_thread)
+                return future.result()
+
+        # No running loop - use the normal approach
         loop = self._get_loop()
         return loop.run_until_complete(coro)
 
