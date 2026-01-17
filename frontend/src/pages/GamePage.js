@@ -18,6 +18,11 @@ const GamePage = () => {
   const queryIsSpectator = queryParams.get('isSpectator') === 'true';
   const queryCanvasSizeX = parseInt(queryParams.get('canvasSizeX'), 10);
   const queryCanvasSizeY = parseInt(queryParams.get('canvasSizeY'), 10);
+  // Training mode parameters
+  const queryTrainingMode = queryParams.get('trainingMode') === 'true';
+  const queryTickMultiplier = parseFloat(queryParams.get('tickMultiplier')) || 1.0;
+  const queryMaxGameDurationSec = parseInt(queryParams.get('maxGameDurationSec'), 10) || 0;
+  const queryMaxKills = parseInt(queryParams.get('maxKills'), 10) || 0;
   
   // Redirect to home if missing required parameters
   useEffect(() => {
@@ -82,6 +87,13 @@ const GamePage = () => {
         {queryIsSpectator && (
           <div className="spectator-instructions">
             <p>You are spectating</p>
+            {queryTrainingMode && (
+              <div className="training-mode-info">
+                <p><strong>Training Mode</strong> - {queryTickMultiplier}x Speed</p>
+                {queryMaxGameDurationSec > 0 && <p>Max Duration: {queryMaxGameDurationSec}s</p>}
+                {queryMaxKills > 0 && <p>Max Kills: {queryMaxKills}</p>}
+              </div>
+            )}
           </div>
         )}
       </div>

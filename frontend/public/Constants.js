@@ -14,4 +14,11 @@ export class Constants {
     static SPECTATOR_TEXT_OFFSET_X = 20;
     static SPECTATOR_TEXT_OFFSET_Y = 20;
     static SPECTATOR_TEXT_LINE_HEIGHT = 30;
+
+    // Training mode overlay constants
+    static TRAINING_TEXT_FONT = '16px Arial';
+    static TRAINING_TEXT_COLOR = '#FFFFFF';
+    static TRAINING_TEXT_BG_COLOR = 'rgba(0, 0, 0, 0.7)';
+    static TRAINING_TEXT_PADDING = 10;
+    static TRAINING_TEXT_LINE_HEIGHT = 22;
 }

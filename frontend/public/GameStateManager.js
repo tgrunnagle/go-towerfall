@@ -9,6 +9,7 @@ export class GameStateManager {
     constructor() {
         this.gameObjects = {};
         this.spectators = [];
+        this.trainingInfo = null;
         this.currentPlayerObjectId = null;
 
         this.setCurrentPlayerObjectId = this.setCurrentPlayerObjectId.bind(this);
@@ -17,6 +18,7 @@ export class GameStateManager {
         this.getCurrentPlayerClientState = this.getCurrentPlayerClientState.bind(this);
         this.reset = this.reset.bind(this);
         this.drawSpectators = this.drawSpectators.bind(this);
+        this.drawTrainingInfo = this.drawTrainingInfo.bind(this);
         this.animationManager = new AnimationsManager();
 
         this.canvasSizeX = 0;
@@ -31,6 +33,7 @@ export class GameStateManager {
     reset() {
         this.gameObjects = {};
         this.currentPlayerObjectId = null;
+        this.trainingInfo = null;
         this.animationManager.reset();
     }
 
@@ -140,6 +143,11 @@ export class GameStateManager {
                 }
             });
         }
+
+        // Store training info for overlay display
+        if (payload.trainingInfo) {
+            this.trainingInfo = payload.trainingInfo;
+        }
     }
 
     handleSpectatorsUpdate(payload) {
@@ -178,6 +186,7 @@ export class GameStateManager {
         this.animationManager.render(canvasCtx, timestamp);
 
         this.drawSpectators(canvasCtx);
+        this.drawTrainingInfo(canvasCtx);
     }
 
     drawSpectators(canvasCtx) {
@@ -192,6 +201,48 @@ export class GameStateManager {
                 spectator,
                 Constants.SPECTATOR_TEXT_OFFSET_X,
                 Constants.SPECTATOR_TEXT_OFFSET_Y + ((index + 1) * Constants.SPECTATOR_TEXT_LINE_HEIGHT)
+            );
+        });
+    }
+
+    drawTrainingInfo(canvasCtx) {
+        if (!this.trainingInfo) return;
+
+        const padding = Constants.TRAINING_TEXT_PADDING;
+        const lineHeight = Constants.TRAINING_TEXT_LINE_HEIGHT;
+
+        // Build the text lines
+        const lines = [
+            `Training Mode - ${this.trainingInfo.tickMultiplier}x Speed`,
+            `Episode: ${this.trainingInfo.episode}`,
+            `Kills: ${this.trainingInfo.totalKills}`,
+            `Time: ${this.trainingInfo.elapsedTime.toFixed(1)}s`
+        ];
+
+        // Calculate box dimensions
+        canvasCtx.font = Constants.TRAINING_TEXT_FONT;
+        const maxWidth = Math.max(...lines.map(line => canvasCtx.measureText(line).width));
+        const boxWidth = maxWidth + padding * 2;
+        const boxHeight = lines.length * lineHeight + padding * 2;
+
+        // Position in top-right corner
+        const boxX = this.canvasSizeX - boxWidth - 10;
+        const boxY = 10;
+
+        // Draw background
+        canvasCtx.fillStyle = Constants.TRAINING_TEXT_BG_COLOR;
+        canvasCtx.fillRect(boxX, boxY, boxWidth, boxHeight);
+
+        // Draw text
+        canvasCtx.fillStyle = Constants.TRAINING_TEXT_COLOR;
+        canvasCtx.textBaseline = 'top';
+        canvasCtx.textAlign = 'left';
+
+        lines.forEach((line, index) => {
+            canvasCtx.fillText(
+                line,
+                boxX + padding,
+                boxY + padding + index * lineHeight
             );
         });
     }

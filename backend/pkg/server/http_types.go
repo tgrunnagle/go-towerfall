@@ -56,3 +56,18 @@ type GetRoomStatsHTTPResponse struct {
 	PlayerStats map[string]*PlayerStatsDTO `json:"playerStats,omitempty"`
 	Error       string                     `json:"error,omitempty"`
 }
+
+// TrainingSessionInfo represents a single training session available for spectating
+type TrainingSessionInfo struct {
+	RoomID         string  `json:"roomId"`
+	RoomCode       string  `json:"roomCode"`
+	TickMultiplier float64 `json:"tickMultiplier"`
+	PlayerCount    int     `json:"playerCount"`
+	SpectatorCount int     `json:"spectatorCount"`
+	Duration       string  `json:"duration"` // How long session has been running (e.g., "5m32s")
+}
+
+// GetTrainingSessionsResponse represents the response to a training sessions request
+type GetTrainingSessionsResponse struct {
+	Sessions []TrainingSessionInfo `json:"sessions"`
+}

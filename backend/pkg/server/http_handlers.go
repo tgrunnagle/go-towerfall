@@ -123,6 +123,11 @@ type JoinGameHTTPResponse struct {
 	CanvasSizeX int    `json:"canvasSizeX,omitempty"`
 	CanvasSizeY int    `json:"canvasSizeY,omitempty"`
 	Error       string `json:"error,omitempty"`
+	// Training mode settings (returned when joining a training game as spectator)
+	TrainingMode        bool    `json:"trainingMode,omitempty"`
+	TickMultiplier      float64 `json:"tickMultiplier,omitempty"`
+	MaxGameDurationSec  int     `json:"maxGameDurationSec,omitempty"`
+	MaxKills            int     `json:"maxKills,omitempty"`
 }
 
 // GetRoomStateResponse represents the response to a room state request
@@ -367,9 +372,8 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 	s.lastActivity[room.ID] = time.Now()
 	s.serverLock.Unlock()
 
-	// Return success response
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(JoinGameHTTPResponse{
+	// Build response
+	response := JoinGameHTTPResponse{
 		Success:     true,
 		PlayerID:    player.ID,
 		PlayerToken: player.Token,
@@ -378,7 +382,19 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 		IsSpectator: isSpectator,
 		CanvasSizeX: canvasSizeX,
 		CanvasSizeY: canvasSizeY,
-	})
+	}
+
+	// Include training settings in response if joining a training game
+	if room.TrainingOptions != nil && room.TrainingOptions.Enabled {
+		response.TrainingMode = true
+		response.TickMultiplier = room.TickMultiplier
+		response.MaxGameDurationSec = room.TrainingOptions.MaxGameDurationSec
+		response.MaxKills = room.TrainingOptions.MaxKills
+	}
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 
 	log.Printf("Player %s joined game room %s via HTTP API", player.ID, room.ID)
 }
@@ -921,4 +937,54 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	})
 
 	log.Printf("Bot action submitted for player %s in room %s: %d actions processed", playerID, roomID, actionsProcessed)
+}
+
+// HandleGetTrainingSessions handles HTTP requests to list active training sessions
+func (s *Server) HandleGetTrainingSessions(w http.ResponseWriter, r *http.Request) {
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow GET requests
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": "Method not allowed",
+		})
+		return
+	}
+
+	// Get all training rooms
+	trainingRooms := s.roomManager.GetTrainingRooms()
+
+	// Build response
+	sessions := make([]TrainingSessionInfo, 0, len(trainingRooms))
+	for _, room := range trainingRooms {
+		// Format duration as a human-readable string
+		duration := room.GetRoomDuration()
+		durationStr := duration.Round(time.Second).String()
+
+		sessions = append(sessions, TrainingSessionInfo{
+			RoomID:         room.ID,
+			RoomCode:       room.RoomCode,
+			TickMultiplier: room.TickMultiplier,
+			PlayerCount:    room.GetPlayerCount(),
+			SpectatorCount: room.GetSpectatorCount(),
+			Duration:       durationStr,
+		})
+	}
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(GetTrainingSessionsResponse{
+		Sessions: sessions,
+	})
 }

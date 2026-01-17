@@ -36,6 +36,8 @@ const (
 	DefaultTickInterval = 20 * time.Millisecond
 	MinTickInterval     = 1 * time.Millisecond
 	MaxTickInterval     = 1000 * time.Millisecond
+	// SpectatorMinUpdateInterval is the minimum interval between spectator updates (~60 FPS)
+	SpectatorMinUpdateInterval = 16 * time.Millisecond
 )
 
 // TickConfig holds configuration for room tick rate
@@ -60,6 +62,14 @@ type TrainingOptions struct {
 	DisableRespawnTimer bool
 	// MaxKills is the maximum number of kills before game ends (0 = unlimited)
 	MaxKills int
+}
+
+// SpectatorThrottler manages throttling of game state updates to spectators
+// to prevent overwhelming browser clients at high tick rates
+type SpectatorThrottler struct {
+	mu          sync.Mutex
+	lastUpdate  time.Time
+	minInterval time.Duration
 }
 
 // GameRoom represents an instance of the game being played
@@ -89,10 +99,17 @@ type GameRoom struct {
 	// Training mode configuration
 	TrainingOptions *TrainingOptions
 	// Training state tracking
-	// trainingStartTime is set once during construction and never modified, so it's safe to read without locking
+	// roomCreatedTime is set once during construction and never modified
+	roomCreatedTime time.Time
+	// trainingStartTime tracks the start of the current episode (reset on each Reset() call)
 	trainingStartTime time.Time
 	// trainingKillCount is modified during gameplay and must be accessed with LockObject held
 	trainingKillCount int
+	// trainingEpisode tracks the current episode number (incremented on reset)
+	trainingEpisode int
+
+	// SpectatorThrottler for limiting update rate to spectators in training mode
+	spectatorThrottler *SpectatorThrottler
 
 	// Tick goroutine management
 	tickStopChan chan struct{}
@@ -142,23 +159,37 @@ func NewGameRoomWithTrainingConfig(id string, name string, password string, room
 		return nil, fmt.Errorf("failed to create map: %v", err)
 	}
 
+	// Create spectator throttler for training mode
+	var spectatorThrottler *SpectatorThrottler
+	if trainingOptions != nil && trainingOptions.Enabled && tickMultiplier > 1 {
+		spectatorThrottler = &SpectatorThrottler{
+			// Initialize lastUpdate to far in the past to ensure the first call is not throttled
+			lastUpdate:  time.Time{},
+			minInterval: SpectatorMinUpdateInterval,
+		}
+	}
+
 	// Create the room
+	now := time.Now()
 	room := &GameRoom{
-		ID:                id,
-		Name:              name,
-		Password:          password,
-		RoomCode:          roomCode,
-		EventManager:      NewGameEventManager(),
-		ObjectManager:     NewGameObjectManager(baseMap),
-		LastUpdateTime:    time.Now(),
-		Players:           make(map[string]*ConnectedPlayer),
-		PlayerStats:       make(map[string]*PlayerStats),
-		Map:               baseMap,
-		TickInterval:      tickInterval,
-		TickMultiplier:    tickMultiplier,
-		TrainingOptions:   trainingOptions,
-		trainingStartTime: time.Now(),
-		trainingKillCount: 0,
+		ID:                 id,
+		Name:               name,
+		Password:           password,
+		RoomCode:           roomCode,
+		EventManager:       NewGameEventManager(),
+		ObjectManager:      NewGameObjectManager(baseMap),
+		LastUpdateTime:     now,
+		Players:            make(map[string]*ConnectedPlayer),
+		PlayerStats:        make(map[string]*PlayerStats),
+		Map:                baseMap,
+		TickInterval:       tickInterval,
+		TickMultiplier:     tickMultiplier,
+		TrainingOptions:    trainingOptions,
+		roomCreatedTime:    now,
+		trainingStartTime:  now,
+		trainingKillCount:  0,
+		trainingEpisode:    1,
+		spectatorThrottler: spectatorThrottler,
 	}
 
 	// Initialize map objects
@@ -578,6 +609,9 @@ func (r *GameRoom) Reset() {
 	// Reset training kill count if in training mode
 	r.trainingKillCount = 0
 
+	// Increment episode counter for training mode
+	r.trainingEpisode++
+
 	// Reset training start time for a new episode
 	r.trainingStartTime = time.Now()
 
@@ -596,6 +630,73 @@ func (r *GameRoom) GetRespawnTimeSec() float64 {
 		return 0.0
 	}
 	return constants.PlayerRespawnTimeSec
+}
+
+// ShouldThrottleSpectatorUpdate checks if a spectator update should be skipped.
+// Returns true if the update should be throttled (skipped), false if it should be sent.
+// For non-training rooms or rooms without a throttler, always returns false.
+// This method is thread-safe.
+func (r *GameRoom) ShouldThrottleSpectatorUpdate() bool {
+	if r.spectatorThrottler == nil {
+		return false
+	}
+	r.spectatorThrottler.mu.Lock()
+	defer r.spectatorThrottler.mu.Unlock()
+	if time.Since(r.spectatorThrottler.lastUpdate) < r.spectatorThrottler.minInterval {
+		return true
+	}
+	r.spectatorThrottler.lastUpdate = time.Now()
+	return false
+}
+
+// HasSpectators returns true if the room has at least one spectator.
+func (r *GameRoom) HasSpectators() bool {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+	for _, player := range r.Players {
+		if player.IsSpectator {
+			return true
+		}
+	}
+	return false
+}
+
+// GetTrainingEpisode returns the current training episode number.
+func (r *GameRoom) GetTrainingEpisode() int {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+	return r.trainingEpisode
+}
+
+// GetSpectatorCount returns the number of spectators in the room.
+func (r *GameRoom) GetSpectatorCount() int {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+	count := 0
+	for _, player := range r.Players {
+		if player.IsSpectator {
+			count++
+		}
+	}
+	return count
+}
+
+// GetPlayerCount returns the number of non-spectator players in the room.
+func (r *GameRoom) GetPlayerCount() int {
+	r.LockObject.Lock()
+	defer r.LockObject.Unlock()
+	count := 0
+	for _, player := range r.Players {
+		if !player.IsSpectator {
+			count++
+		}
+	}
+	return count
+}
+
+// GetRoomDuration returns how long the room has been active since creation.
+func (r *GameRoom) GetRoomDuration() time.Duration {
+	return time.Since(r.roomCreatedTime)
 }
 
 // calculateTickInterval computes the tick interval from TickConfig

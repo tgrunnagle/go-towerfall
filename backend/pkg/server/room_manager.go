@@ -74,3 +74,17 @@ func (s *RoomManager) GetGameRoomIDs() []string {
 	}
 	return ids
 }
+
+// GetTrainingRooms returns all active training game rooms.
+func (s *RoomManager) GetTrainingRooms() []*GameRoom {
+	s.roomLock.Lock()
+	defer s.roomLock.Unlock()
+
+	var rooms []*GameRoom
+	for _, room := range s.gameRooms {
+		if room.IsTrainingMode() {
+			rooms = append(rooms, room)
+		}
+	}
+	return rooms
+}

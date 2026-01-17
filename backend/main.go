@@ -19,6 +19,7 @@ func main() {
 	http.HandleFunc("/api/maps", srv.HandleGetMaps)
 	http.HandleFunc("/api/createGame", srv.HandleCreateGame)
 	http.HandleFunc("/api/joinGame", srv.HandleJoinGame)
+	http.HandleFunc("/api/training/sessions", srv.HandleGetTrainingSessions)
 
 	// Route /api/rooms/ requests based on path pattern
 	http.HandleFunc("/api/rooms/", func(w http.ResponseWriter, r *http.Request) {

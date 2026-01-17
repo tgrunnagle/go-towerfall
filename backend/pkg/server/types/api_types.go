@@ -86,7 +86,16 @@ type GameUpdate struct {
 	ObjectStates map[string]map[string]interface{} `json:"objectStates"` // Map of ObjectID -> ObjectState
 	Events       []GameUpdateEvent                 `json:"events"`       // List of events
 	// Training mode state (only included when training mode is enabled)
-	TrainingComplete bool `json:"trainingComplete,omitempty"` // True when training completion conditions are met
+	TrainingComplete bool              `json:"trainingComplete,omitempty"` // True when training completion conditions are met
+	TrainingInfo     *TrainingStateInfo `json:"trainingInfo,omitempty"`     // Training metadata for spectators
+}
+
+// TrainingStateInfo contains training-specific information for spectators
+type TrainingStateInfo struct {
+	Episode        int     `json:"episode"`        // Current training episode
+	TotalKills     int     `json:"totalKills"`     // Total kills this episode
+	ElapsedTime    float64 `json:"elapsedTime"`    // Seconds since episode start
+	TickMultiplier float64 `json:"tickMultiplier"` // Current tick speed multiplier
 }
 
 type SpectatorUpdate struct {

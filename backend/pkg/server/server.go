@@ -236,15 +236,38 @@ func (s *Server) sendGameUpdate(update GameUpdateQueueItem) error {
 		updateMessage.ObjectStates = room.GetAllGameObjectStates()
 	}
 
-	// Send update to all connections in this room
-	connectionsToUpdate := make([]*Connection, 0)
+	// Include training info for training mode games
+	if room.IsTrainingMode() {
+		updateMessage.TrainingInfo = &types.TrainingStateInfo{
+			Episode:        room.GetTrainingEpisode(),
+			TotalKills:     room.GetKillCount(),
+			ElapsedTime:    room.GetTrainingElapsedSeconds(),
+			TickMultiplier: room.TickMultiplier,
+		}
+	}
+
+	// Collect connections and check if throttling applies
 	s.serverLock.Lock()
+	connectionsToUpdate := make([]*Connection, 0)
 	for _, conn := range s.connectionsByRoom[update.RoomID] {
 		connectionsToUpdate = append(connectionsToUpdate, conn)
 	}
 	s.serverLock.Unlock()
 
+	// If this is a training game with accelerated tick rate, check if we should throttle spectator updates
+	shouldThrottle := room.ShouldThrottleSpectatorUpdate()
+
 	for _, conn := range connectionsToUpdate {
+		// For training games, check if this connection is a spectator
+		// and if we should skip this update due to throttling
+		if shouldThrottle {
+			player, exists := room.GetPlayer(conn.PlayerID)
+			if exists && player.IsSpectator {
+				// Skip this update for spectators to maintain viewable frame rate
+				continue
+			}
+		}
+
 		// TODO remove this when the NaN issue is fixed
 		_, err := json.Marshal(updateMessage)
 		if err != nil {
