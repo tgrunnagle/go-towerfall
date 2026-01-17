@@ -72,6 +72,127 @@ class TestTrainCommands:
                 assert result.exit_code == 1
                 assert "not found" in result.stdout.lower()
 
+    def test_train_start_background_saves_run_id(self) -> None:
+        """Test that background mode saves run ID for later status checks."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("bot.cli.commands.train.DEFAULT_RUNS_DIR", tmpdir):
+                # Mock subprocess.Popen to avoid actually spawning
+                mock_process = patch(
+                    "bot.cli.commands.train.subprocess.Popen"
+                ).start()
+                mock_process.return_value.pid = 12345
+
+                result = runner.invoke(app, ["train", "start", "--background"])
+
+                # Verify output contains run ID and helpful messages
+                assert result.exit_code == 0
+                assert "Training started in background" in result.stdout
+                assert "Run ID:" in result.stdout
+                assert "Process ID:" in result.stdout
+                assert "12345" in result.stdout
+                assert "train status" in result.stdout
+                assert "train stop" in result.stdout
+
+                # Verify run was saved and can be retrieved
+                from bot.cli.run_tracker import RunTracker
+
+                tracker = RunTracker(tmpdir)
+                runs = tracker.list_runs()
+                assert len(runs) == 1
+                run = runs[0]
+                assert run.state == "running"
+                assert run.pid == 12345
+
+                patch.stopall()
+
+    def test_train_start_background_run_queryable(self) -> None:
+        """Test that background run can be queried by run ID."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("bot.cli.commands.train.DEFAULT_RUNS_DIR", tmpdir):
+                # Mock subprocess.Popen
+                mock_process = patch(
+                    "bot.cli.commands.train.subprocess.Popen"
+                ).start()
+                mock_process.return_value.pid = 54321
+
+                # Start background training
+                result = runner.invoke(app, ["train", "start", "--background"])
+                assert result.exit_code == 0
+
+                # Extract run ID from output
+                from bot.cli.run_tracker import RunTracker
+
+                tracker = RunTracker(tmpdir)
+                runs = tracker.list_runs()
+                run_id = runs[0].run_id
+
+                # Query status by run ID - mock os.kill to avoid checking real PID
+                with patch("os.kill"):
+                    result = runner.invoke(
+                        app, ["train", "status", "--run-id", run_id]
+                    )
+                    assert result.exit_code == 0
+                    assert run_id in result.stdout
+                    # State should show as running
+                    assert "running" in result.stdout.lower()
+
+                patch.stopall()
+
+    def test_run_background_command_not_found(self) -> None:
+        """Test run-background command with unknown run ID."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("bot.cli.commands.train.DEFAULT_RUNS_DIR", tmpdir):
+                result = runner.invoke(
+                    app, ["train", "run-background", "--run-id", "unknown"]
+                )
+                assert result.exit_code == 1
+
+    def test_run_background_command_wrong_state(self) -> None:
+        """Test run-background command with non-running state."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("bot.cli.commands.train.DEFAULT_RUNS_DIR", tmpdir):
+                # Create a run in pending state
+                from bot.cli.run_tracker import RunTracker
+
+                tracker = RunTracker(tmpdir)
+                run = tracker.create_run(total_timesteps=1000)
+                # Run is in 'pending' state, not 'running'
+
+                result = runner.invoke(
+                    app, ["train", "run-background", "--run-id", run.run_id]
+                )
+                assert result.exit_code == 1
+
+    def test_train_running_no_sessions(self) -> None:
+        """Test train running with no active sessions."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("bot.cli.commands.train.DEFAULT_RUNS_DIR", tmpdir):
+                result = runner.invoke(app, ["train", "running"])
+                assert result.exit_code == 0
+                assert "No training runs are currently running" in result.stdout
+
+    def test_train_running_with_sessions(self) -> None:
+        """Test train running with active sessions."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("bot.cli.commands.train.DEFAULT_RUNS_DIR", tmpdir):
+                # Create a running session
+                from bot.cli.run_tracker import RunTracker
+
+                tracker = RunTracker(tmpdir)
+                run = tracker.create_run(total_timesteps=100000)
+                run.start(pid=12345)
+                run.update_progress(timesteps=5000, generation=1)
+                tracker.save_run(run)
+
+                # Mock os.kill to avoid checking real PID
+                with patch("os.kill"):
+                    result = runner.invoke(app, ["train", "running"])
+                    assert result.exit_code == 0
+                    assert "1 running training session" in result.stdout
+                    assert run.run_id in result.stdout
+                    assert "5,000" in result.stdout  # timesteps
+                    assert "12345" in result.stdout  # PID
+
 
 class TestModelCommands:
     """Tests for model subcommands."""

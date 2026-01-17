@@ -52,6 +52,44 @@ uv run python -m bot.cli train stop --run-id abc123
 uv run python -m bot.cli train list --limit 10 --status completed
 ```
 
+### Background Training
+
+Run training in the background to free up your terminal for other work. The CLI saves the run ID so you can check status or stop training later.
+
+```bash
+# Start training in background
+uv run python -m bot.cli train start --background --config config/training.yaml
+
+# Output:
+#   Training started in background!
+#   Run ID: abc12345
+#   Process ID: 54321
+#
+#   Check status:
+#     uv run python -m bot.cli train status --run-id abc12345
+#
+#   Stop training:
+#     uv run python -m bot.cli train stop --run-id abc12345
+
+# List all running training sessions
+uv run python -m bot.cli train running
+
+# Check status of a specific run
+uv run python -m bot.cli train status --run-id abc12345
+
+# Stop a background run gracefully
+uv run python -m bot.cli train stop --run-id abc12345
+
+# Force stop (kills immediately)
+uv run python -m bot.cli train stop --run-id abc12345 --force
+```
+
+The background training process:
+1. Saves training progress to `.training_runs/runs.json`
+2. Updates progress as training continues
+3. Can be stopped gracefully (saves checkpoint) or force-killed
+4. Detects if a background process crashes and marks it as failed
+
 ### Model Commands
 
 ```bash

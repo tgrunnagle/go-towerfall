@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import signal
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,6 +39,52 @@ DEFAULT_REGISTRY_PATH = "./model_registry"
 def get_tracker() -> RunTracker:
     """Get the run tracker instance."""
     return RunTracker(DEFAULT_RUNS_DIR)
+
+
+def _spawn_background_training(run_id: str) -> int:
+    """Spawn training in a background process.
+
+    Args:
+        run_id: The run ID to resume training for
+
+    Returns:
+        Process ID of the spawned background process
+    """
+    # Build command to resume the run (which has config already saved)
+    cmd = [
+        sys.executable,
+        "-m",
+        "bot.cli",
+        "train",
+        "run-background",
+        "--run-id",
+        run_id,
+    ]
+
+    # Spawn detached process
+    if sys.platform == "win32":
+        # Windows: use CREATE_NEW_PROCESS_GROUP and DETACHED_PROCESS
+        creationflags = (
+            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        )
+        process = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=creationflags,
+        )
+    else:
+        # Unix: use start_new_session to detach
+        process = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+    return process.pid
 
 
 @app.command("start")
@@ -141,9 +189,23 @@ def start(
     console.print()
 
     if background:
-        print_warning("Background mode not yet implemented. Running in foreground.")
+        # Spawn training in a background process
+        pid = _spawn_background_training(run.run_id)
+        run.start(pid=pid)
+        tracker.save_run(run)
 
-    # Run training
+        print_success("Training started in background!")
+        console.print(f"  Run ID: [cyan]{run.run_id}[/cyan]")
+        console.print(f"  Process ID: [dim]{pid}[/dim]")
+        console.print()
+        console.print("[bold]Check status:[/bold]")
+        console.print(f"  uv run python -m bot.cli train status --run-id {run.run_id}")
+        console.print()
+        console.print("[bold]Stop training:[/bold]")
+        console.print(f"  uv run python -m bot.cli train stop --run-id {run.run_id}")
+        return
+
+    # Run training in foreground
     try:
         asyncio.run(_run_training(orch_config, run, tracker))
     except KeyboardInterrupt:
@@ -505,6 +567,61 @@ def stop(
     print_success(f"Run {run.run_id} marked as stopped")
 
 
+@app.command("running")
+def running() -> None:
+    """List all currently running training sessions.
+
+    Shows detailed information about active training runs including
+    process ID, progress, and elapsed time.
+
+    Examples:
+        uv run python -m bot.cli train running
+    """
+    tracker = get_tracker()
+    tracker.cleanup_stale_runs()
+
+    runs = tracker.list_runs(state="running")
+
+    if not runs:
+        console.print("No training runs are currently running")
+        console.print()
+        console.print("[dim]Start a new training run with:[/dim]")
+        console.print("  uv run python -m bot.cli train start --background")
+        return
+
+    console.print(f"[bold green]{len(runs)} running training session(s)[/bold green]")
+    console.print()
+
+    for run in runs:
+        # Calculate elapsed time and progress
+        elapsed = 0.0
+        if run.start_time:
+            start = datetime.fromisoformat(run.start_time)
+            elapsed = (datetime.now(timezone.utc) - start).total_seconds()
+
+        fps = run.timesteps / elapsed if elapsed > 0 else 0
+        progress_pct = (
+            (run.timesteps / run.total_timesteps * 100)
+            if run.total_timesteps > 0
+            else 0
+        )
+
+        # Display run info
+        console.print(f"[cyan bold]{run.run_id}[/cyan bold]")
+        console.print(f"  Progress: {run.timesteps:,} / {run.total_timesteps:,} ({progress_pct:.1f}%)")
+        console.print(f"  Generation: {run.generation}")
+        console.print(f"  Elapsed: {format_duration(elapsed)}")
+        console.print(f"  Speed: {fps:.1f} steps/sec")
+        if run.pid:
+            console.print(f"  PID: {run.pid}")
+        if run.last_checkpoint:
+            console.print(f"  Last checkpoint: {run.last_checkpoint}")
+        console.print()
+
+    console.print("[dim]Stop a run with:[/dim]")
+    console.print("  uv run python -m bot.cli train stop --run-id <run_id>")
+
+
 @app.command("list")
 def list_runs(
     limit: Annotated[
@@ -588,3 +705,105 @@ def list_runs(
         )
 
     console.print(table)
+
+
+@app.command("run-background", hidden=True)
+def run_background(
+    run_id: Annotated[
+        str,
+        typer.Option("--run-id", "-r", help="Run ID to execute"),
+    ],
+) -> None:
+    """Internal command to run training in background.
+
+    This command is invoked by the background spawning mechanism and
+    should not be called directly by users.
+    """
+    tracker = get_tracker()
+    run = tracker.get_run(run_id)
+
+    if run is None:
+        # Can't use print_error since we're headless
+        raise typer.Exit(1)
+
+    if run.state != "running":
+        # Run was stopped or modified before background process started
+        raise typer.Exit(1)
+
+    # Load config from the run's snapshot
+    config = OrchestratorConfig.from_dict(run.config_snapshot)
+
+    # Update PID to current process (the spawned one)
+    run.pid = os.getpid()
+    tracker.save_run(run)
+
+    # Run training (headless - no console output)
+    try:
+        asyncio.run(_run_training_background(config, run, tracker))
+    except Exception as e:
+        run.fail(str(e))
+        tracker.save_run(run)
+        raise typer.Exit(1)
+
+
+async def _run_training_background(
+    config: OrchestratorConfig,
+    run: TrainingRun,
+    tracker: RunTracker,
+) -> None:
+    """Run training in background mode (no console output)."""
+    orchestrator: TrainingOrchestrator | None = None
+    shutdown_requested = False
+
+    def handle_signal(signum: int, frame: Any) -> None:
+        nonlocal shutdown_requested
+        if not shutdown_requested:
+            shutdown_requested = True
+            if orchestrator:
+                orchestrator.stop()
+
+    # Register signal handlers
+    original_sigint = signal.signal(signal.SIGINT, handle_signal)
+    if sys.platform != "win32":
+        original_sigterm = signal.signal(signal.SIGTERM, handle_signal)
+
+    try:
+        def progress_callback(event: dict[str, Any]) -> None:
+            event_type = event.get("type")
+            metrics = event.get("metrics", {})
+
+            if event_type == "progress":
+                timesteps = metrics.get("timesteps", 0)
+                run.update_progress(
+                    timesteps=timesteps,
+                    generation=metrics.get("generation"),
+                )
+                tracker.save_run(run)
+
+            elif event_type == "checkpoint":
+                checkpoint_path = event.get("path")
+                if checkpoint_path:
+                    run.update_progress(
+                        timesteps=run.timesteps,
+                        checkpoint=checkpoint_path,
+                    )
+                    tracker.save_run(run)
+
+        async with TrainingOrchestrator(config) as orch:
+            orchestrator = orch
+            orchestrator.register_callback(progress_callback)
+            await orchestrator.train()
+
+        # Training completed successfully
+        run.complete()
+        tracker.save_run(run)
+
+    except Exception as e:
+        run.fail(str(e))
+        tracker.save_run(run)
+        raise
+
+    finally:
+        signal.signal(signal.SIGINT, original_sigint)
+        if sys.platform != "win32":
+            signal.signal(signal.SIGTERM, original_sigterm)
