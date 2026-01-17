@@ -50,14 +50,6 @@ tasks:
     deps:
       - bot2:install
 
-  bot2:test:
-    dir: bot2
-    desc: Run all bot2 tests (unit + integration if server available)
-    cmds:
-      - uv run pytest tests/ -v -m "not slow"
-    deps:
-      - bot2:install
-
   bot2:test:unit:
     dir: bot2
     desc: Run bot2 unit tests only (no server required)
@@ -67,6 +59,14 @@ tasks:
       - bot2:install
 
   bot2:test:integration:
+    dir: bot2
+    desc: Run bot2 integration tests (excluding slow tests, requires running server)
+    cmds:
+      - uv run pytest tests/integration/ -v
+    deps:
+      - bot2:install
+
+  bot2:test:integration:fast:
     dir: bot2
     desc: Run bot2 integration tests (excluding slow tests, requires running server)
     cmds:
@@ -97,7 +97,7 @@ tasks:
       - bot2:lint
       - bot2:format
       - bot2:typecheck
-      - bot2:test
+      - bot2:test:unit
 
   #
   # backend (golang) tasks

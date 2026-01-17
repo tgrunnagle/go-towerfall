@@ -3,7 +3,8 @@
 This module provides components for managing game server instances during
 ML training, including game creation, lifecycle management, and cleanup.
 It also provides the model registry for storing and retrieving trained models,
-and the training orchestrator for coordinating the full training pipeline.
+the training orchestrator for coordinating the full training pipeline,
+and the metrics logging system for monitoring training progress.
 
 Usage:
     from bot.training import GameServerManager, TrainingGameConfig, GameInstance
@@ -23,6 +24,11 @@ Usage:
     config = OrchestratorConfig(num_envs=4, total_timesteps=500_000)
     async with TrainingOrchestrator(config) as orchestrator:
         metadata = await orchestrator.train()
+
+    from bot.training.metrics import MetricsLogger, EpisodeMetrics
+
+    with MetricsLogger(log_dir="logs/run_001") as logger:
+        logger.log_episode(EpisodeMetrics(episode_id=1, total_reward=10.5, length=500))
 """
 
 from bot.training.exceptions import (
@@ -30,6 +36,16 @@ from bot.training.exceptions import (
     GameNotFoundError,
     GameServerError,
     MaxGamesExceededError,
+)
+from bot.training.metrics import (
+    AggregateMetrics,
+    EpisodeMetrics,
+    FileWriter,
+    MetricsLogger,
+    MetricsWriter,
+    RollingAggregator,
+    TensorBoardWriter,
+    TrainingStepMetrics,
 )
 from bot.training.orchestrator import TrainingOrchestrator
 from bot.training.orchestrator_config import OrchestratorConfig
@@ -64,6 +80,15 @@ __all__ = [
     "NetworkArchitecture",
     "StorageBackend",
     "RegistryIndex",
+    # Metrics logging
+    "MetricsLogger",
+    "EpisodeMetrics",
+    "TrainingStepMetrics",
+    "AggregateMetrics",
+    "MetricsWriter",
+    "FileWriter",
+    "TensorBoardWriter",
+    "RollingAggregator",
     # Exceptions
     "GameServerError",
     "GameCreationError",
