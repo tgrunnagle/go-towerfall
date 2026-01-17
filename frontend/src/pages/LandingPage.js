@@ -79,7 +79,16 @@ const LandingPage = () => {
       });
       
       // Navigate to game page with game info as query parameters
-      navigate(`/game?roomId=${response.roomId}&playerId=${response.playerId}&playerToken=${response.playerToken}&roomCode=${response.roomCode}&isSpectator=${response.isSpectator}&canvasSizeX=${response.canvasSizeX}&canvasSizeY=${response.canvasSizeY}`);
+      let url = `/game?roomId=${response.roomId}&playerId=${response.playerId}&playerToken=${response.playerToken}&roomCode=${response.roomCode}&isSpectator=${response.isSpectator}&canvasSizeX=${response.canvasSizeX}&canvasSizeY=${response.canvasSizeY}`;
+
+      // Include training mode info if joining a training game
+      if (response.trainingMode) {
+        url += `&trainingMode=true&tickMultiplier=${response.tickMultiplier}`;
+        if (response.maxGameDurationSec) url += `&maxGameDurationSec=${response.maxGameDurationSec}`;
+        if (response.maxKills) url += `&maxKills=${response.maxKills}`;
+      }
+
+      navigate(url);
     } catch (error) {
       console.error('Error joining game:', error);
       setError('Failed to connect to server');

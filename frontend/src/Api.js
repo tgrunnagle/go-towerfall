@@ -31,3 +31,8 @@ export const joinGame = async ({ playerName, roomCode, roomPassword, isSpectator
   });
   return response.data;
 };
+
+export const getTrainingSessions = async () => {
+  const response = await api.get('/api/training/sessions');
+  return response.data.sessions;
+};

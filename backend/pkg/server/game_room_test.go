@@ -1044,3 +1044,218 @@ func TestRecordDeathForNonexistentPlayer(t *testing.T) {
 		t.Error("Stats should not be created for nonexistent player")
 	}
 }
+
+// Spectator throttling tests
+
+func TestSpectatorThrottler_NoThrottlingForNormalRoom(t *testing.T) {
+	// Create a room without training mode
+	room, err := NewGameRoom("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json")
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Without training mode, ShouldThrottleSpectatorUpdate should always return false
+	for i := 0; i < 100; i++ {
+		if room.ShouldThrottleSpectatorUpdate() {
+			t.Error("ShouldThrottleSpectatorUpdate should return false for non-training rooms")
+		}
+	}
+}
+
+func TestSpectatorThrottler_NoThrottlingFor1xSpeed(t *testing.T) {
+	// Create a training room with 1x speed (no acceleration)
+	room, err := NewGameRoomWithTrainingConfig("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json", nil, &TrainingOptions{
+		Enabled:        true,
+		TickMultiplier: 1.0,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Without acceleration (1x speed), ShouldThrottleSpectatorUpdate should always return false
+	for i := 0; i < 100; i++ {
+		if room.ShouldThrottleSpectatorUpdate() {
+			t.Error("ShouldThrottleSpectatorUpdate should return false for 1x speed training rooms")
+		}
+	}
+}
+
+func TestSpectatorThrottler_ThrottlesAcceleratedTraining(t *testing.T) {
+	// Create a training room with 10x speed
+	room, err := NewGameRoomWithTrainingConfig("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json", nil, &TrainingOptions{
+		Enabled:        true,
+		TickMultiplier: 10.0,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// First call should not throttle (allows the update)
+	if room.ShouldThrottleSpectatorUpdate() {
+		t.Error("First call to ShouldThrottleSpectatorUpdate should return false")
+	}
+
+	// Immediate subsequent calls should throttle
+	throttled := false
+	for i := 0; i < 10; i++ {
+		if room.ShouldThrottleSpectatorUpdate() {
+			throttled = true
+			break
+		}
+	}
+	if !throttled {
+		t.Error("Immediate subsequent calls should be throttled")
+	}
+}
+
+func TestSpectatorThrottler_AllowsUpdateAfterMinInterval(t *testing.T) {
+	// Create a training room with 10x speed
+	room, err := NewGameRoomWithTrainingConfig("test-id", "test-room", "PASSWORD", "ABCD", "meta/default.json", nil, &TrainingOptions{
+		Enabled:        true,
+		TickMultiplier: 10.0,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// First call should not throttle
+	if room.ShouldThrottleSpectatorUpdate() {
+		t.Error("First call should not throttle")
+	}
+
+	// Wait for longer than the minimum interval (16ms)
+	time.Sleep(20 * time.Millisecond)
+
+	// Next call should not throttle
+	if room.ShouldThrottleSpectatorUpdate() {
+		t.Error("Call after waiting should not throttle")
+	}
+}
+
+func TestSpectatorCountAndPlayerCount(t *testing.T) {
+	// Create a room with a player
+	room, player1, err := NewGameWithPlayerAndTrainingConfig("test-room", "player1", "meta/default.json", nil, &TrainingOptions{
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Initially: 1 player, 0 spectators
+	if room.GetPlayerCount() != 1 {
+		t.Errorf("Expected 1 player, got %d", room.GetPlayerCount())
+	}
+	if room.GetSpectatorCount() != 0 {
+		t.Errorf("Expected 0 spectators, got %d", room.GetSpectatorCount())
+	}
+	if room.HasSpectators() {
+		t.Error("Expected HasSpectators to return false")
+	}
+
+	// Add a second player
+	_, err = AddPlayerToGame(room, "player2", room.Password, false)
+	if err != nil {
+		t.Fatalf("Failed to add player2: %v", err)
+	}
+
+	// Now: 2 players, 0 spectators
+	if room.GetPlayerCount() != 2 {
+		t.Errorf("Expected 2 players, got %d", room.GetPlayerCount())
+	}
+	if room.GetSpectatorCount() != 0 {
+		t.Errorf("Expected 0 spectators, got %d", room.GetSpectatorCount())
+	}
+
+	// Add a spectator
+	_, err = AddPlayerToGame(room, "spectator1", room.Password, true)
+	if err != nil {
+		t.Fatalf("Failed to add spectator: %v", err)
+	}
+
+	// Now: 2 players, 1 spectator
+	if room.GetPlayerCount() != 2 {
+		t.Errorf("Expected 2 players, got %d", room.GetPlayerCount())
+	}
+	if room.GetSpectatorCount() != 1 {
+		t.Errorf("Expected 1 spectator, got %d", room.GetSpectatorCount())
+	}
+	if !room.HasSpectators() {
+		t.Error("Expected HasSpectators to return true")
+	}
+
+	// Add another spectator
+	_, err = AddPlayerToGame(room, "spectator2", room.Password, true)
+	if err != nil {
+		t.Fatalf("Failed to add second spectator: %v", err)
+	}
+
+	// Now: 2 players, 2 spectators
+	if room.GetPlayerCount() != 2 {
+		t.Errorf("Expected 2 players, got %d", room.GetPlayerCount())
+	}
+	if room.GetSpectatorCount() != 2 {
+		t.Errorf("Expected 2 spectators, got %d", room.GetSpectatorCount())
+	}
+
+	// Remove first player
+	room.RemovePlayer(player1.ID)
+
+	// Now: 1 player, 2 spectators
+	if room.GetPlayerCount() != 1 {
+		t.Errorf("Expected 1 player after removal, got %d", room.GetPlayerCount())
+	}
+	if room.GetSpectatorCount() != 2 {
+		t.Errorf("Expected 2 spectators after player removal, got %d", room.GetSpectatorCount())
+	}
+}
+
+func TestTrainingEpisodeCounter(t *testing.T) {
+	// Create a training room
+	room, _, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, &TrainingOptions{
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Initial episode should be 1
+	if room.GetTrainingEpisode() != 1 {
+		t.Errorf("Initial episode should be 1, got %d", room.GetTrainingEpisode())
+	}
+
+	// Reset should increment episode
+	room.Reset()
+	if room.GetTrainingEpisode() != 2 {
+		t.Errorf("Episode after first reset should be 2, got %d", room.GetTrainingEpisode())
+	}
+
+	// Reset again
+	room.Reset()
+	if room.GetTrainingEpisode() != 3 {
+		t.Errorf("Episode after second reset should be 3, got %d", room.GetTrainingEpisode())
+	}
+}
+
+func TestGetRoomDuration(t *testing.T) {
+	room, _, err := NewGameWithPlayerAndTrainingConfig("test-room", "test-player", "meta/default.json", nil, &TrainingOptions{
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create room: %v", err)
+	}
+
+	// Duration should be very small initially
+	duration := room.GetRoomDuration()
+	if duration > 100*time.Millisecond {
+		t.Errorf("Initial duration should be very small, got %v", duration)
+	}
+
+	// Wait a bit
+	time.Sleep(50 * time.Millisecond)
+
+	// Duration should increase
+	duration = room.GetRoomDuration()
+	if duration < 40*time.Millisecond {
+		t.Errorf("Duration should be at least 40ms after waiting, got %v", duration)
+	}
+}
