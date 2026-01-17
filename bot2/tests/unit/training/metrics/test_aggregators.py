@@ -86,7 +86,7 @@ class TestRollingAggregator:
         assert aggregate.win_rate == 1.0
         assert aggregate.mean_kills == 3.0
         assert aggregate.mean_deaths == 1.0
-        assert aggregate.mean_kd_ratio == 3.0  # 3 kills / 1 death
+        assert aggregate.kd_ratio == 3.0  # 3 kills / 1 death
         assert aggregate.episodes_count == 1
 
     def test_get_aggregate_multiple_episodes(self) -> None:
@@ -132,7 +132,7 @@ class TestRollingAggregator:
         assert aggregate.mean_deaths == 2.0
 
         # K/D ratio: total kills / total deaths = 10 / 6 ≈ 1.67
-        assert abs(aggregate.mean_kd_ratio - 10 / 6) < 0.001
+        assert abs(aggregate.kd_ratio - 10 / 6) < 0.001
 
         assert aggregate.episodes_count == 3
 
@@ -153,7 +153,7 @@ class TestRollingAggregator:
         aggregate = aggregator.get_aggregate()
         assert aggregate is not None
         # When deaths=0, K/D ratio should be the total kills
-        assert aggregate.mean_kd_ratio == 5.0
+        assert aggregate.kd_ratio == 5.0
 
     def test_get_aggregate_zero_kills_zero_deaths(self) -> None:
         """Test K/D ratio when there are no kills or deaths."""
@@ -171,7 +171,7 @@ class TestRollingAggregator:
 
         aggregate = aggregator.get_aggregate()
         assert aggregate is not None
-        assert aggregate.mean_kd_ratio == 0.0
+        assert aggregate.kd_ratio == 0.0
 
     def test_std_reward_calculation(self) -> None:
         """Test standard deviation calculation."""

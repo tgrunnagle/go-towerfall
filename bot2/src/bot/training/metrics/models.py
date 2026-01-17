@@ -82,7 +82,7 @@ class AggregateMetrics(BaseModel):
         win_rate: Fraction of episodes won (0.0 to 1.0)
         mean_kills: Mean kills per episode
         mean_deaths: Mean deaths per episode
-        mean_kd_ratio: Mean kill/death ratio
+        kd_ratio: Aggregate kill/death ratio (total kills / total deaths)
         episodes_count: Number of episodes in the aggregate
         timestamp: When the aggregate was computed
     """
@@ -95,7 +95,7 @@ class AggregateMetrics(BaseModel):
     win_rate: float = Field(ge=0, le=1, description="Fraction of episodes won")
     mean_kills: float = Field(ge=0, description="Mean kills per episode")
     mean_deaths: float = Field(ge=0, description="Mean deaths per episode")
-    mean_kd_ratio: float = Field(ge=0, description="Mean kill/death ratio")
+    kd_ratio: float = Field(ge=0, description="Aggregate kill/death ratio")
     episodes_count: int = Field(ge=0, description="Number of episodes in aggregate")
     timestamp: datetime = Field(
         default_factory=datetime.now,

@@ -257,7 +257,7 @@ class MetricsLogger:
                     "win_rate": aggregate.win_rate,
                     "mean_kills": aggregate.mean_kills,
                     "mean_deaths": aggregate.mean_deaths,
-                    "mean_kd_ratio": aggregate.mean_kd_ratio,
+                    "kd_ratio": aggregate.kd_ratio,
                     "window_episodes": float(aggregate.episodes_count),
                 }
             )

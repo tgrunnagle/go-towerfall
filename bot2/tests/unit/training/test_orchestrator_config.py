@@ -6,6 +6,7 @@ Tests cover:
 - Validation
 - Properties
 - Serialization (to_dict, from_dict, to_yaml, from_yaml)
+- MetricsLoggerConfig
 """
 
 from pathlib import Path
@@ -13,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from bot.agent.ppo_trainer import PPOConfig
-from bot.training.orchestrator_config import OrchestratorConfig
+from bot.training.orchestrator_config import MetricsLoggerConfig, OrchestratorConfig
 from bot.training.server_manager import TrainingGameConfig
 
 
@@ -48,6 +49,66 @@ class TestOrchestratorConfigDefaults:
 
         assert isinstance(config.ppo_config, PPOConfig)
         assert config.ppo_config.num_steps == 2048
+
+    def test_default_metrics_config(self) -> None:
+        """Test default metrics_config is MetricsLoggerConfig with defaults."""
+        config = OrchestratorConfig()
+
+        assert isinstance(config.metrics_config, MetricsLoggerConfig)
+        assert config.metrics_config.enabled is True
+        assert config.metrics_config.log_dir == "./metrics"
+        assert config.metrics_config.enable_tensorboard is True
+        assert config.metrics_config.enable_file is True
+        assert config.metrics_config.file_format == "json"
+        assert config.metrics_config.window_size == 100
+
+
+class TestMetricsLoggerConfig:
+    """Tests for MetricsLoggerConfig."""
+
+    def test_default_values(self) -> None:
+        """Test MetricsLoggerConfig has correct defaults."""
+        config = MetricsLoggerConfig()
+
+        assert config.enabled is True
+        assert config.log_dir == "./metrics"
+        assert config.enable_tensorboard is True
+        assert config.enable_file is True
+        assert config.file_format == "json"
+        assert config.window_size == 100
+
+    def test_custom_values(self) -> None:
+        """Test MetricsLoggerConfig with custom values."""
+        config = MetricsLoggerConfig(
+            enabled=False,
+            log_dir="/custom/logs",
+            enable_tensorboard=False,
+            enable_file=True,
+            file_format="csv",
+            window_size=50,
+        )
+
+        assert config.enabled is False
+        assert config.log_dir == "/custom/logs"
+        assert config.enable_tensorboard is False
+        assert config.enable_file is True
+        assert config.file_format == "csv"
+        assert config.window_size == 50
+
+    def test_invalid_window_size_zero(self) -> None:
+        """Test that window_size=0 raises ValueError."""
+        with pytest.raises(ValueError, match="window_size must be at least 1"):
+            MetricsLoggerConfig(window_size=0)
+
+    def test_invalid_window_size_negative(self) -> None:
+        """Test that negative window_size raises ValueError."""
+        with pytest.raises(ValueError, match="window_size must be at least 1"):
+            MetricsLoggerConfig(window_size=-1)
+
+    def test_invalid_file_format(self) -> None:
+        """Test that invalid file_format raises ValueError."""
+        with pytest.raises(ValueError, match="file_format must be 'json' or 'csv'"):
+            MetricsLoggerConfig(file_format="xml")  # type: ignore[arg-type]
 
 
 class TestOrchestratorConfigCustomValues:
@@ -116,6 +177,25 @@ class TestOrchestratorConfigCustomValues:
         )
         assert config.eval_interval == 25_000
         assert config.eval_episodes == 20
+
+    def test_custom_metrics_config(self) -> None:
+        """Test custom metrics_config value."""
+        metrics_cfg = MetricsLoggerConfig(
+            enabled=True,
+            log_dir="/custom/metrics",
+            enable_tensorboard=True,
+            enable_file=False,
+            file_format="csv",
+            window_size=200,
+        )
+        config = OrchestratorConfig(metrics_config=metrics_cfg)
+
+        assert config.metrics_config.enabled is True
+        assert config.metrics_config.log_dir == "/custom/metrics"
+        assert config.metrics_config.enable_tensorboard is True
+        assert config.metrics_config.enable_file is False
+        assert config.metrics_config.file_format == "csv"
+        assert config.metrics_config.window_size == 200
 
 
 class TestOrchestratorConfigValidation:
@@ -207,6 +287,9 @@ class TestOrchestratorConfigSerialization:
         assert data["seed"] is None
         assert isinstance(data["ppo_config"], dict)
         assert isinstance(data["game_config"], dict)
+        assert isinstance(data["metrics_config"], dict)
+        assert data["metrics_config"]["enabled"] is True
+        assert data["metrics_config"]["file_format"] == "json"
 
     def test_to_dict_custom(self) -> None:
         """Test to_dict with custom configuration."""
@@ -239,6 +322,7 @@ class TestOrchestratorConfigSerialization:
         # Defaults should be applied
         assert isinstance(config.ppo_config, PPOConfig)
         assert isinstance(config.game_config, TrainingGameConfig)
+        assert isinstance(config.metrics_config, MetricsLoggerConfig)
 
     def test_from_dict_nested(self) -> None:
         """Test from_dict with nested config data."""
@@ -253,6 +337,12 @@ class TestOrchestratorConfigSerialization:
                 "room_name": "FromDict",
                 "tick_multiplier": 15.0,
             },
+            "metrics_config": {
+                "enabled": False,
+                "log_dir": "/metrics/custom",
+                "file_format": "csv",
+                "window_size": 50,
+            },
         }
         config = OrchestratorConfig.from_dict(data)
 
@@ -262,6 +352,10 @@ class TestOrchestratorConfigSerialization:
         assert config.ppo_config.learning_rate == 5e-4
         assert config.game_config.room_name == "FromDict"
         assert config.game_config.tick_multiplier == 15.0
+        assert config.metrics_config.enabled is False
+        assert config.metrics_config.log_dir == "/metrics/custom"
+        assert config.metrics_config.file_format == "csv"
+        assert config.metrics_config.window_size == 50
 
     def test_roundtrip_to_dict_from_dict(self) -> None:
         """Test that to_dict -> from_dict preserves all values."""
@@ -270,6 +364,12 @@ class TestOrchestratorConfigSerialization:
             total_timesteps=750_000,
             ppo_config=PPOConfig(num_steps=4096, gamma=0.98),
             game_config=TrainingGameConfig(room_name="Roundtrip", max_kills=30),
+            metrics_config=MetricsLoggerConfig(
+                enabled=True,
+                log_dir="/custom/metrics",
+                file_format="csv",
+                window_size=150,
+            ),
             seed=123,
             opponent_model_id="ppo_gen_005",
         )
@@ -285,6 +385,10 @@ class TestOrchestratorConfigSerialization:
         assert restored.ppo_config.gamma == original.ppo_config.gamma
         assert restored.game_config.room_name == original.game_config.room_name
         assert restored.game_config.max_kills == original.game_config.max_kills
+        assert restored.metrics_config.enabled == original.metrics_config.enabled
+        assert restored.metrics_config.log_dir == original.metrics_config.log_dir
+        assert restored.metrics_config.file_format == original.metrics_config.file_format
+        assert restored.metrics_config.window_size == original.metrics_config.window_size
 
 
 class TestOrchestratorConfigYamlSerialization:

@@ -2,7 +2,7 @@
 
 This module provides the TrainingOrchestrator class that coordinates all
 components of the training pipeline: vectorized environments, PPO training,
-checkpointing, and model registration.
+checkpointing, metrics logging, and model registration.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ import torch
 from bot.agent.network import ActorCriticNetwork
 from bot.agent.ppo_trainer import PPOTrainer
 from bot.gym.vectorized_env import VectorizedTowerfallEnv
+from bot.training.metrics import EpisodeMetrics, MetricsLogger, TrainingStepMetrics
 from bot.training.orchestrator_config import OrchestratorConfig
 from bot.training.registry import ModelRegistry, TrainingMetrics
 
@@ -36,6 +37,7 @@ class TrainingOrchestrator:
     - Vectorized environments for parallel data collection
     - Separate evaluation environment to avoid interfering with training
     - PPO trainer for policy updates
+    - Metrics logger for training progress monitoring (TensorBoard, file logging)
     - Model registry for storing trained models
     - Checkpointing for training recovery
     - Evaluation for monitoring performance
@@ -57,6 +59,7 @@ class TrainingOrchestrator:
         eval_env: Separate environment instance for evaluation
         network: Actor-critic neural network
         trainer: PPO trainer instance
+        metrics_logger: Metrics logger for TensorBoard and file logging
         registry: Model registry instance
         total_timesteps: Total timesteps collected so far
         num_updates: Number of PPO updates performed
@@ -78,6 +81,7 @@ class TrainingOrchestrator:
         self._eval_env: VectorizedTowerfallEnv | None = None
         self.network: ActorCriticNetwork | None = None
         self.trainer: PPOTrainer | None = None
+        self.metrics_logger: MetricsLogger | None = None
         self.registry: ModelRegistry | None = None
 
         # Training state
@@ -150,6 +154,21 @@ class TrainingOrchestrator:
             config=self.config.ppo_config,
             device=self.device,
         )
+
+        # Initialize metrics logger if enabled
+        if self.config.metrics_config.enabled:
+            metrics_log_dir = Path(self.config.metrics_config.log_dir)
+            if not metrics_log_dir.is_absolute():
+                # Make relative paths relative to checkpoint_dir
+                metrics_log_dir = Path(self.config.checkpoint_dir) / metrics_log_dir
+            self.metrics_logger = MetricsLogger(
+                log_dir=metrics_log_dir,
+                enable_tensorboard=self.config.metrics_config.enable_tensorboard,
+                enable_file=self.config.metrics_config.enable_file,
+                file_format=self.config.metrics_config.file_format,
+                window_size=self.config.metrics_config.window_size,
+            )
+            logger.info("Metrics logger initialized: %s", metrics_log_dir)
 
         # Initialize model registry
         Path(self.config.registry_path).mkdir(parents=True, exist_ok=True)
@@ -309,6 +328,9 @@ class TrainingOrchestrator:
     ) -> None:
         """Log training progress.
 
+        Logs to both the standard logger and the MetricsLogger (if enabled).
+        The MetricsLogger handles TensorBoard and file-based logging.
+
         Args:
             update_metrics: Metrics from the last PPO update
             episode_rewards: List of episode rewards since last log
@@ -335,6 +357,44 @@ class TrainingOrchestrator:
             "num_episodes": len(episode_rewards),
             **update_metrics,
         }
+
+        # Log training step metrics to MetricsLogger
+        if self.metrics_logger is not None:
+            # Log PPO training step metrics
+            self.metrics_logger.log_training_step(
+                TrainingStepMetrics(
+                    step=self.num_updates,
+                    policy_loss=update_metrics.get("policy_loss", 0.0),
+                    value_loss=update_metrics.get("value_loss", 0.0),
+                    entropy=update_metrics.get("entropy", 0.0),
+                    kl_divergence=update_metrics.get("kl_divergence", 0.0),
+                    clip_fraction=update_metrics.get("clip_fraction", 0.0),
+                    learning_rate=update_metrics.get(
+                        "learning_rate", self.config.ppo_config.learning_rate
+                    ),
+                    total_timesteps=self.total_timesteps,
+                )
+            )
+
+            # Log episode metrics for each completed episode
+            for i, (reward, length) in enumerate(
+                zip(episode_rewards, episode_lengths, strict=False)
+            ):
+                kills = int(episode_kills[i]) if i < len(episode_kills) else 0
+                deaths = int(episode_deaths[i]) if i < len(episode_deaths) else 0
+                self.metrics_logger.log_episode(
+                    EpisodeMetrics(
+                        episode_id=self.metrics_logger.episode_count,
+                        total_reward=reward,
+                        length=length,
+                        kills=kills,
+                        deaths=deaths,
+                        win=False,  # Win tracking requires additional logic
+                    )
+                )
+
+            # Log additional scalar metrics
+            self.metrics_logger.log_scalar("perf/fps", fps, self.num_updates)
 
         logger.info(
             "Timesteps: %s | Updates: %d | FPS: %.1f | Policy Loss: %.4f | "
@@ -570,7 +630,7 @@ class TrainingOrchestrator:
         """Clean up all resources.
 
         This should be called when training is complete or interrupted.
-        Closes all environments and releases resources.
+        Closes all environments, metrics logger, and releases resources.
         """
         logger.info("Cleaning up training resources...")
 
@@ -581,6 +641,10 @@ class TrainingOrchestrator:
         if self._eval_env is not None:
             self._eval_env.close()
             self._eval_env = None
+
+        if self.metrics_logger is not None:
+            self.metrics_logger.close()
+            self.metrics_logger = None
 
         logger.info("Cleanup complete")
 

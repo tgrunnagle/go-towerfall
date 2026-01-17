@@ -189,7 +189,7 @@ class TestAggregateMetrics:
             win_rate=0.65,
             mean_kills=2.5,
             mean_deaths=1.2,
-            mean_kd_ratio=2.08,
+            kd_ratio=2.08,
             episodes_count=100,
         )
         assert metrics.mean_reward == 15.5
@@ -198,7 +198,7 @@ class TestAggregateMetrics:
         assert metrics.win_rate == 0.65
         assert metrics.mean_kills == 2.5
         assert metrics.mean_deaths == 1.2
-        assert metrics.mean_kd_ratio == 2.08
+        assert metrics.kd_ratio == 2.08
         assert metrics.episodes_count == 100
         assert isinstance(metrics.timestamp, datetime)
 
@@ -212,7 +212,7 @@ class TestAggregateMetrics:
                 win_rate=1.5,  # > 1.0
                 mean_kills=2.5,
                 mean_deaths=1.2,
-                mean_kd_ratio=2.08,
+                kd_ratio=2.08,
                 episodes_count=100,
             )
 
@@ -226,7 +226,7 @@ class TestAggregateMetrics:
                 win_rate=0.65,
                 mean_kills=2.5,
                 mean_deaths=1.2,
-                mean_kd_ratio=2.08,
+                kd_ratio=2.08,
                 episodes_count=100,
             )
 
@@ -239,7 +239,7 @@ class TestAggregateMetrics:
             win_rate=0.0,
             mean_kills=0.0,
             mean_deaths=3.0,
-            mean_kd_ratio=0.0,
+            kd_ratio=0.0,
             episodes_count=100,
         )
         assert metrics.mean_reward == -5.0

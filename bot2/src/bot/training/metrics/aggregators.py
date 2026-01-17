@@ -63,12 +63,12 @@ class RollingAggregator:
         # Compute standard deviation
         std_reward = self._compute_std(rewards, mean_reward)
 
-        # Compute K/D ratio (avoid division by zero)
+        # Compute aggregate K/D ratio (total kills / total deaths)
         total_deaths = sum(deaths)
         if total_deaths > 0:
-            mean_kd_ratio = sum(kills) / total_deaths
+            kd_ratio = sum(kills) / total_deaths
         else:
-            mean_kd_ratio = float(sum(kills)) if sum(kills) > 0 else 0.0
+            kd_ratio = float(sum(kills)) if sum(kills) > 0 else 0.0
 
         return AggregateMetrics(
             mean_reward=mean_reward,
@@ -77,7 +77,7 @@ class RollingAggregator:
             win_rate=sum(wins) / len(wins),
             mean_kills=mean_kills,
             mean_deaths=mean_deaths,
-            mean_kd_ratio=mean_kd_ratio,
+            kd_ratio=kd_ratio,
             episodes_count=len(self._episodes),
             timestamp=datetime.now(),
         )
