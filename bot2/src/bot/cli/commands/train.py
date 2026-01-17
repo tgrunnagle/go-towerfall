@@ -608,7 +608,9 @@ def running() -> None:
 
         # Display run info
         console.print(f"[cyan bold]{run.run_id}[/cyan bold]")
-        console.print(f"  Progress: {run.timesteps:,} / {run.total_timesteps:,} ({progress_pct:.1f}%)")
+        console.print(
+            f"  Progress: {run.timesteps:,} / {run.total_timesteps:,} ({progress_pct:.1f}%)"
+        )
         console.print(f"  Generation: {run.generation}")
         console.print(f"  Elapsed: {format_duration(elapsed)}")
         console.print(f"  Speed: {fps:.1f} steps/sec")
@@ -768,6 +770,7 @@ async def _run_training_background(
         original_sigterm = signal.signal(signal.SIGTERM, handle_signal)
 
     try:
+
         def progress_callback(event: dict[str, Any]) -> None:
             event_type = event.get("type")
             metrics = event.get("metrics", {})

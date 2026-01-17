@@ -233,7 +233,7 @@ def show(
             dir_okay=False,
         ),
     ],
-    format: Annotated[
+    output_format: Annotated[
         str,
         typer.Option("--format", "-f", help="Output format (yaml, json)"),
     ] = "yaml",
@@ -250,7 +250,7 @@ def show(
         print_error(f"Failed to load configuration: {e}")
         raise typer.Exit(1)
 
-    if format == "json":
+    if output_format == "json":
         import json
 
         output = json.dumps(config.to_dict(), indent=2)

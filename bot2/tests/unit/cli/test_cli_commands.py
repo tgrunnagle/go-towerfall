@@ -77,9 +77,7 @@ class TestTrainCommands:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("bot.cli.commands.train.DEFAULT_RUNS_DIR", tmpdir):
                 # Mock subprocess.Popen to avoid actually spawning
-                mock_process = patch(
-                    "bot.cli.commands.train.subprocess.Popen"
-                ).start()
+                mock_process = patch("bot.cli.commands.train.subprocess.Popen").start()
                 mock_process.return_value.pid = 12345
 
                 result = runner.invoke(app, ["train", "start", "--background"])
@@ -110,9 +108,7 @@ class TestTrainCommands:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("bot.cli.commands.train.DEFAULT_RUNS_DIR", tmpdir):
                 # Mock subprocess.Popen
-                mock_process = patch(
-                    "bot.cli.commands.train.subprocess.Popen"
-                ).start()
+                mock_process = patch("bot.cli.commands.train.subprocess.Popen").start()
                 mock_process.return_value.pid = 54321
 
                 # Start background training
@@ -128,9 +124,7 @@ class TestTrainCommands:
 
                 # Query status by run ID - mock os.kill to avoid checking real PID
                 with patch("os.kill"):
-                    result = runner.invoke(
-                        app, ["train", "status", "--run-id", run_id]
-                    )
+                    result = runner.invoke(app, ["train", "status", "--run-id", run_id])
                     assert result.exit_code == 0
                     assert run_id in result.stdout
                     # State should show as running

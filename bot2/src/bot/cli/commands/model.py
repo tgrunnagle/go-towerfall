@@ -260,6 +260,9 @@ def evaluate_model(
     console.print(f"[bold]Episodes:[/bold] {episodes}")
     console.print()
 
+    # Determine opponent type: "rule_based" or "none"
+    opponent_type = "rule_based" if (opponent is None or opponent == "rule-based") else "none"
+
     try:
         metrics = asyncio.run(
             _run_evaluation(
@@ -267,6 +270,7 @@ def evaluate_model(
                 episodes=episodes,
                 server_url=server_url,
                 max_steps=max_steps,
+                opponent_type=opponent_type,
             )
         )
     except Exception as e:
@@ -296,8 +300,20 @@ async def _run_evaluation(
     episodes: int,
     server_url: str,
     max_steps: int,
+    opponent_type: str = "rule_based",
 ) -> dict[str, float]:
-    """Run evaluation episodes."""
+    """Run evaluation episodes.
+
+    Args:
+        network: The neural network model to evaluate
+        episodes: Number of evaluation episodes to run
+        server_url: Game server URL
+        max_steps: Maximum steps per episode
+        opponent_type: Type of opponent ("rule_based" or "none")
+
+    Returns:
+        Dictionary of evaluation metrics
+    """
     import numpy as np
     import torch
 
@@ -315,6 +331,7 @@ async def _run_evaluation(
         room_name_prefix="Evaluation",
         tick_rate_multiplier=10.0,
         max_episode_steps=max_steps,
+        opponent_type=opponent_type,
     )
 
     rewards: list[float] = []
@@ -363,6 +380,14 @@ async def _run_evaluation(
                 episode_length += 1
                 done = bool(np.any(terminated | truncated))
                 obs = torch.as_tensor(next_obs, dtype=torch.float32, device=device)
+
+                # Extract kills/deaths from info if available
+                if "env_infos" in info:
+                    for env_info in info["env_infos"]:
+                        if env_info and "stats" in env_info:
+                            stats = env_info["stats"]
+                            episode_kills = float(stats.get("kills", 0))
+                            episode_deaths = float(stats.get("deaths", 0))
 
             rewards.append(episode_reward)
             lengths.append(episode_length)
