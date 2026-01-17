@@ -24,8 +24,24 @@ class ModelOpponent:
     """Trained model opponent for self-play training.
 
     Wraps a trained ActorCriticNetwork and runs it as an opponent player
-    in the game environment. The opponent operates in REST mode, receiving
-    game state updates and executing actions through the training environment.
+    in the game environment.
+
+    Design Decision - REST Mode vs WebSocket:
+        The opponent operates in REST mode rather than WebSocket mode. While
+        WebSocket would provide real-time game state streaming, REST mode is
+        preferred for training because:
+
+        1. **Synchronization**: REST mode ensures the opponent's actions are
+           synchronized with the training environment's step cycle. The training
+           env pushes state via on_game_state(), opponent computes action, and
+           submits via REST - all in lockstep.
+
+        2. **Determinism**: Eliminates timing-dependent behavior that could make
+           training non-reproducible. The opponent acts exactly once per state
+           update, not based on WebSocket message arrival timing.
+
+        3. **Resource efficiency**: No background WebSocket listener task needed,
+           reducing async complexity and potential race conditions.
 
     The model opponent uses deterministic action selection for consistent
     behavior during evaluation and training.

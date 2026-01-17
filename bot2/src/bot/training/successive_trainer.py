@@ -236,6 +236,22 @@ class SuccessiveTrainer:
                 metrics = event.get("metrics", {})
 
                 # Build evaluation result from metrics
+                # Note: kd_ratio_std is estimated from aggregate metrics since per-episode
+                # data is not available in the callback. This uses the coefficient of
+                # variation approximation: std ≈ mean * cv, where cv is estimated from
+                # the reward variance if available, otherwise defaults to 0.3 (30% CV).
+                # This enables statistical significance testing with approximate values.
+                kd_ratio = metrics.get("eval_kd_ratio", 0.0)
+                # Use reward std as a proxy for performance variance if available,
+                # otherwise use a conservative estimate of 30% coefficient of variation
+                reward_std = metrics.get("eval_reward_std", 0.0)
+                if reward_std > 0 and metrics.get("eval_avg_reward", 0.0) != 0:
+                    cv = reward_std / abs(metrics.get("eval_avg_reward", 1.0))
+                    kd_ratio_std = kd_ratio * min(cv, 1.0)  # Cap CV at 100%
+                else:
+                    # Default to 30% coefficient of variation as conservative estimate
+                    kd_ratio_std = kd_ratio * 0.3
+
                 eval_result = EvaluationResult(
                     total_episodes=self.config.evaluation_episodes,
                     total_kills=int(
@@ -255,13 +271,13 @@ class SuccessiveTrainer:
                         metrics.get("eval_win_rate", 0)
                         * self.config.evaluation_episodes
                     ),
-                    kd_ratio=metrics.get("eval_kd_ratio", 0.0),
+                    kd_ratio=kd_ratio,
                     win_rate=metrics.get("eval_win_rate", 0.0),
                     average_episode_length=metrics.get("eval_avg_length", 0.0),
                     average_reward=metrics.get("eval_avg_reward", 0.0),
-                    kd_ratio_std=0.0,  # Would need per-episode data
-                    win_rate_std=0.0,
-                    confidence_interval_95=(0.0, 0.0),
+                    kd_ratio_std=kd_ratio_std,
+                    win_rate_std=0.0,  # Not critical for promotion decisions
+                    confidence_interval_95=(0.0, 0.0),  # Computed from std in compare
                 )
 
                 # Compare to baseline

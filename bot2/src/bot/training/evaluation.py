@@ -113,17 +113,24 @@ class EvaluationResult:
         win_rate_std = float(np.std(win_indicators)) if len(win_indicators) > 1 else 0.0
 
         # Compute 95% confidence interval for K/D ratio
+        # Guard against zero standard error (when all episodes have identical K/D)
         if len(per_episode_kd) > 1:
-            ci = stats.t.interval(
-                confidence=0.95,
-                df=len(per_episode_kd) - 1,
-                loc=np.mean(per_episode_kd),
-                scale=stats.sem(per_episode_kd),
-            )
-            confidence_interval_95 = (float(ci[0]), float(ci[1]))
+            sem = stats.sem(per_episode_kd)
+            mean_kd = float(np.mean(per_episode_kd))
+            if sem > 0:
+                ci = stats.t.interval(
+                    confidence=0.95,
+                    df=len(per_episode_kd) - 1,
+                    loc=mean_kd,
+                    scale=sem,
+                )
+                confidence_interval_95 = (float(ci[0]), float(ci[1]))
+            else:
+                # Zero variance - all episodes have same K/D
+                confidence_interval_95 = (mean_kd, mean_kd)
         else:
-            mean_kd = np.mean(per_episode_kd) if per_episode_kd else 0.0
-            confidence_interval_95 = (float(mean_kd), float(mean_kd))
+            mean_kd = float(np.mean(per_episode_kd)) if per_episode_kd else 0.0
+            confidence_interval_95 = (mean_kd, mean_kd)
 
         return cls(
             total_episodes=num_episodes,
@@ -219,6 +226,11 @@ class EvaluationManager:
             opponent_win_rate = opponent_baseline.win_rate
 
         # Calculate improvements
+        # Note: We use max(opponent_kd, 0.01) to prevent division by zero when the
+        # opponent has a K/D of 0.0 (e.g., opponent never gets kills). The 0.01 floor
+        # means that if opponent_kd is 0, an agent with K/D of 1.0 would show 100x
+        # improvement. This is intentional - any positive K/D is vastly better than
+        # zero kills.
         kd_improvement = (agent_eval.kd_ratio - opponent_kd) / max(opponent_kd, 0.01)
         win_rate_improvement = agent_eval.win_rate - opponent_win_rate
 
