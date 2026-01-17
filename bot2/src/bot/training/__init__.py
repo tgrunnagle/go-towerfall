@@ -31,6 +31,11 @@ Usage:
         logger.log_episode(EpisodeMetrics(episode_id=1, total_reward=10.5, length=500))
 """
 
+from bot.training.evaluation import (
+    ComparisonResult,
+    EvaluationManager,
+    EvaluationResult,
+)
 from bot.training.exceptions import (
     GameCreationError,
     GameNotFoundError,
@@ -64,11 +69,22 @@ from bot.training.server_manager import (
     GameServerManager,
     TrainingGameConfig,
 )
+from bot.training.successive_config import PromotionCriteria, SuccessiveTrainingConfig
+from bot.training.successive_trainer import GenerationResult, SuccessiveTrainer
 
 __all__ = [
     # Orchestrator
     "TrainingOrchestrator",
     "OrchestratorConfig",
+    # Successive training
+    "SuccessiveTrainer",
+    "SuccessiveTrainingConfig",
+    "PromotionCriteria",
+    "GenerationResult",
+    # Evaluation
+    "EvaluationManager",
+    "EvaluationResult",
+    "ComparisonResult",
     # Server management
     "GameServerManager",
     "TrainingGameConfig",
