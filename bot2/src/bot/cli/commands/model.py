@@ -261,7 +261,9 @@ def evaluate_model(
     console.print()
 
     # Determine opponent type: "rule_based" or "none"
-    opponent_type = "rule_based" if (opponent is None or opponent == "rule-based") else "none"
+    opponent_type = (
+        "rule_based" if (opponent is None or opponent == "rule-based") else "none"
+    )
 
     try:
         metrics = asyncio.run(
