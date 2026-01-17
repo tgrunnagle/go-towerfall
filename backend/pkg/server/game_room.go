@@ -67,6 +67,7 @@ type TrainingOptions struct {
 // SpectatorThrottler manages throttling of game state updates to spectators
 // to prevent overwhelming browser clients at high tick rates
 type SpectatorThrottler struct {
+	mu          sync.Mutex
 	lastUpdate  time.Time
 	minInterval time.Duration
 }
@@ -98,7 +99,9 @@ type GameRoom struct {
 	// Training mode configuration
 	TrainingOptions *TrainingOptions
 	// Training state tracking
-	// trainingStartTime is set once during construction and never modified, so it's safe to read without locking
+	// roomCreatedTime is set once during construction and never modified
+	roomCreatedTime time.Time
+	// trainingStartTime tracks the start of the current episode (reset on each Reset() call)
 	trainingStartTime time.Time
 	// trainingKillCount is modified during gameplay and must be accessed with LockObject held
 	trainingKillCount int
@@ -167,6 +170,7 @@ func NewGameRoomWithTrainingConfig(id string, name string, password string, room
 	}
 
 	// Create the room
+	now := time.Now()
 	room := &GameRoom{
 		ID:                 id,
 		Name:               name,
@@ -174,14 +178,15 @@ func NewGameRoomWithTrainingConfig(id string, name string, password string, room
 		RoomCode:           roomCode,
 		EventManager:       NewGameEventManager(),
 		ObjectManager:      NewGameObjectManager(baseMap),
-		LastUpdateTime:     time.Now(),
+		LastUpdateTime:     now,
 		Players:            make(map[string]*ConnectedPlayer),
 		PlayerStats:        make(map[string]*PlayerStats),
 		Map:                baseMap,
 		TickInterval:       tickInterval,
 		TickMultiplier:     tickMultiplier,
 		TrainingOptions:    trainingOptions,
-		trainingStartTime:  time.Now(),
+		roomCreatedTime:    now,
+		trainingStartTime:  now,
 		trainingKillCount:  0,
 		trainingEpisode:    1,
 		spectatorThrottler: spectatorThrottler,
@@ -630,10 +635,13 @@ func (r *GameRoom) GetRespawnTimeSec() float64 {
 // ShouldThrottleSpectatorUpdate checks if a spectator update should be skipped.
 // Returns true if the update should be throttled (skipped), false if it should be sent.
 // For non-training rooms or rooms without a throttler, always returns false.
+// This method is thread-safe.
 func (r *GameRoom) ShouldThrottleSpectatorUpdate() bool {
 	if r.spectatorThrottler == nil {
 		return false
 	}
+	r.spectatorThrottler.mu.Lock()
+	defer r.spectatorThrottler.mu.Unlock()
 	if time.Since(r.spectatorThrottler.lastUpdate) < r.spectatorThrottler.minInterval {
 		return true
 	}
@@ -688,7 +696,7 @@ func (r *GameRoom) GetPlayerCount() int {
 
 // GetRoomDuration returns how long the room has been active since creation.
 func (r *GameRoom) GetRoomDuration() time.Duration {
-	return time.Since(r.trainingStartTime)
+	return time.Since(r.roomCreatedTime)
 }
 
 // calculateTickInterval computes the tick interval from TickConfig

@@ -69,10 +69,6 @@ const GamePage = () => {
         isSpectator={queryIsSpectator}
         canvasSizeX={queryCanvasSizeX}
         canvasSizeY={queryCanvasSizeY}
-        trainingMode={queryTrainingMode}
-        tickMultiplier={queryTickMultiplier}
-        maxGameDurationSec={queryMaxGameDurationSec}
-        maxKills={queryMaxKills}
         setPlayerName={setPlayerName}
         setRoomName={setRoomName}
         setRoomCode={setRoomCode}
