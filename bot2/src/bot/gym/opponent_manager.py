@@ -2,6 +2,7 @@
 
 This module provides opponent implementations that can be used during training:
 - RuleBasedOpponent: A rule-based bot that plays against the ML agent
+- ModelOpponent: A trained neural network opponent for self-play training
 - NoOpponent: A no-op implementation for single-player training
 
 The opponent manager integrates with the training environment lifecycle,
@@ -11,11 +12,16 @@ managing opponent connections and game state updates.
 from __future__ import annotations
 
 import logging
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+import torch
 
 from bot.bots.rule_based_bot import RuleBasedBotConfig, RuleBasedBotRunner
 from bot.client import ClientMode, GameClient
 from bot.models import GameState
+
+if TYPE_CHECKING:
+    from bot.agent.network import ActorCriticNetwork
 
 
 class OpponentProtocol(Protocol):
@@ -198,21 +204,25 @@ def create_opponent(
     ws_url: str,
     player_name: str = "Opponent",
     config: RuleBasedBotConfig | None = None,
+    model: "ActorCriticNetwork | None" = None,
+    device: torch.device | None = None,
 ) -> OpponentProtocol:
     """Factory function to create opponent instances.
 
     Args:
-        opponent_type: Type of opponent ("rule_based", "none").
+        opponent_type: Type of opponent ("rule_based", "none", "model").
         http_url: Base URL for game server REST API.
         ws_url: WebSocket URL for game server.
         player_name: Name for the opponent player.
         config: Optional configuration for rule-based bot.
+        model: Neural network model (required for "model" type).
+        device: PyTorch device for model inference.
 
     Returns:
         Opponent instance implementing OpponentProtocol.
 
     Raises:
-        ValueError: If opponent_type is not recognized.
+        ValueError: If opponent_type is not recognized or model missing for "model" type.
     """
     if opponent_type == "rule_based":
         return RuleBasedOpponent(
@@ -223,5 +233,17 @@ def create_opponent(
         )
     elif opponent_type == "none":
         return NoOpponent()
+    elif opponent_type == "model":
+        if model is None:
+            raise ValueError("model parameter required for opponent_type='model'")
+        from bot.gym.model_opponent import ModelOpponent
+
+        return ModelOpponent(
+            model=model,
+            http_url=http_url,
+            ws_url=ws_url,
+            player_name=player_name,
+            device=device,
+        )
     else:
         raise ValueError(f"Unknown opponent type: {opponent_type}")

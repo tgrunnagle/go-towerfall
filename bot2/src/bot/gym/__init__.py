@@ -36,6 +36,7 @@ Usage:
     env.close()
 """
 
+from bot.gym.model_opponent import ModelOpponent
 from bot.gym.opponent_manager import (
     NoOpponent,
     OpponentProtocol,
@@ -57,6 +58,7 @@ __all__ = [
     "TerminationTracker",
     "OpponentProtocol",
     "RuleBasedOpponent",
+    "ModelOpponent",
     "NoOpponent",
     "create_opponent",
 ]
