@@ -387,8 +387,12 @@ class TestOrchestratorConfigSerialization:
         assert restored.game_config.max_kills == original.game_config.max_kills
         assert restored.metrics_config.enabled == original.metrics_config.enabled
         assert restored.metrics_config.log_dir == original.metrics_config.log_dir
-        assert restored.metrics_config.file_format == original.metrics_config.file_format
-        assert restored.metrics_config.window_size == original.metrics_config.window_size
+        assert (
+            restored.metrics_config.file_format == original.metrics_config.file_format
+        )
+        assert (
+            restored.metrics_config.window_size == original.metrics_config.window_size
+        )
 
 
 class TestOrchestratorConfigYamlSerialization:

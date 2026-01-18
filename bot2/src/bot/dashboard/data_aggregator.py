@@ -93,9 +93,7 @@ class DataAggregator:
         # Filter by generation range if specified
         if generation_range is not None:
             start, end = generation_range
-            all_metadata = [
-                m for m in all_metadata if start <= m.generation <= end
-            ]
+            all_metadata = [m for m in all_metadata if start <= m.generation <= end]
 
         # Convert each model's metadata to GenerationMetrics
         generation_metrics: list[GenerationMetrics] = []

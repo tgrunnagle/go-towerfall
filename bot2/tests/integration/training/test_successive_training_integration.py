@@ -251,9 +251,7 @@ class TestSuccessiveTrainerTwoGenerations:
             await trainer.train()
 
         # Should have generation_complete events
-        gen_events = [
-            e for e in events_received if e["type"] == "generation_complete"
-        ]
+        gen_events = [e for e in events_received if e["type"] == "generation_complete"]
         assert len(gen_events) == 2
 
         # Check generation numbers
