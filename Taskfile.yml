@@ -42,6 +42,14 @@ tasks:
     deps:
       - bot2:install
 
+  bot2:format:check:
+    dir: bot2
+    desc: Check bot2 code formatting (no fix)
+    cmds:
+      - uv run ruff format --check .
+    deps:
+      - bot2:install
+
   bot2:typecheck:
     dir: bot2
     desc: Run bot2 type checking with ty
@@ -131,6 +139,12 @@ tasks:
     desc: Format backend Go code
     cmds:
       - go fmt ./...
+
+  be:format:check:
+    dir: backend
+    desc: Check backend Go code formatting (no fix)
+    cmds:
+      - test -z "$(gofmt -l .)"
 
   be:vet:
     dir: backend

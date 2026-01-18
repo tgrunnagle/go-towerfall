@@ -1,0 +1,36 @@
+name: Integration
+
+on:
+  workflow_call:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - uses: arduino/setup-task@v2
+
+      - name: Start services with docker compose
+        run: task compose
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for services to be ready..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/api/maps > /dev/null 2>&1; then
+              echo "Services are ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run bot2 integration tests
+        run: task bot2:test:integration
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down

@@ -1,0 +1,31 @@
+name: Test
+
+on:
+  workflow_call:
+
+jobs:
+  bot2-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - uses: arduino/setup-task@v2
+
+      - name: Run bot2 unit tests
+        run: task bot2:test:unit
+
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: arduino/setup-task@v2
+
+      - name: Run backend tests
+        run: task be:test
