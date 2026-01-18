@@ -1,5 +1,6 @@
 """Unit tests for CLI commands."""
 
+import re
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -10,6 +11,12 @@ from bot.cli.main import app
 from bot.training.orchestrator_config import OrchestratorConfig
 
 runner = CliRunner()
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestMainApp:
@@ -45,8 +52,9 @@ class TestTrainCommands:
         """Test train start --help works."""
         result = runner.invoke(app, ["train", "start", "--help"])
         assert result.exit_code == 0
-        assert "--config" in result.stdout
-        assert "--timesteps" in result.stdout
+        stdout = strip_ansi(result.stdout)
+        assert "--config" in stdout
+        assert "--timesteps" in stdout
 
     def test_train_list_empty(self) -> None:
         """Test train list with no runs."""
