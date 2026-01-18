@@ -138,39 +138,7 @@ class DashboardVisualizer:
         Returns:
             List of generated file paths
         """
-        import matplotlib.pyplot as plt
-
-        generations = [m.generation_id for m in metrics]
-        kd_ratios = [m.kill_death_ratio for m in metrics]
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.plot(
-            generations,
-            kd_ratios,
-            marker="o",
-            linewidth=2,
-            markersize=8,
-            color="#2563eb",
-        )
-        ax.set_xlabel("Generation", fontsize=12)
-        ax.set_ylabel("Kill/Death Ratio", fontsize=12)
-        ax.set_title("K/D Ratio Progression Across Generations", fontsize=14)
-        ax.grid(True, alpha=0.3)
-        ax.set_xticks(generations)
-
-        # Add value labels above points
-        for gen, kd in zip(generations, kd_ratios, strict=False):
-            ax.annotate(
-                f"{kd:.2f}",
-                (gen, kd),
-                textcoords="offset points",
-                xytext=(0, 10),
-                ha="center",
-                fontsize=9,
-            )
-
-        plt.tight_layout()
-
+        fig = self._create_kd_ratio_figure(metrics)
         return self._save_figure(fig, "kd_ratio_progression", output_format)
 
     def _generate_win_rate_chart(
@@ -187,53 +155,7 @@ class DashboardVisualizer:
         Returns:
             List of generated file paths
         """
-        import matplotlib.pyplot as plt
-
-        generations = [m.generation_id for m in metrics]
-        win_rates = [m.win_rate * 100 for m in metrics]
-        opponents = [m.opponent_type for m in metrics]
-
-        # Create color map based on opponent type
-        colors = []
-        for opp in opponents:
-            if opp == "baseline":
-                colors.append("#10b981")  # Green for baseline
-            else:
-                colors.append("#6366f1")  # Indigo for model opponents
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        bars = ax.bar(generations, win_rates, color=colors, edgecolor="white")
-
-        ax.set_xlabel("Generation", fontsize=12)
-        ax.set_ylabel("Win Rate (%)", fontsize=12)
-        ax.set_title("Win Rate by Generation", fontsize=14)
-        ax.set_ylim(0, 100)
-        ax.set_xticks(generations)
-        ax.grid(True, alpha=0.3, axis="y")
-
-        # Add value labels on bars
-        for bar, win_rate in zip(bars, win_rates, strict=False):
-            height = bar.get_height()
-            ax.annotate(
-                f"{win_rate:.1f}%",
-                xy=(bar.get_x() + bar.get_width() / 2, height),
-                xytext=(0, 3),
-                textcoords="offset points",
-                ha="center",
-                fontsize=9,
-            )
-
-        # Add legend
-        from matplotlib.patches import Patch
-
-        legend_elements = [
-            Patch(facecolor="#10b981", label="vs Baseline"),
-            Patch(facecolor="#6366f1", label="vs Previous Gen"),
-        ]
-        ax.legend(handles=legend_elements, loc="upper right")
-
-        plt.tight_layout()
-
+        fig = self._create_win_rate_figure(metrics)
         return self._save_figure(fig, "win_rate_by_generation", output_format)
 
     def _generate_reward_chart(
@@ -250,39 +172,7 @@ class DashboardVisualizer:
         Returns:
             List of generated file paths
         """
-        import matplotlib.pyplot as plt
-
-        generations = [m.generation_id for m in metrics]
-        rewards = [m.avg_episode_reward for m in metrics]
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.plot(
-            generations,
-            rewards,
-            marker="s",
-            linewidth=2,
-            markersize=8,
-            color="#f59e0b",
-        )
-        ax.set_xlabel("Generation", fontsize=12)
-        ax.set_ylabel("Average Episode Reward", fontsize=12)
-        ax.set_title("Average Reward Progression Across Generations", fontsize=14)
-        ax.grid(True, alpha=0.3)
-        ax.set_xticks(generations)
-
-        # Add value labels
-        for gen, reward in zip(generations, rewards, strict=False):
-            ax.annotate(
-                f"{reward:.1f}",
-                (gen, reward),
-                textcoords="offset points",
-                xytext=(0, 10),
-                ha="center",
-                fontsize=9,
-            )
-
-        plt.tight_layout()
-
+        fig = self._create_reward_figure(metrics)
         return self._save_figure(fig, "reward_progression", output_format)
 
     def _save_figure(

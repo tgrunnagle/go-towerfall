@@ -10,6 +10,7 @@ from pathlib import Path
 
 from bot.dashboard.models import DashboardConfig, GenerationMetrics
 from bot.training.registry import ModelRegistry
+from bot.training.registry.model_metadata import ModelMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ class DataAggregator:
 
     def _metadata_to_generation_metrics(
         self,
-        metadata: "ModelRegistry.ModelMetadata",  # type: ignore[name-defined]
+        metadata: ModelMetadata,
     ) -> GenerationMetrics:
         """Convert model metadata to GenerationMetrics.
 
@@ -116,25 +117,21 @@ class DataAggregator:
         Returns:
             GenerationMetrics with data from the metadata
         """
-        from bot.training.registry.model_metadata import ModelMetadata
-
-        # Type assertion for clarity
-        meta: ModelMetadata = metadata  # type: ignore[assignment]
-        training = meta.training_metrics
+        training = metadata.training_metrics
 
         # Determine opponent type description
-        if meta.opponent_model_id is None:
+        if metadata.opponent_model_id is None:
             opponent_type = "baseline"
         else:
-            opponent_type = meta.opponent_model_id
+            opponent_type = metadata.opponent_model_id
 
         # Calculate total kills/deaths from averages and episode count
         total_kills = int(training.average_kills * training.total_episodes)
         total_deaths = int(training.average_deaths * training.total_episodes)
 
         return GenerationMetrics(
-            generation_id=meta.generation,
-            model_version=meta.model_id,
+            generation_id=metadata.generation,
+            model_version=metadata.model_id,
             opponent_type=opponent_type,
             total_episodes=training.total_episodes,
             total_kills=total_kills,
@@ -144,8 +141,8 @@ class DataAggregator:
             avg_episode_reward=training.average_reward,
             avg_episode_length=training.average_episode_length,
             training_steps=training.total_timesteps,
-            training_duration_seconds=meta.training_duration_seconds,
-            timestamp=meta.created_at,
+            training_duration_seconds=metadata.training_duration_seconds,
+            timestamp=metadata.created_at,
         )
 
     def get_generation_metrics(self, generation: int) -> GenerationMetrics | None:
@@ -158,24 +155,18 @@ class DataAggregator:
             GenerationMetrics for the generation, or None if not found
         """
         try:
-            model_id = f"ppo_gen_{generation:03d}"
+            model_id = ModelRegistry.MODEL_ID_FORMAT.format(generation=generation)
             metadata = self.registry.get_metadata(model_id)
             return self._metadata_to_generation_metrics(metadata)
         except Exception:
             logger.debug("Generation %d not found in registry", generation)
             return None
 
-    def load_episode_metrics_from_logs(
-        self,
-        generation: int | None = None,
-    ) -> list[dict]:
+    def load_episode_metrics_from_logs(self) -> list[dict]:
         """Load raw episode metrics from training log files.
 
         Parses JSONL or CSV metrics files to extract episode-level data.
         This provides more granular data than the aggregated registry metadata.
-
-        Args:
-            generation: Optional generation to filter by (not yet implemented)
 
         Returns:
             List of episode metric dictionaries with keys:
@@ -269,19 +260,13 @@ class DataAggregator:
             logger.warning("Failed to read %s: %s", file_path, e)
         return metrics
 
-    def get_reward_progression(
-        self,
-        generation: int | None = None,
-    ) -> list[tuple[int, float]]:
+    def get_reward_progression(self) -> list[tuple[int, float]]:
         """Get episode reward progression from metrics logs.
-
-        Args:
-            generation: Optional generation to filter by
 
         Returns:
             List of (step, reward) tuples sorted by step
         """
-        all_metrics = self.load_episode_metrics_from_logs(generation)
+        all_metrics = self.load_episode_metrics_from_logs()
 
         rewards = [
             (m["step"], m["value"])
