@@ -43,13 +43,13 @@ func (l *Line) GetCenter() *Point {
 }
 
 func (l *Line) CollidesWith(other Shape) (bool, []*Point) {
-	switch other.(type) {
+	switch o := other.(type) {
 	case *Line:
-		return checkLineLineCollision(l, other.(*Line))
+		return checkLineLineCollision(l, o)
 	case *Circle:
-		return checkLineCircleCollision(l, other.(*Circle))
+		return checkLineCircleCollision(l, o)
 	case *Polygon:
-		return checkLinePolygonCollision(l, other.(*Polygon))
+		return checkLinePolygonCollision(l, o)
 	}
 	return false, nil
 }
@@ -72,13 +72,13 @@ func (c *Circle) GetCenter() *Point {
 }
 
 func (c *Circle) CollidesWith(other Shape) (bool, []*Point) {
-	switch other.(type) {
+	switch o := other.(type) {
 	case *Line:
-		return checkLineCircleCollision(other.(*Line), c)
+		return checkLineCircleCollision(o, c)
 	case *Circle:
-		return checkCircleCircleCollision(c, other.(*Circle))
+		return checkCircleCircleCollision(c, o)
 	case *Polygon:
-		return checkCirclePolygonCollision(c, other.(*Polygon))
+		return checkCirclePolygonCollision(c, o)
 	}
 	return false, nil
 }
@@ -112,13 +112,13 @@ func (p *Polygon) GetLines() []*Line {
 }
 
 func (p *Polygon) CollidesWith(other Shape) (bool, []*Point) {
-	switch other.(type) {
+	switch o := other.(type) {
 	case *Line:
-		return checkLinePolygonCollision(other.(*Line), p)
+		return checkLinePolygonCollision(o, p)
 	case *Circle:
-		return checkCirclePolygonCollision(other.(*Circle), p)
+		return checkCirclePolygonCollision(o, p)
 	case *Polygon:
-		return checkPolygonPolygonCollision(p, other.(*Polygon))
+		return checkPolygonPolygonCollision(p, o)
 	}
 	return false, nil
 }

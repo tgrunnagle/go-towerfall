@@ -226,7 +226,7 @@ func TestPolygonPolygonCollision(t *testing.T) {
 				},
 			},
 			want:      true,
-			numPoints: 2,  // Two points: one at each end of the overlapping edge (2,1) and (2,2)
+			numPoints: 2, // Two points: one at each end of the overlapping edge (2,1) and (2,2)
 		},
 	}
 

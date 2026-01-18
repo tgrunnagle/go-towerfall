@@ -14,6 +14,13 @@ import (
 	"time"
 )
 
+// writeJSON writes a JSON response to the http.ResponseWriter and logs any encoding errors
+func writeJSON(w http.ResponseWriter, v interface{}) {
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Printf("Failed to encode JSON response: %v", err)
+	}
+}
+
 // HandleGetMaps handles HTTP requests to get available maps
 func (s *Server) HandleGetMaps(w http.ResponseWriter, r *http.Request) {
 	// Set response headers
@@ -31,7 +38,7 @@ func (s *Server) HandleGetMaps(w http.ResponseWriter, r *http.Request) {
 	// Only allow GET requests
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, map[string]interface{}{
 			"error": "Method not allowed",
 		})
 		return
@@ -41,7 +48,7 @@ func (s *Server) HandleGetMaps(w http.ResponseWriter, r *http.Request) {
 	metadata, err := game_maps.GetAllMapsMetadata()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, map[string]interface{}{
 			"error": fmt.Sprintf("Failed to get maps: %v", err),
 		})
 		return
@@ -66,7 +73,7 @@ func (s *Server) HandleGetMaps(w http.ResponseWriter, r *http.Request) {
 
 	// Send response
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(GetMapsResponse{
+	writeJSON(w, GetMapsResponse{
 		Maps: maps,
 	})
 }
@@ -124,10 +131,10 @@ type JoinGameHTTPResponse struct {
 	CanvasSizeY int    `json:"canvasSizeY,omitempty"`
 	Error       string `json:"error,omitempty"`
 	// Training mode settings (returned when joining a training game as spectator)
-	TrainingMode        bool    `json:"trainingMode,omitempty"`
-	TickMultiplier      float64 `json:"tickMultiplier,omitempty"`
-	MaxGameDurationSec  int     `json:"maxGameDurationSec,omitempty"`
-	MaxKills            int     `json:"maxKills,omitempty"`
+	TrainingMode       bool    `json:"trainingMode,omitempty"`
+	TickMultiplier     float64 `json:"tickMultiplier,omitempty"`
+	MaxGameDurationSec int     `json:"maxGameDurationSec,omitempty"`
+	MaxKills           int     `json:"maxKills,omitempty"`
 }
 
 // GetRoomStateResponse represents the response to a room state request
@@ -167,7 +174,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	// Only allow POST requests
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+		writeJSON(w, CreateGameHTTPResponse{
 			Success: false,
 			Error:   "Method not allowed",
 		})
@@ -178,7 +185,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	var req CreateGameHTTPRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+		writeJSON(w, CreateGameHTTPResponse{
 			Success: false,
 			Error:   "Invalid request format",
 		})
@@ -188,7 +195,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	// Validate request
 	if req.PlayerName == "" || req.RoomName == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+		writeJSON(w, CreateGameHTTPResponse{
 			Success: false,
 			Error:   "PlayerName and RoomName are required",
 		})
@@ -203,7 +210,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		// The issue spec mentions 1.0-100.0, but the server's MinTickInterval of 1ms limits practical max to 20x.
 		if req.TickMultiplier != 0 && (req.TickMultiplier < 1.0 || req.TickMultiplier > 20.0) {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+			writeJSON(w, CreateGameHTTPResponse{
 				Success: false,
 				Error:   "tickMultiplier must be between 1.0 and 20.0",
 			})
@@ -211,7 +218,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		}
 		if req.MaxGameDurationSec < 0 || req.MaxGameDurationSec > 3600 {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+			writeJSON(w, CreateGameHTTPResponse{
 				Success: false,
 				Error:   "maxGameDurationSec must be between 0 and 3600",
 			})
@@ -219,7 +226,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		}
 		if req.MaxKills < 0 {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+			writeJSON(w, CreateGameHTTPResponse{
 				Success: false,
 				Error:   "maxKills must be non-negative",
 			})
@@ -239,7 +246,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	if !game_maps.IsValidMapType(req.MapType) {
 		validTypes, _ := game_maps.GetValidMapTypes()
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+		writeJSON(w, CreateGameHTTPResponse{
 			Success: false,
 			Error:   fmt.Sprintf("invalid mapType '%s', valid types are: %v", req.MapType, validTypes),
 		})
@@ -251,7 +258,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	room, player, err := NewGameWithPlayerAndTrainingConfig(req.RoomName, req.PlayerName, mapType, nil, trainingOptions)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(CreateGameHTTPResponse{
+		writeJSON(w, CreateGameHTTPResponse{
 			Success: false,
 			Error:   err.Error(),
 		})
@@ -290,7 +297,7 @@ func (s *Server) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 
 	log.Printf("Created game room %s with code %s via HTTP API", room.ID, room.RoomCode)
 	log.Printf("Player %s joined game room %s via HTTP API", player.ID, room.ID)
@@ -313,7 +320,7 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 	// Only allow POST requests
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(JoinGameHTTPResponse{
+		writeJSON(w, JoinGameHTTPResponse{
 			Success: false,
 			Error:   "Method not allowed",
 		})
@@ -324,7 +331,7 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 	var req JoinGameHTTPRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(JoinGameHTTPResponse{
+		writeJSON(w, JoinGameHTTPResponse{
 			Success: false,
 			Error:   "Invalid request format",
 		})
@@ -334,7 +341,7 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 	// Validate request
 	if req.PlayerName == "" || req.RoomCode == "" || req.RoomPassword == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(JoinGameHTTPResponse{
+		writeJSON(w, JoinGameHTTPResponse{
 			Success: false,
 			Error:   "PlayerName, RoomCode, and RoomPassword are required",
 		})
@@ -345,7 +352,7 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 	room, exists := s.roomManager.GetGameRoomByCode(req.RoomCode)
 	if !exists {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(JoinGameHTTPResponse{
+		writeJSON(w, JoinGameHTTPResponse{
 			Success: false,
 			Error:   "Room not found",
 		})
@@ -357,7 +364,7 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 	player, err := AddPlayerToGame(room, req.PlayerName, req.RoomPassword, isSpectator)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(JoinGameHTTPResponse{
+		writeJSON(w, JoinGameHTTPResponse{
 			Success: false,
 			Error:   err.Error(),
 		})
@@ -394,7 +401,7 @@ func (s *Server) HandleJoinGame(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 
 	log.Printf("Player %s joined game room %s via HTTP API", player.ID, room.ID)
 }
@@ -416,7 +423,7 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 	// Only allow GET requests
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(GetRoomStateResponse{
+		writeJSON(w, GetRoomStateResponse{
 			Success: false,
 			Error:   "Method not allowed",
 		})
@@ -429,7 +436,7 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 	suffix := "/state"
 	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(GetRoomStateResponse{
+		writeJSON(w, GetRoomStateResponse{
 			Success: false,
 			Error:   "Invalid URL format",
 		})
@@ -438,7 +445,7 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 	roomID := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
 	if roomID == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(GetRoomStateResponse{
+		writeJSON(w, GetRoomStateResponse{
 			Success: false,
 			Error:   "Room ID is required",
 		})
@@ -459,7 +466,7 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 	}
 	if playerToken == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(GetRoomStateResponse{
+		writeJSON(w, GetRoomStateResponse{
 			Success: false,
 			Error:   "Player token is required (provide via playerToken query param, X-Player-Token header, or Authorization: Bearer header)",
 		})
@@ -470,7 +477,7 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 	room, exists := s.roomManager.GetGameRoom(roomID)
 	if !exists {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(GetRoomStateResponse{
+		writeJSON(w, GetRoomStateResponse{
 			Success: false,
 			Error:   "Room not found",
 		})
@@ -480,7 +487,7 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 	// Verify player token belongs to a player in the room (thread-safe)
 	if !room.IsPlayerTokenValid(playerToken) {
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(GetRoomStateResponse{
+		writeJSON(w, GetRoomStateResponse{
 			Success: false,
 			Error:   "Player token is not authorized for this room",
 		})
@@ -492,7 +499,7 @@ func (s *Server) HandleGetRoomState(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(GetRoomStateResponse{
+	writeJSON(w, GetRoomStateResponse{
 		Success:      true,
 		RoomID:       room.ID,
 		Timestamp:    time.Now().UTC().Format(time.RFC3339),
@@ -517,7 +524,7 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 	// Only allow POST requests
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+		writeJSON(w, ResetGameHTTPResponse{
 			Success: false,
 			Error:   "Method not allowed",
 		})
@@ -530,7 +537,7 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 	suffix := "/reset"
 	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+		writeJSON(w, ResetGameHTTPResponse{
 			Success: false,
 			Error:   "Invalid URL format",
 		})
@@ -539,7 +546,7 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 	roomID := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
 	if roomID == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+		writeJSON(w, ResetGameHTTPResponse{
 			Success: false,
 			Error:   "Room ID is required",
 		})
@@ -557,7 +564,7 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 	}
 	if playerToken == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+		writeJSON(w, ResetGameHTTPResponse{
 			Success: false,
 			Error:   "Player token is required (provide via X-Player-Token header or Authorization: Bearer header)",
 		})
@@ -568,7 +575,7 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 	room, exists := s.roomManager.GetGameRoom(roomID)
 	if !exists {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+		writeJSON(w, ResetGameHTTPResponse{
 			Success: false,
 			Error:   "Room not found",
 		})
@@ -578,7 +585,7 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 	// Verify player token belongs to a player in the room (thread-safe)
 	if !room.IsPlayerTokenValid(playerToken) {
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+		writeJSON(w, ResetGameHTTPResponse{
 			Success: false,
 			Error:   "Player token is not authorized for this room",
 		})
@@ -590,7 +597,7 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil && r.ContentLength > 0 {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+			writeJSON(w, ResetGameHTTPResponse{
 				Success: false,
 				Error:   "Invalid request format",
 			})
@@ -600,7 +607,7 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 		// Validate room password if provided
 		if req.RoomPassword != "" && room.Password != strings.ToUpper(req.RoomPassword) {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+			writeJSON(w, ResetGameHTTPResponse{
 				Success: false,
 				Error:   "Invalid room password",
 			})
@@ -624,7 +631,7 @@ func (s *Server) HandleResetGame(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(ResetGameHTTPResponse{
+	writeJSON(w, ResetGameHTTPResponse{
 		Success: true,
 	})
 
@@ -648,7 +655,7 @@ func (s *Server) HandleGetRoomStats(w http.ResponseWriter, r *http.Request) {
 	// Only allow GET requests
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+		writeJSON(w, GetRoomStatsHTTPResponse{
 			Success: false,
 			Error:   "Method not allowed",
 		})
@@ -661,7 +668,7 @@ func (s *Server) HandleGetRoomStats(w http.ResponseWriter, r *http.Request) {
 	suffix := "/stats"
 	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+		writeJSON(w, GetRoomStatsHTTPResponse{
 			Success: false,
 			Error:   "Invalid URL format",
 		})
@@ -670,7 +677,7 @@ func (s *Server) HandleGetRoomStats(w http.ResponseWriter, r *http.Request) {
 	roomID := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
 	if roomID == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+		writeJSON(w, GetRoomStatsHTTPResponse{
 			Success: false,
 			Error:   "Room ID is required",
 		})
@@ -691,7 +698,7 @@ func (s *Server) HandleGetRoomStats(w http.ResponseWriter, r *http.Request) {
 	}
 	if playerToken == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+		writeJSON(w, GetRoomStatsHTTPResponse{
 			Success: false,
 			Error:   "Player token is required (provide via playerToken query param, X-Player-Token header, or Authorization: Bearer header)",
 		})
@@ -702,7 +709,7 @@ func (s *Server) HandleGetRoomStats(w http.ResponseWriter, r *http.Request) {
 	room, exists := s.roomManager.GetGameRoom(roomID)
 	if !exists {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+		writeJSON(w, GetRoomStatsHTTPResponse{
 			Success: false,
 			Error:   "Room not found",
 		})
@@ -712,7 +719,7 @@ func (s *Server) HandleGetRoomStats(w http.ResponseWriter, r *http.Request) {
 	// Verify player token belongs to a player in the room (thread-safe)
 	if !room.IsPlayerTokenValid(playerToken) {
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+		writeJSON(w, GetRoomStatsHTTPResponse{
 			Success: false,
 			Error:   "Player token is not authorized for this room",
 		})
@@ -733,7 +740,7 @@ func (s *Server) HandleGetRoomStats(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(GetRoomStatsHTTPResponse{
+	writeJSON(w, GetRoomStatsHTTPResponse{
 		Success:     true,
 		RoomID:      room.ID,
 		PlayerStats: playerStatsDTO,
@@ -769,7 +776,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	// Only allow POST requests
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(types.BotActionResponse{
+		writeJSON(w, types.BotActionResponse{
 			Success: false,
 			Error:   "Method not allowed",
 		})
@@ -780,7 +787,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	roomID, playerID, ok := extractBotActionPathParams(r.URL.Path)
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(types.BotActionResponse{
+		writeJSON(w, types.BotActionResponse{
 			Success: false,
 			Error:   "Invalid URL format. Expected: /api/rooms/{roomId}/players/{playerId}/action",
 		})
@@ -798,7 +805,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	if playerToken == "" {
 		log.Printf("HandleBotAction: Missing player token for room %s, player %s", roomID, playerID)
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(types.BotActionResponse{
+		writeJSON(w, types.BotActionResponse{
 			Success: false,
 			Error:   "Player token is required (provide via X-Player-Token header or Authorization: Bearer header)",
 		})
@@ -809,7 +816,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	room, exists := s.roomManager.GetGameRoom(roomID)
 	if !exists {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(types.BotActionResponse{
+		writeJSON(w, types.BotActionResponse{
 			Success: false,
 			Error:   "Room not found",
 		})
@@ -820,7 +827,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	player, exists := room.GetPlayer(playerID)
 	if !exists {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(types.BotActionResponse{
+		writeJSON(w, types.BotActionResponse{
 			Success: false,
 			Error:   "Player not found",
 		})
@@ -831,7 +838,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	if player.Token != playerToken {
 		log.Printf("HandleBotAction: Invalid player token for room %s, player %s", roomID, playerID)
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(types.BotActionResponse{
+		writeJSON(w, types.BotActionResponse{
 			Success: false,
 			Error:   "Invalid player token",
 		})
@@ -843,7 +850,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	var req types.BotActionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(types.BotActionResponse{
+		writeJSON(w, types.BotActionResponse{
 			Success: false,
 			Error:   "Invalid request format",
 		})
@@ -861,7 +868,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 			key := strings.ToUpper(action.Key)
 			if key != "W" && key != "A" && key != "S" && key != "D" {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(types.BotActionResponse{
+				writeJSON(w, types.BotActionResponse{
 					Success: false,
 					Error:   "Invalid key value. Must be W, A, S, or D",
 				})
@@ -911,7 +918,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 
 		default:
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(types.BotActionResponse{
+			writeJSON(w, types.BotActionResponse{
 				Success: false,
 				Error:   fmt.Sprintf("Invalid action type: %s. Must be key, click, or direction", action.Type),
 			})
@@ -930,7 +937,7 @@ func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(types.BotActionResponse{
+	writeJSON(w, types.BotActionResponse{
 		Success:          true,
 		ActionsProcessed: actionsProcessed,
 		Timestamp:        time.Now().UnixMilli(),
@@ -956,7 +963,7 @@ func (s *Server) HandleGetTrainingSessions(w http.ResponseWriter, r *http.Reques
 	// Only allow GET requests
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, map[string]interface{}{
 			"error": "Method not allowed",
 		})
 		return
@@ -984,7 +991,7 @@ func (s *Server) HandleGetTrainingSessions(w http.ResponseWriter, r *http.Reques
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(GetTrainingSessionsResponse{
+	writeJSON(w, GetTrainingSessionsResponse{
 		Sessions: sessions,
 	})
 }
