@@ -197,7 +197,9 @@ class TestDashboardVisualizer:
         # Modify mock to return filtered results
         filtered_metrics = mock_aggregator.get_all_generation_metrics.return_value[:2]
         mock_aggregator.get_all_generation_metrics.side_effect = lambda r=None: (
-            filtered_metrics if r == (0, 1) else mock_aggregator.get_all_generation_metrics.return_value
+            filtered_metrics
+            if r == (0, 1)
+            else mock_aggregator.get_all_generation_metrics.return_value
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -214,7 +216,9 @@ class TestDashboardVisualizer:
             assert len(files) > 0
 
     def test_kd_ratio_chart_content(
-        self, mock_aggregator: MagicMock, sample_generation_metrics: list[GenerationMetrics]
+        self,
+        mock_aggregator: MagicMock,
+        sample_generation_metrics: list[GenerationMetrics],
     ):
         """Test that K/D ratio chart has correct data."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -238,7 +242,9 @@ class TestDashboardVisualizer:
             assert "data:image/png;base64," in content
 
     def test_win_rate_chart_content(
-        self, mock_aggregator: MagicMock, sample_generation_metrics: list[GenerationMetrics]
+        self,
+        mock_aggregator: MagicMock,
+        sample_generation_metrics: list[GenerationMetrics],
     ):
         """Test that win rate chart has correct data."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -259,7 +265,9 @@ class TestDashboardVisualizer:
             assert "data:image/png;base64," in content
 
     def test_reward_chart_content(
-        self, mock_aggregator: MagicMock, sample_generation_metrics: list[GenerationMetrics]
+        self,
+        mock_aggregator: MagicMock,
+        sample_generation_metrics: list[GenerationMetrics],
     ):
         """Test that reward chart has correct data."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -280,7 +288,9 @@ class TestDashboardVisualizer:
             assert "data:image/png;base64," in content
 
     def test_summary_table_content(
-        self, mock_aggregator: MagicMock, sample_generation_metrics: list[GenerationMetrics]
+        self,
+        mock_aggregator: MagicMock,
+        sample_generation_metrics: list[GenerationMetrics],
     ):
         """Test that summary table has correct content."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -304,7 +314,9 @@ class TestDashboardVisualizer:
             assert "Win Rate" in content
 
     def test_combined_dashboard_structure(
-        self, mock_aggregator: MagicMock, sample_generation_metrics: list[GenerationMetrics]
+        self,
+        mock_aggregator: MagicMock,
+        sample_generation_metrics: list[GenerationMetrics],
     ):
         """Test that combined dashboard has correct structure."""
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -278,11 +278,36 @@ class TestDashboardWithMetricsLogs:
         jsonl_file = temp_metrics_path / "metrics.jsonl"
 
         metrics_entries = [
-            {"tag": "episode/reward", "value": 10.0, "step": 1, "timestamp": "2025-01-18T10:00:00"},
-            {"tag": "episode/reward", "value": 15.0, "step": 2, "timestamp": "2025-01-18T10:00:01"},
-            {"tag": "episode/reward", "value": 20.0, "step": 3, "timestamp": "2025-01-18T10:00:02"},
-            {"tag": "episode/length", "value": 450, "step": 1, "timestamp": "2025-01-18T10:00:00"},
-            {"tag": "episode/kills", "value": 2, "step": 1, "timestamp": "2025-01-18T10:00:00"},
+            {
+                "tag": "episode/reward",
+                "value": 10.0,
+                "step": 1,
+                "timestamp": "2025-01-18T10:00:00",
+            },
+            {
+                "tag": "episode/reward",
+                "value": 15.0,
+                "step": 2,
+                "timestamp": "2025-01-18T10:00:01",
+            },
+            {
+                "tag": "episode/reward",
+                "value": 20.0,
+                "step": 3,
+                "timestamp": "2025-01-18T10:00:02",
+            },
+            {
+                "tag": "episode/length",
+                "value": 450,
+                "step": 1,
+                "timestamp": "2025-01-18T10:00:00",
+            },
+            {
+                "tag": "episode/kills",
+                "value": 2,
+                "step": 1,
+                "timestamp": "2025-01-18T10:00:00",
+            },
         ]
 
         with open(jsonl_file, "w") as f:
@@ -379,9 +404,12 @@ class TestDashboardCLIIntegration:
             app,
             [
                 "generate",
-                "-r", str(temp_registry_path),
-                "-o", str(temp_output_path),
-                "-f", "html",
+                "-r",
+                str(temp_registry_path),
+                "-o",
+                str(temp_output_path),
+                "-f",
+                "html",
             ],
         )
 
@@ -427,9 +455,12 @@ class TestDashboardCLIIntegration:
             app,
             [
                 "generate",
-                "-r", str(temp_registry_path),
-                "-o", str(temp_output_path),
-                "-g", "0-1",
+                "-r",
+                str(temp_registry_path),
+                "-o",
+                str(temp_output_path),
+                "-g",
+                "0-1",
             ],
         )
 
@@ -467,9 +498,12 @@ class TestDashboardCLIIntegration:
             app,
             [
                 "generate",
-                "-r", str(temp_registry_path),
-                "-o", str(temp_output_path),
-                "-g", "invalid",
+                "-r",
+                str(temp_registry_path),
+                "-o",
+                str(temp_output_path),
+                "-g",
+                "invalid",
             ],
         )
 
@@ -515,8 +549,10 @@ class TestEmptyRegistryHandling:
             app,
             [
                 "generate",
-                "-r", str(temp_registry_path),
-                "-o", str(temp_output_path),
+                "-r",
+                str(temp_registry_path),
+                "-o",
+                str(temp_output_path),
             ],
         )
 

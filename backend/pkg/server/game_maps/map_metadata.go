@@ -101,8 +101,8 @@ func GetValidMapTypes() ([]string, error) {
 	for _, md := range metadata {
 		// Extract map type name from "meta/name.json" format
 		mapType := string(md.MapType)
-		mapType = mapType[5:]                   // Remove "meta/" prefix
-		mapType = mapType[:len(mapType)-5]      // Remove ".json" suffix
+		mapType = mapType[5:]              // Remove "meta/" prefix
+		mapType = mapType[:len(mapType)-5] // Remove ".json" suffix
 		mapTypes = append(mapTypes, mapType)
 	}
 	return mapTypes, nil

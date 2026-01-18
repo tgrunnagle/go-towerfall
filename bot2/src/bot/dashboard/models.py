@@ -44,7 +44,9 @@ class GenerationMetrics(BaseModel):
     avg_episode_reward: float = Field(description="Mean episode reward")
     avg_episode_length: float = Field(ge=0, description="Mean episode length")
     training_steps: int = Field(ge=0, description="Total PPO updates")
-    training_duration_seconds: float = Field(ge=0, description="Training time in seconds")
+    training_duration_seconds: float = Field(
+        ge=0, description="Training time in seconds"
+    )
     timestamp: datetime = Field(description="Training completion timestamp")
 
 

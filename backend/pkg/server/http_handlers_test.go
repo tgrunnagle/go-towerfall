@@ -251,7 +251,9 @@ func TestHandleCreateGame_TrainingModeResponse(t *testing.T) {
 	}
 
 	var response CreateGameHTTPResponse
-	json.NewDecoder(rr.Body).Decode(&response)
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	// Verify all standard fields are present
 	if response.RoomID == "" {
@@ -301,7 +303,9 @@ func TestHandleGetRoomState(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 	if !createResp.Success {
 		t.Fatalf("Failed to create test game: %s", createResp.Error)
 	}
@@ -397,7 +401,7 @@ func TestHandleGetRoomState(t *testing.T) {
 				req.Header.Set("X-Player-Token", tt.token)
 			case "bearer":
 				req.Header.Set("Authorization", "Bearer "+tt.token)
-			// "query" case is already in URL
+				// "query" case is already in URL
 			}
 
 			rr := httptest.NewRecorder()
@@ -495,7 +499,9 @@ func TestHandleGetRoomState_ResponseContainsPlayerState(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	// Get room state
 	req := httptest.NewRequest(http.MethodGet, "/api/rooms/"+createResp.RoomID+"/state", nil)
@@ -505,7 +511,9 @@ func TestHandleGetRoomState_ResponseContainsPlayerState(t *testing.T) {
 	server.HandleGetRoomState(rr, req)
 
 	var response GetRoomStateResponse
-	json.NewDecoder(rr.Body).Decode(&response)
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	// Verify player object exists in the state
 	playerState, exists := response.ObjectStates[createResp.PlayerID]
@@ -609,7 +617,9 @@ func TestHandleBotAction(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 	if !createResp.Success {
 		t.Fatalf("Failed to create test game: %s", createResp.Error)
 	}
@@ -863,7 +873,9 @@ func TestHandleBotAction_KeyCaseInsensitive(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	playerID := createResp.PlayerID
@@ -933,7 +945,9 @@ func TestHandleResetGame(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 	if !createResp.Success {
 		t.Fatalf("Failed to create test game: %s", createResp.Error)
 	}
@@ -1117,7 +1131,9 @@ func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	playerID := createResp.PlayerID
@@ -1130,7 +1146,9 @@ func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
 	server.HandleGetRoomState(getStateRR, getStateReq)
 
 	var initialState GetRoomStateResponse
-	json.NewDecoder(getStateRR.Body).Decode(&initialState)
+	if err := json.NewDecoder(getStateRR.Body).Decode(&initialState); err != nil {
+		t.Fatalf("Failed to decode initial state response: %v", err)
+	}
 	initialPlayerState := initialState.ObjectStates[playerID]
 	initialX := initialPlayerState["x"].(float64)
 	initialY := initialPlayerState["y"].(float64)
@@ -1164,7 +1182,9 @@ func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
 	server.HandleGetRoomState(getStateRR2, getStateReq2)
 
 	var resetState GetRoomStateResponse
-	json.NewDecoder(getStateRR2.Body).Decode(&resetState)
+	if err := json.NewDecoder(getStateRR2.Body).Decode(&resetState); err != nil {
+		t.Fatalf("Failed to decode reset state response: %v", err)
+	}
 	resetPlayerState := resetState.ObjectStates[playerID]
 
 	// Verify player is still in the game
@@ -1219,7 +1239,9 @@ func TestHandleGetRoomStats(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 	if !createResp.Success {
 		t.Fatalf("Failed to create test game: %s", createResp.Error)
 	}
@@ -1315,7 +1337,7 @@ func TestHandleGetRoomStats(t *testing.T) {
 				req.Header.Set("X-Player-Token", tt.token)
 			case "bearer":
 				req.Header.Set("Authorization", "Bearer "+tt.token)
-			// "query" case is already in URL
+				// "query" case is already in URL
 			}
 
 			rr := httptest.NewRecorder()
@@ -1410,7 +1432,9 @@ func TestHandleGetRoomStats_ReturnsPlayerStats(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	playerID := createResp.PlayerID
@@ -1423,7 +1447,9 @@ func TestHandleGetRoomStats_ReturnsPlayerStats(t *testing.T) {
 	server.HandleGetRoomStats(rr, req)
 
 	var response GetRoomStatsHTTPResponse
-	json.NewDecoder(rr.Body).Decode(&response)
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if !response.Success {
 		t.Fatalf("HandleGetRoomStats() failed: %s", response.Error)
@@ -1466,7 +1492,9 @@ func TestHandleGetRoomStats_WithMultiplePlayers(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	player1Token := createResp.PlayerToken
@@ -1488,7 +1516,9 @@ func TestHandleGetRoomStats_WithMultiplePlayers(t *testing.T) {
 	server.HandleGetRoomStats(rr, req)
 
 	var response GetRoomStatsHTTPResponse
-	json.NewDecoder(rr.Body).Decode(&response)
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if !response.Success {
 		t.Fatalf("HandleGetRoomStats() failed: %s", response.Error)
@@ -1541,7 +1571,9 @@ func TestHandleGetRoomStats_StatsResetAfterGameReset(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	playerID := createResp.PlayerID
@@ -1560,7 +1592,9 @@ func TestHandleGetRoomStats_StatsResetAfterGameReset(t *testing.T) {
 	server.HandleGetRoomStats(rr1, req1)
 
 	var response1 GetRoomStatsHTTPResponse
-	json.NewDecoder(rr1.Body).Decode(&response1)
+	if err := json.NewDecoder(rr1.Body).Decode(&response1); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if response1.PlayerStats[playerID].Kills != 2 || response1.PlayerStats[playerID].Deaths != 1 {
 		t.Errorf("Stats before reset: kills=%d deaths=%d, want kills=2 deaths=1",
@@ -1579,7 +1613,9 @@ func TestHandleGetRoomStats_StatsResetAfterGameReset(t *testing.T) {
 	server.HandleGetRoomStats(rr2, req2)
 
 	var response2 GetRoomStatsHTTPResponse
-	json.NewDecoder(rr2.Body).Decode(&response2)
+	if err := json.NewDecoder(rr2.Body).Decode(&response2); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if response2.PlayerStats[playerID].Kills != 0 || response2.PlayerStats[playerID].Deaths != 0 {
 		t.Errorf("Stats after reset: kills=%d deaths=%d, want kills=0 deaths=0",

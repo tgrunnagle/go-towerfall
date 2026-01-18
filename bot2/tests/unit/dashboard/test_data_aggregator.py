@@ -154,9 +154,7 @@ class TestDataAggregator:
         assert aggregator.registry_path == Path(temp_registry_path)
         assert aggregator.metrics_dir == Path("/some/metrics")
 
-    def test_get_all_generation_metrics_empty_registry(
-        self, temp_registry_path: Path
-    ):
+    def test_get_all_generation_metrics_empty_registry(self, temp_registry_path: Path):
         """Test getting metrics from empty registry."""
         # Create empty registry
         ModelRegistry(temp_registry_path)
@@ -299,9 +297,39 @@ class TestMetricsLogParsing:
         with tempfile.TemporaryDirectory() as metrics_dir:
             jsonl_path = Path(metrics_dir) / "metrics.jsonl"
             with open(jsonl_path, "w") as f:
-                f.write(json.dumps({"tag": "episode/reward", "value": 10.5, "step": 1, "timestamp": "2025-01-18T10:00:00"}) + "\n")
-                f.write(json.dumps({"tag": "episode/length", "value": 500, "step": 1, "timestamp": "2025-01-18T10:00:00"}) + "\n")
-                f.write(json.dumps({"tag": "episode/reward", "value": 15.0, "step": 2, "timestamp": "2025-01-18T10:00:01"}) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "tag": "episode/reward",
+                            "value": 10.5,
+                            "step": 1,
+                            "timestamp": "2025-01-18T10:00:00",
+                        }
+                    )
+                    + "\n"
+                )
+                f.write(
+                    json.dumps(
+                        {
+                            "tag": "episode/length",
+                            "value": 500,
+                            "step": 1,
+                            "timestamp": "2025-01-18T10:00:00",
+                        }
+                    )
+                    + "\n"
+                )
+                f.write(
+                    json.dumps(
+                        {
+                            "tag": "episode/reward",
+                            "value": 15.0,
+                            "step": 2,
+                            "timestamp": "2025-01-18T10:00:01",
+                        }
+                    )
+                    + "\n"
+                )
 
             aggregator = DataAggregator(
                 registry_path=temp_registry_path,
@@ -346,10 +374,50 @@ class TestMetricsLogParsing:
         with tempfile.TemporaryDirectory() as metrics_dir:
             jsonl_path = Path(metrics_dir) / "metrics.jsonl"
             with open(jsonl_path, "w") as f:
-                f.write(json.dumps({"tag": "episode/reward", "value": 10.0, "step": 1, "timestamp": "2025-01-18T10:00:00"}) + "\n")
-                f.write(json.dumps({"tag": "episode/length", "value": 500, "step": 1, "timestamp": "2025-01-18T10:00:00"}) + "\n")
-                f.write(json.dumps({"tag": "episode/reward", "value": 20.0, "step": 2, "timestamp": "2025-01-18T10:00:01"}) + "\n")
-                f.write(json.dumps({"tag": "episode/reward", "value": 15.0, "step": 3, "timestamp": "2025-01-18T10:00:02"}) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "tag": "episode/reward",
+                            "value": 10.0,
+                            "step": 1,
+                            "timestamp": "2025-01-18T10:00:00",
+                        }
+                    )
+                    + "\n"
+                )
+                f.write(
+                    json.dumps(
+                        {
+                            "tag": "episode/length",
+                            "value": 500,
+                            "step": 1,
+                            "timestamp": "2025-01-18T10:00:00",
+                        }
+                    )
+                    + "\n"
+                )
+                f.write(
+                    json.dumps(
+                        {
+                            "tag": "episode/reward",
+                            "value": 20.0,
+                            "step": 2,
+                            "timestamp": "2025-01-18T10:00:01",
+                        }
+                    )
+                    + "\n"
+                )
+                f.write(
+                    json.dumps(
+                        {
+                            "tag": "episode/reward",
+                            "value": 15.0,
+                            "step": 3,
+                            "timestamp": "2025-01-18T10:00:02",
+                        }
+                    )
+                    + "\n"
+                )
 
             aggregator = DataAggregator(
                 registry_path=temp_registry_path,

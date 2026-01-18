@@ -289,7 +289,12 @@ def compare_generations(
         ("K/D Ratio", metrics1.kill_death_ratio, metrics2.kill_death_ratio, ".2f"),
         ("Win Rate", metrics1.win_rate * 100, metrics2.win_rate * 100, ".1f%"),
         ("Avg Reward", metrics1.avg_episode_reward, metrics2.avg_episode_reward, ".1f"),
-        ("Avg Episode Length", metrics1.avg_episode_length, metrics2.avg_episode_length, ".0f"),
+        (
+            "Avg Episode Length",
+            metrics1.avg_episode_length,
+            metrics2.avg_episode_length,
+            ".0f",
+        ),
         ("Total Episodes", metrics1.total_episodes, metrics2.total_episodes, "d"),
         ("Total Kills", metrics1.total_kills, metrics2.total_kills, "d"),
         ("Total Deaths", metrics1.total_deaths, metrics2.total_deaths, "d"),

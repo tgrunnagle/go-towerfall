@@ -273,10 +273,12 @@ func (s *Server) handleExitGame(conn *Connection, _ types.ExitGameRequest) {
 
 	conn.WriteMutex.Lock()
 	conn.RoomID = ""
-	conn.connection.WriteJSON(types.Message{
+	if err := conn.connection.WriteJSON(types.Message{
 		Type:    "ExitGameResponse",
 		Payload: util.Must(json.Marshal(types.ExitGameResponse{Success: true})),
-	})
+	}); err != nil {
+		log.Printf("Failed to send ExitGameResponse to connection %s: %v", conn.ID, err)
+	}
 	conn.WriteMutex.Unlock()
 
 	log.Printf("Player %s exited game room %s", player.ID, room.ID)
@@ -314,10 +316,12 @@ func (s *Server) updateConnectionActivity(conn *Connection) {
 
 func (s *Server) sendErrorMessage(conn *Connection, message string) {
 	conn.WriteMutex.Lock()
-	conn.connection.WriteJSON(types.Message{
+	if err := conn.connection.WriteJSON(types.Message{
 		Type:    "ErrorMessage",
 		Payload: util.Must(json.Marshal(types.ErrorMessage{Message: message})),
-	})
+	}); err != nil {
+		log.Printf("Failed to send ErrorMessage to connection %s: %v", conn.ID, err)
+	}
 	conn.WriteMutex.Unlock()
 }
 

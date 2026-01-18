@@ -248,7 +248,9 @@ class TestSuccessiveTrainingConfigGenerationConfig:
             output_dir="/test/output",
         )
 
-        gen_config = config.create_generation_config(generation=0, opponent_model_id=None)
+        gen_config = config.create_generation_config(
+            generation=0, opponent_model_id=None
+        )
 
         assert gen_config.num_envs == 4
         assert gen_config.total_timesteps == 100_000
@@ -271,8 +273,12 @@ class TestSuccessiveTrainingConfigGenerationConfig:
         """Test generation config with base seed."""
         config = SuccessiveTrainingConfig(base_seed=42)
 
-        gen_config_0 = config.create_generation_config(generation=0, opponent_model_id=None)
-        gen_config_1 = config.create_generation_config(generation=1, opponent_model_id=None)
+        gen_config_0 = config.create_generation_config(
+            generation=0, opponent_model_id=None
+        )
+        gen_config_1 = config.create_generation_config(
+            generation=1, opponent_model_id=None
+        )
 
         assert gen_config_0.seed == 42
         assert gen_config_1.seed == 43
@@ -281,16 +287,22 @@ class TestSuccessiveTrainingConfigGenerationConfig:
         """Test generation config without base seed."""
         config = SuccessiveTrainingConfig(base_seed=None)
 
-        gen_config = config.create_generation_config(generation=0, opponent_model_id=None)
+        gen_config = config.create_generation_config(
+            generation=0, opponent_model_id=None
+        )
 
         assert gen_config.seed is None
 
     def test_generation_config_preserves_ppo_config(self) -> None:
         """Test that PPO config is preserved in generation config."""
         ppo = PPOConfig(num_steps=1024, learning_rate=1e-4)
-        config = SuccessiveTrainingConfig(base_config=OrchestratorConfig(ppo_config=ppo))
+        config = SuccessiveTrainingConfig(
+            base_config=OrchestratorConfig(ppo_config=ppo)
+        )
 
-        gen_config = config.create_generation_config(generation=0, opponent_model_id=None)
+        gen_config = config.create_generation_config(
+            generation=0, opponent_model_id=None
+        )
 
         assert gen_config.ppo_config.num_steps == 1024
         assert gen_config.ppo_config.learning_rate == 1e-4
@@ -302,7 +314,9 @@ class TestSuccessiveTrainingConfigGenerationConfig:
             base_config=OrchestratorConfig(game_config=game)
         )
 
-        gen_config = config.create_generation_config(generation=0, opponent_model_id=None)
+        gen_config = config.create_generation_config(
+            generation=0, opponent_model_id=None
+        )
 
         assert gen_config.game_config.room_name == "Test"
         assert gen_config.game_config.tick_multiplier == 20.0
@@ -377,9 +391,7 @@ class TestSuccessiveTrainingConfigSerialization:
         restored = SuccessiveTrainingConfig.from_dict(data)
 
         assert restored.max_generations == original.max_generations
-        assert (
-            restored.timesteps_per_generation == original.timesteps_per_generation
-        )
+        assert restored.timesteps_per_generation == original.timesteps_per_generation
         assert restored.base_seed == original.base_seed
         assert restored.base_config.num_envs == original.base_config.num_envs
         assert (
@@ -442,9 +454,7 @@ promotion_criteria:
         restored = SuccessiveTrainingConfig.from_yaml(yaml_path)
 
         assert restored.max_generations == original.max_generations
-        assert (
-            restored.timesteps_per_generation == original.timesteps_per_generation
-        )
+        assert restored.timesteps_per_generation == original.timesteps_per_generation
         assert restored.base_seed == original.base_seed
         assert restored.base_config.num_envs == original.base_config.num_envs
         assert (
