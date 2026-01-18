@@ -37,11 +37,12 @@ frontend/
 │   └── pages/
 │       ├── LandingPage.js          # Create/join game lobby
 │       ├── LandingPage.css
-│       └── GamePage.js             # Game container, URL param extraction
+│       ├── GamePage.js             # Game container, URL param extraction
+│       └── GamePage.css
 │
 ├── scripts/
-│   └── generate-config.js          # .env → public/config.js generator
-├── craco.config.js                 # Path alias configuration (@/ → src/)
+│   └── generate-config.js          # .env -> public/config.js generator
+├── craco.config.js                 # Path alias configuration (@/ -> src/)
 └── package.json                    # Dependencies and scripts
 ```
 
@@ -55,204 +56,244 @@ React handles static UI (lobby, forms, routing) while vanilla JS handles real-ti
 ┌─────────────────────────────────────────────────────────────────┐
 │  React App (src/)                                               │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐      │
-│  │ LandingPage  │───►│   GamePage   │───►│ GameWrapper  │      │
+│  │ LandingPage  │───>│   GamePage   │───>│ GameWrapper  │      │
 │  │ (lobby UI)   │    │ (container)  │    │ (canvas ref) │      │
 │  └──────────────┘    └──────────────┘    └──────┬───────┘      │
 │         │                                        │              │
-│         ▼                                        ▼              │
+│         v                                        v              │
 │  ┌──────────────┐                    window.gameInstance        │
 │  │   Api.js     │                    ┌──────────────────┐      │
 │  │  (REST API)  │                    │ initGame(canvas) │      │
 │  └──────────────┘                    └────────┬─────────┘      │
 ├────────────────────────────────────────────────┼────────────────┤
 │  Game Engine (public/)                         │                │
-│  ┌─────────────────────────────────────────────▼───────────────┐│
+│  ┌─────────────────────────────────────────────v───────────────┐│
 │  │                     GameModule.js                           ││
-│  │  • WebSocket connection to backend /ws                      ││
-│  │  • Keyboard (WASD) + mouse input handling                   ││
-│  │  • requestAnimationFrame render loop                        ││
+│  │  - WebSocket connection to backend /ws                      ││
+│  │  - Keyboard (WASD) + mouse input handling                   ││
+│  │  - requestAnimationFrame render loop                        ││
 │  └─────────────────────────────────────────────┬───────────────┘│
-│  ┌─────────────────────────────────────────────▼───────────────┐│
+│  ┌─────────────────────────────────────────────v───────────────┐│
 │  │                  GameStateManager.js                        ││
-│  │  • Manages gameObjects map (players, bullets, arrows)       ││
-│  │  • Processes server state updates (full + partial)          ││
-│  │  • Renders all objects to canvas each frame                 ││
+│  │  - Manages gameObjects map (players, bullets, arrows)       ││
+│  │  - Processes server state updates (full + partial)          ││
+│  │  - Renders all objects to canvas each frame                 ││
 │  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
          │                              │
-         ▼                              ▼
+         v                              v
     HTTP REST API                 WebSocket /ws
     (createGame, joinGame)        (GameState, Key, Click)
 ```
 
-### Game Engine ([GameModule.js](../../frontend/public/GameModule.js))
+## Game Engine
 
-Singleton `Game` class exposed as `window.gameInstance`:
+### GameModule ([GameModule.js](../../frontend/public/GameModule.js))
 
-```javascript
-class Game {
-    constructor() {
-        this.canvas = null;
-        this.ctx = null;
-        this.socket = null;
-        this.gameStateManager = new GameStateManager();
-        this.keysPressed = new Set();
-        this.isRunning = false;
-    }
-}
-```
+Singleton `Game` class exposed as `window.gameInstance`. Manages WebSocket connection, input handling, and animation loop.
+
+**Key properties** (lines 17-74):
+- `canvas`, `ctx` - Canvas element and 2D context
+- `gameStateManager` - GameStateManager instance
+- `keysPressed` - Set of currently pressed keys (WASD)
+- `socket`, `wsConnected` - WebSocket connection state
+- `playerInfo`, `roomInfo` - Current session data
 
 **Key methods:**
 
-| Method | Purpose |
-|--------|---------|
-| `initConnection()` | Opens WebSocket to backend |
-| `initGame(canvas, roomId, playerId, token, ...)` | Binds canvas, sets up input handlers, starts render loop |
-| `connect()` | WebSocket connection with auto-reconnect |
-| `handleMessage(event)` | Routes incoming messages by type |
-| `animate(timestamp)` | requestAnimationFrame render loop |
-| `exitGame()` | Cleanup and disconnect |
+| Method | Location | Purpose |
+|--------|----------|---------|
+| `initConnection()` | L76-79 | Opens WebSocket to backend |
+| `initGame()` | L82-144 | Binds canvas, sets up input handlers, starts render loop |
+| `connect()` | L210-259 | WebSocket connection with auto-reconnect (2s backoff) |
+| `handleMessage()` | L291-316 | Routes incoming messages by type |
+| `animate()` | L472-477 | requestAnimationFrame render loop |
+| `exitGame()` | L261-267 | Cleanup and disconnect |
+| `rejoinGame()` | L388-407 | Send RejoinGame message to server |
 
-**Input handling:**
-
-- WASD keys → `Key` WebSocket message with `{key, isDown}`
-- Mouse move → Updates local aim direction (client-side prediction)
-- Mouse click → `Click` WebSocket message with `{x, y, isDown, button}`
+**Input handling** (lines 409-469):
+- `handleKeyDown/Up` (L410-428) - WASD keys -> `Key` WebSocket message
+- `handleCanvasMouseMove` (L430-434) - Updates local aim direction
+- `handleCanvasMouseDown/Up` (L436-453) - `Click` WebSocket message with position and button
 
 ### GameStateManager ([GameStateManager.js](../../frontend/public/GameStateManager.js))
 
-Manages game object instances and rendering:
+Manages game object instances, processes server updates, and renders to canvas.
 
-```javascript
-class GameStateManager {
-    constructor() {
-        this.gameObjects = {};           // objectId -> GameObject instance
-        this.spectators = [];            // Spectator names
-        this.trainingInfo = null;        // Training mode overlay data
-        this.currentPlayerObjectId = null;
-        this.animationManager = new AnimationsManager();
-    }
-}
-```
+**Key properties** (lines 8-26):
+- `gameObjects` - Map of objectId -> GameObject instance
+- `spectators` - List of spectator names
+- `trainingInfo` - Training mode overlay data
+- `currentPlayerObjectId` - Player's own object ID
+- `animationManager` - AnimationsManager instance
 
-**State update flow** (`handleGameStateUpdate`):
+**Key methods:**
 
-1. For `fullUpdate`: Remove objects not in payload
-2. Create new `GameObject` instances by `objectType`
-3. Update existing objects with `setServerState()`
-4. Process events (object_created, object_destroyed, collision)
-5. Store training info for overlay
+| Method | Location | Purpose |
+|--------|----------|---------|
+| `handleGameStateUpdate()` | L47-151 | Processes full/partial state updates, creates/updates/destroys objects |
+| `render()` | L159-190 | Clears canvas, draws grid, renders objects and overlays |
+| `handleMouseMove()` | L250-256 | Updates current player's aim direction |
+| `drawSpectators()` | L192-206 | Renders spectator list (top-left) |
+| `drawTrainingInfo()` | L208-248 | Renders training mode overlay (top-right) |
+
+**State update flow** (`handleGameStateUpdate`, L47-151):
+1. For `fullUpdate`: Remove objects not in payload (L50-56)
+2. Create new `GameObject` instances by `objectType` (L59-98)
+3. Update existing objects with `setServerState()` (L99-105)
+4. Process events: object_created, object_destroyed, player_died, collision (L121-145)
+5. Store training info for overlay (L147-150)
+
+### AnimationsManager ([AnimationsManager.js](../../frontend/public/AnimationsManager.js))
+
+Manages short-lived animations using a callback pattern.
+
+**Key methods:**
+
+| Method | Location | Purpose |
+|--------|----------|---------|
+| `registerAnimation()` | L17-20 | Add animation function to active set |
+| `createCollisionAnimation()` | L22-37 | Creates collision effect at position |
+| `createBlinkAnimation()` | L45-70 | Creates blinking effect for object |
+| `render()` | L76-85 | Renders active animations, removes completed ones |
 
 ### GameObject Classes ([game_objects/](../../frontend/public/game_objects/))
 
-Base class hierarchy:
+Base class hierarchy with dual state management:
 
 ```
-GameObject                    # Server/client state separation
-└── GameObjectWithPosition    # Position + direction interpolation
-    ├── PlayerGameObject      # Circle + name + arrow count
-    ├── BulletGameObject      # Fast projectile
-    └── ArrowGameObject       # Grounded/flying arrow
-BlockGameObject (extends GameObject)  # Static polygon
+GameObject                        # Server/client state separation (L10-61)
+└── GameObjectWithPosition        # Position + direction interpolation (L63-126)
+    ├── PlayerGameObject          # Circle + name + arrow count
+    ├── BulletGameObject          # Fast projectile with trajectory
+    ├── ArrowGameObject           # Grounded/flying arrow
+    └── BlockGameObject           # Static polygon
 ```
 
-**State management pattern:**
+**State management pattern** ([GameObject.js](../../frontend/public/game_objects/GameObject.js)):
+- `serverState` (L12) - Authoritative state from server
+- `clientState` (L13) - Local predictions and UI state (initialized via `defaultClientState()` L2-8)
+- `getStatePreferClient()` (L20-22) - Returns client state if set, else server state
+- `setServerState()` (L24-38) - Updates server state, resets interpolation counters
+- `setClientState()` (L40-48) - Updates client state
 
-```javascript
-// Server state: authoritative, updated on WebSocket message
-this.serverState = { x, y, dx, dy, dir, ... };
+**Position interpolation** ([GameObject.js:82-101](../../frontend/public/game_objects/GameObject.js#L82-L101)):
+- Lerps toward server position with configurable speed
+- Applies velocity prediction for smooth motion between updates
+- Returns `{predictedX, predictedY}` for rendering
 
-// Client state: local predictions and UI state
-this.clientState = { x, y, dir, isCurrentPlayer, ... };
+**Direction interpolation** ([GameObject.js:103-125](../../frontend/public/game_objects/GameObject.js#L103-L125)):
+- Current player uses client-side direction (immediate mouse response)
+- Other players interpolate toward server direction
 
-// Prefer client state if available (for smooth interpolation)
-getStatePreferClient(key) {
-    return this.clientState[key] ?? this.serverState[key];
-}
-```
+### Individual Game Objects
 
-**Position interpolation** (`interpPosition`):
+| Class | File | Purpose |
+|-------|------|---------|
+| **PlayerGameObject** | [PlayerGameObject.js](../../frontend/public/game_objects/PlayerGameObject.js) | Renders as colored circle (L48-51), shows name above (L54-57), arrow count indicators (L60-69), velocity vector (L72-82), direction indicator (L85-96), green highlight for current player (L99-105). Death animation with blinking (L110-135). |
+| **BulletGameObject** | [BulletGameObject.js](../../frontend/public/game_objects/BulletGameObject.js) | Create animation shows predicted trajectory (L6-24). Destroy animation shows expanding red circle (L26-44). |
+| **ArrowGameObject** | [ArrowGameObject.js](../../frontend/public/game_objects/ArrowGameObject.js) | Renders as triangle when flying (L40-58), 'X' when grounded (L23-38). Destroy animation shows expanding 'X' (L63-90). |
+| **BlockGameObject** | [BlockGameObject.js](../../frontend/public/game_objects/BlockGameObject.js) | Static green polygon from points array (L9-21). No animations. |
 
-```javascript
-// Lerp toward server position
-this.clientState.x += (this.serverState.x - this.clientState.x) * 0.2;
+### Constants ([Constants.js](../../frontend/public/Constants.js))
 
-// Predict using velocity for smooth motion between updates
-const timeDelta = (timestamp - this.clientState.lastUpdateFromServer) / 1000;
-const predictedX = this.clientState.x + this.serverState.dx * timeDelta;
-```
+Game timing and rendering constants:
+- `BULLET_SPEED_PX_SEC = 1024.0` (L2)
+- `BULLET_LIFETIME_SEC = 0.05` (L4)
+- `PLAYER_DIED_ANIMATION_TIME_SEC = 3.0` (L7)
+- `COLLISION_ANIMATION_TIME_SEC = 0.5` (L10)
+- Spectator text settings (L12-16)
+- Training overlay settings (L18-23)
 
 ## React Application
 
 ### Routing ([App.js](../../frontend/src/App.js))
 
-```javascript
-<Routes>
-  <Route path="/" element={<LandingPage />} />
-  <Route path="/game" element={<GamePage />} />
-</Routes>
-```
+Simple two-route setup using BrowserRouter (L9-16):
+- `/` -> LandingPage (lobby)
+- `/game` -> GamePage (active game)
 
 ### LandingPage ([pages/LandingPage.js](../../frontend/src/pages/LandingPage.js))
 
-Game lobby with two forms:
+Game lobby with create/join forms.
 
-| Form | Fields | API Call |
-|------|--------|----------|
-| Create Game | roomName, playerName, mapType | `Api.createGame()` |
-| Join Game | roomCode, roomPassword, playerName, isSpectator | `Api.joinGame()` |
+**State** (L9-18): activeOption, roomName, roomCode, playerName, roomPassword, isSpectator, error, isLoading, maps, selectedMap
 
-On success, navigates to `/game` with session params in URL query string.
+**Key functions:**
+- `loadMaps()` (L20-35) - Fetches available maps on mount
+- `handleCreateGame()` (L37-61) - Validates fields, calls API, navigates to /game with query params
+- `handleJoinGame()` (L63-97) - Validates fields, calls API, includes training mode params if applicable
+
+**Form fields:**
+
+| Create Game | Join Game |
+|-------------|-----------|
+| Room Name | Room Code |
+| Player Name | Room Password |
+| Map Selection | Player Name |
+| | Join as Spectator checkbox |
+
+### GamePage ([pages/GamePage.js](../../frontend/src/pages/GamePage.js))
+
+Container component that extracts URL parameters and renders GameWrapper.
+
+**URL query parameters** (L14-25):
+- `roomId`, `playerId`, `playerToken` - Session identifiers (required)
+- `canvasSizeX`, `canvasSizeY` - Canvas dimensions (required)
+- `roomCode`, `isSpectator` - Optional
+- Training mode: `trainingMode`, `tickMultiplier`, `maxGameDurationSec`, `maxKills`
+
+Redirects to `/` if required parameters missing (L28-32).
 
 ### GameWrapper ([components/GameWrapper.js](../../frontend/src/components/GameWrapper.js))
 
-Bridge between React and game engine:
+Bridge between React and game engine.
 
-```javascript
-useEffect(() => {
-    window.gameInstance.initGame(
-        canvasRef.current,
-        roomId, playerId, playerToken,
-        canvasSizeX, canvasSizeY,
-        { onConnectionChange, onGameInfoChange, onError }
-    );
-}, [roomId, playerId, ...]);
-```
+**Props** (L3-14): roomId, playerId, playerToken, canvasSizeX, canvasSizeY, setPlayerName, setRoomName, setRoomCode, setRoomPassword, onExitGame
 
-### API Client ([Api.js](../../frontend/src/Api.js))
+**Initialization** (L20-71):
+- Creates canvas ref
+- Calls `window.gameInstance.initGame()` with callbacks for connection status, game info, and errors
+- Cleans up on unmount
 
-Axios instance with endpoints:
+**Callbacks:**
+- `onConnectionChange` (L41-43) - Updates connected state
+- `onGameInfoChange` (L44-49) - Propagates room/player info to parent
+- `onError` (L50-52) - Sets error state
 
-| Function | Endpoint | Purpose |
-|----------|----------|---------|
-| `getMaps()` | GET `/api/maps` | List available maps |
-| `createGame({playerName, roomName, mapType})` | POST `/api/createGame` | Create room |
-| `joinGame({playerName, roomCode, roomPassword, isSpectator})` | POST `/api/joinGame` | Join room |
-| `getTrainingSessions()` | GET `/api/training/sessions` | List training sessions |
+## API Client ([Api.js](../../frontend/src/Api.js))
 
-Base URL from `window.APP_CONFIG.BACKEND_API_URL` (generated from `.env`).
+Axios instance with 5s timeout. Base URL from `window.APP_CONFIG.BACKEND_API_URL`.
 
-## Communication Layer
+| Function | Endpoint | Request | Response |
+|----------|----------|---------|----------|
+| `getMaps()` | GET `/api/maps` | - | `{maps: [{type, name}]}` |
+| `createGame()` | POST `/api/createGame` | `{playerName, roomName, mapType}` | `{roomId, playerId, playerToken, roomCode, canvasSizeX, canvasSizeY}` |
+| `joinGame()` | POST `/api/joinGame` | `{playerName, roomCode, roomPassword, isSpectator}` | `{roomId, playerId, playerToken, roomCode, isSpectator, canvasSizeX, canvasSizeY, trainingMode?, tickMultiplier?, maxGameDurationSec?, maxKills?}` |
+| `getTrainingSessions()` | GET `/api/training/sessions` | - | `{sessions: [...]}` |
 
-### WebSocket Messages
+## WebSocket Communication
 
-**Client → Server:**
+### Message Types
 
-| Type | Payload | Purpose |
+**Client -> Server:**
+
+| Type | Payload | Location |
+|------|---------|----------|
+| `RejoinGame` | `{roomId, playerId, playerToken}` | GameModule.js:402-406 |
+| `Key` | `{key: "W"/"A"/"S"/"D", isDown: bool}` | GameModule.js:413-416 |
+| `Click` | `{x, y, isDown, button}` (0=left, 2=right) | GameModule.js:443, 452 |
+| `ExitGame` | `{}` | GameModule.js:264 |
+
+**Server -> Client:**
+
+| Type | Handler | Purpose |
 |------|---------|---------|
-| `RejoinGame` | `{roomId, playerId, playerToken}` | Reconnect to room |
-| `Key` | `{key: "W"/"A"/"S"/"D", isDown: bool}` | Movement input |
-| `Click` | `{x, y, isDown, button}` | Mouse input (0=left, 2=right) |
-| `ExitGame` | `{}` | Leave room |
-
-**Server → Client:**
-
-| Type | Purpose |
-|------|---------|
-| `RejoinGameResponse` | Auth confirmation, room/player info |
-| `GameState` | Object states + events + training info |
-| `Spectators` | Spectator list update |
-| `Error` | Error message |
+| `RejoinGameResponse` | L318-350 | Auth confirmation, room/player info |
+| `GameState` | L352-354 | Object states + events + training info |
+| `Spectators` | L356-358 | Spectator list update |
+| `ExitGameResponse` | L360-362 | Exit confirmation |
+| `Error` | L364-370 | Error message |
 
 ### Session State via URL
 
@@ -268,36 +309,28 @@ Game session data passed as query parameters (survives page refresh):
 
 ### Render Loop
 
-60 FPS via `requestAnimationFrame`:
+60 FPS via `requestAnimationFrame` ([GameModule.js:472-477](../../frontend/public/GameModule.js#L472-L477)):
 
 ```javascript
 animate(timestamp) {
+    if (!this.isRunning) return;
     this.gameStateManager.render(this.ctx, timestamp);
     this.animationFrame = requestAnimationFrame(this.animate);
 }
 ```
 
-### Render Order
+### Render Order ([GameStateManager.js:159-190](../../frontend/public/GameStateManager.js#L159-L190))
 
-1. Clear canvas
-2. Draw grid lines (64px spacing)
-3. Render all game objects (blocks, arrows, players, bullets)
-4. Render animations (collisions, death effects)
-5. Draw spectator list (top-left)
-6. Draw training info overlay (top-right, if training mode)
-
-### Constants ([Constants.js](../../frontend/public/Constants.js))
-
-```javascript
-BULLET_SPEED_PX_SEC = 1024.0
-PLAYER_DIED_ANIMATION_TIME_SEC = 3.0
-SPECTATOR_TEXT_FONT = '20px Arial'
-TRAINING_TEXT_FONT = '16px Arial'
-```
+1. Clear canvas (L161)
+2. Draw grid lines - 64px spacing (L164-181)
+3. Render all game objects (L183-185)
+4. Render animations (L186)
+5. Draw spectator list - top-left (L188)
+6. Draw training info overlay - top-right (L189)
 
 ## Build Configuration
 
-### Scripts
+### Scripts (package.json)
 
 ```json
 "prestart": "node scripts/generate-config.js",
@@ -305,10 +338,9 @@ TRAINING_TEXT_FONT = '16px Arial'
 "build": "craco build"
 ```
 
-### Path Alias
+### Path Alias (craco.config.js)
 
-`craco.config.js` configures `@/` → `src/`:
-
+`@/` -> `src/`:
 ```javascript
 import Api from '@/Api';  // resolves to src/Api.js
 ```
@@ -324,26 +356,31 @@ window.APP_CONFIG = {
 };
 ```
 
-## Key Code Pointers
+## Quick Reference
 
-| Area | File | Notes |
-|------|------|-------|
-| Game singleton | [GameModule.js:17-74](../../frontend/public/GameModule.js#L17-L74) | Constructor, options |
-| WebSocket connect | [GameModule.js:210-259](../../frontend/public/GameModule.js#L210-L259) | Connection with reconnect |
-| Message routing | [GameModule.js:291-316](../../frontend/public/GameModule.js#L291-L316) | handleMessage switch |
-| State updates | [GameStateManager.js:47-151](../../frontend/public/GameStateManager.js#L47-L151) | handleGameStateUpdate |
-| Canvas rendering | [GameStateManager.js:159-190](../../frontend/public/GameStateManager.js#L159-L190) | render method |
-| Position interpolation | [GameObject.js:82-101](../../frontend/public/game_objects/GameObject.js#L82-L101) | interpPosition |
-| React-game bridge | [GameWrapper.js:20-54](../../frontend/src/components/GameWrapper.js#L20-L54) | useEffect init |
-| Lobby forms | [LandingPage.js:37-97](../../frontend/src/pages/LandingPage.js#L37-L97) | Form handlers |
+### Key Code Locations
 
-## Extending
+| Area | File | Lines | Notes |
+|------|------|-------|-------|
+| Game singleton | GameModule.js | 17-74 | Constructor, properties |
+| WebSocket connect | GameModule.js | 210-259 | Connection with auto-reconnect |
+| Message routing | GameModule.js | 291-316 | handleMessage switch |
+| State updates | GameStateManager.js | 47-151 | handleGameStateUpdate |
+| Canvas rendering | GameStateManager.js | 159-190 | render method |
+| Position interp | GameObject.js | 82-101 | interpPosition |
+| Direction interp | GameObject.js | 103-125 | interpDirection |
+| React-game bridge | GameWrapper.js | 20-54 | useEffect init |
+| Create game form | LandingPage.js | 37-61 | handleCreateGame |
+| Join game form | LandingPage.js | 63-97 | handleJoinGame |
+| URL param extraction | GamePage.js | 14-25 | Query params parsing |
+
+### Extension Points
 
 | To add... | Modify |
 |-----------|--------|
-| New game object type | Create class in `public/game_objects/`, add case in `GameStateManager.js:65-97` |
-| New WebSocket message | Add case in `GameModule.js:handleMessage`, update handler |
-| New REST endpoint | Add function to `src/Api.js` |
-| New page/route | Add component to `src/pages/`, add Route in `App.js` |
-| Game constants | Update `public/Constants.js` |
-| New animation type | Add method to `AnimationsManager.js` |
+| New game object type | Create class in `public/game_objects/`, add case in GameStateManager.js:65-97 |
+| New WebSocket message | Add case in GameModule.js:handleMessage (L294-312), add handler method |
+| New REST endpoint | Add function to src/Api.js |
+| New page/route | Add component to src/pages/, add Route in App.js:11-14 |
+| Game constants | Update public/Constants.js |
+| New animation type | Add method to AnimationsManager.js |
