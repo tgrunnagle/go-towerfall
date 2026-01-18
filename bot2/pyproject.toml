@@ -16,6 +16,7 @@ dependencies = [
     "rich>=13.0.0",
     "tensorboard>=2.14.0",
     "scipy>=1.17.0",
+    "matplotlib>=3.8.0",
 ]
 
 [build-system]
