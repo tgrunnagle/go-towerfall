@@ -1165,6 +1165,14 @@ func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
 	botActionReq.Header.Set("Authorization", "Bearer "+playerToken)
 	server.HandleBotAction(httptest.NewRecorder(), botActionReq)
 
+	// Stop the tick loop before reset to prevent race conditions where a tick
+	// could apply gravity between reset and state read
+	room, exists := server.GetRoom(roomID)
+	if !exists {
+		t.Fatal("Room should exist")
+	}
+	room.StopTickLoop()
+
 	// Reset the game
 	resetReq := httptest.NewRequest(http.MethodPost, "/api/rooms/"+roomID+"/reset", nil)
 	resetReq.Header.Set("X-Player-Token", playerToken)

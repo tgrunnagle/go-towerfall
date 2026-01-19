@@ -399,3 +399,8 @@ func (s *Server) AddGameRoomAndStartTick(room *GameRoom) {
 		go s.processEvent(r, event)
 	})
 }
+
+// GetRoom returns a game room by ID. This is primarily intended for testing.
+func (s *Server) GetRoom(roomID string) (*GameRoom, bool) {
+	return s.roomManager.GetGameRoom(roomID)
+}
