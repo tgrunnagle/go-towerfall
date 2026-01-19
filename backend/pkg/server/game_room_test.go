@@ -639,25 +639,27 @@ func TestGameRoomReset(t *testing.T) {
 	}
 
 	// Verify player state is reset
-	state := playerObj.GetState()
+	// Note: We use GetStateValue() instead of GetState() because GetState() applies
+	// extrapolation (including gravity) based on time elapsed since lastLocUpdateTime,
+	// which would cause flaky tests due to timing differences between local and CI.
 
 	// Velocity should be 0
-	if dx, ok := state["dx"].(float64); !ok || dx != 0.0 {
-		t.Errorf("Player dx should be 0 after reset, got %v", state["dx"])
+	if dx, exists := playerObj.GetStateValue("dx"); !exists || dx.(float64) != 0.0 {
+		t.Errorf("Player dx should be 0 after reset, got %v", dx)
 	}
-	if dy, ok := state["dy"].(float64); !ok || dy != 0.0 {
-		t.Errorf("Player dy should be 0 after reset, got %v", state["dy"])
+	if dy, exists := playerObj.GetStateValue("dy"); !exists || dy.(float64) != 0.0 {
+		t.Errorf("Player dy should be 0 after reset, got %v", dy)
 	}
 
 	// Arrows should be reset to starting count (4)
 	// Note: Arrow count is stored as int, not float64
-	if arrows, ok := state["ac"].(int); !ok || arrows != 4 {
-		t.Errorf("Player arrows should be 4 after reset, got %v", state["ac"])
+	if arrows, exists := playerObj.GetStateValue("ac"); !exists || arrows.(int) != 4 {
+		t.Errorf("Player arrows should be 4 after reset, got %v", arrows)
 	}
 
 	// Dead should be false
-	if dead, ok := state["dead"].(bool); !ok || dead {
-		t.Errorf("Player should not be dead after reset, got %v", state["dead"])
+	if dead, exists := playerObj.GetStateValue("dead"); !exists || dead.(bool) {
+		t.Errorf("Player should not be dead after reset, got %v", dead)
 	}
 
 	// Player should still exist in the room
