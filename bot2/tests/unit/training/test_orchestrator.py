@@ -233,7 +233,13 @@ class TestCheckpointSaveLoad:
     def test_load_checkpoint_restores_state(
         self, orchestrator_with_network: TrainingOrchestrator, tmp_path: Path
     ) -> None:
-        """Test load_checkpoint restores training state."""
+        """Test load_checkpoint restores training state.
+
+        Note: current_generation is intentionally NOT restored from the checkpoint.
+        When training resumes and completes, we register a NEW model with the next
+        available generation from the registry, not the generation from when the
+        checkpoint was saved.
+        """
         orchestrator = orchestrator_with_network
         Path(orchestrator.config.checkpoint_dir).mkdir(parents=True, exist_ok=True)
 
@@ -242,7 +248,7 @@ class TestCheckpointSaveLoad:
         # Reset state
         orchestrator.total_timesteps = 0
         orchestrator.num_updates = 0
-        orchestrator.current_generation = 0
+        original_generation = orchestrator.current_generation
 
         checkpoint_path = str(
             Path(orchestrator.config.checkpoint_dir) / "checkpoint_5000.pt"
@@ -251,7 +257,8 @@ class TestCheckpointSaveLoad:
 
         assert orchestrator.total_timesteps == 5000
         assert orchestrator.num_updates == 10
-        assert orchestrator.current_generation == 2
+        # Generation should NOT be restored - it stays at whatever setup() determined
+        assert orchestrator.current_generation == original_generation
 
     def test_load_checkpoint_updates_trainer(
         self, orchestrator_with_network: TrainingOrchestrator, tmp_path: Path
