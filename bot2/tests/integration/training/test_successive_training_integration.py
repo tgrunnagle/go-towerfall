@@ -137,6 +137,7 @@ class TestSuccessiveTrainerSmoke:
 
     @requires_server
     @pytest.mark.asyncio
+    @pytest.mark.slow
     async def test_single_generation_completes(
         self, successive_config_smoke: SuccessiveTrainingConfig
     ) -> None:
@@ -336,6 +337,7 @@ class TestSuccessiveTrainerControlFlow:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 class TestSuccessiveTrainerEdgeCases:
     """Tests for edge cases in successive training."""
 
