@@ -454,7 +454,10 @@ class TrainingOrchestrator:
         self.trainer.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.total_timesteps = checkpoint["total_timesteps"]
         self.num_updates = checkpoint["num_updates"]
-        self.current_generation = checkpoint["generation"]
+        # Note: We intentionally do NOT restore current_generation from the checkpoint.
+        # When training completes, we register a NEW model with the next available generation
+        # from the registry, not the generation from when the checkpoint was saved.
+        # The generation determined in setup() via get_next_generation() should be used.
 
         # Update trainer's internal counters
         self.trainer.total_timesteps = self.total_timesteps

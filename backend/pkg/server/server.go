@@ -219,7 +219,9 @@ func (s *Server) runProcessGameUpdateQueue() {
 
 func (s *Server) processGameUpdateQueue() {
 	update := <-s.gameStateUpdateQueue
-	go s.sendGameUpdate(update)
+	go func() {
+		_ = s.sendGameUpdate(update)
+	}()
 }
 
 // sendGameUpdate sends the game state update to all connections to the room
@@ -282,10 +284,8 @@ func (s *Server) sendGameUpdate(update GameUpdateQueueItem) error {
 		})
 		conn.WriteMutex.Unlock()
 
-		if err != nil {
-			// TODO better error handling - remove dead connections, etc
-			//log.Printf("sendGameUpdate:Error sending GameState to connection %s: %v. %v", conn.ID, err, updateMessage)
-		}
+		// Ignore write errors - connections may have been closed
+		_ = err
 	}
 
 	return nil
@@ -299,7 +299,9 @@ func (s *Server) runProcessSpectatorUpdateQueue() {
 
 func (s *Server) processSpectatorUpdateQueue() {
 	update := <-s.spectatorUpdateQueue
-	go s.sendSpectatorUpdate(update)
+	go func() {
+		_ = s.sendSpectatorUpdate(update)
+	}()
 }
 
 func (s *Server) sendSpectatorUpdate(update SpectatorUpdateQueueItem) error {
@@ -371,7 +373,6 @@ func (s *Server) runCleanupInactiveRooms() {
 	}
 }
 
-
 // cleanupInactiveRooms removes inactive rooms
 func (s *Server) cleanupInactiveRooms() {
 	roomIDs := s.roomManager.GetGameRoomIDs()
@@ -397,4 +398,9 @@ func (s *Server) AddGameRoomAndStartTick(room *GameRoom) {
 	room.StartTickLoop(func(r *GameRoom, event *game_objects.GameEvent) {
 		go s.processEvent(r, event)
 	})
+}
+
+// GetRoom returns a game room by ID. This is primarily intended for testing.
+func (s *Server) GetRoom(roomID string) (*GameRoom, bool) {
+	return s.roomManager.GetGameRoom(roomID)
 }

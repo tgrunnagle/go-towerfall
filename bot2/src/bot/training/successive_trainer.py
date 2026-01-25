@@ -404,10 +404,14 @@ class SuccessiveTrainer:
 
         if result.final_evaluation:
             logger.info("  Final K/D: %.2f", result.final_evaluation.kd_ratio)
-            logger.info("  Final Win Rate: %.1f%%", result.final_evaluation.win_rate * 100)
+            logger.info(
+                "  Final Win Rate: %.1f%%", result.final_evaluation.win_rate * 100
+            )
 
         if result.comparison:
-            logger.info("  K/D Improvement: %.1f%%", result.comparison.kd_improvement * 100)
+            logger.info(
+                "  K/D Improvement: %.1f%%", result.comparison.kd_improvement * 100
+            )
 
         logger.info("  Promoted: %s", result.was_promoted)
         logger.info("  Reason: %s", result.promotion_reason)
@@ -429,9 +433,7 @@ class SuccessiveTrainer:
                     r.final_evaluation.kd_ratio if r.final_evaluation else 0
                 ),
             )
-            logger.info(
-                "Best Model: %s (Gen %d)", best.model_id, best.generation
-            )
+            logger.info("Best Model: %s (Gen %d)", best.model_id, best.generation)
 
         total_timesteps = sum(r.timesteps_trained for r in self.generation_results)
         logger.info("Total Timesteps: %s", f"{total_timesteps:,}")

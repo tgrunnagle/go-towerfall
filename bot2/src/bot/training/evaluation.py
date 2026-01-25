@@ -103,9 +103,7 @@ class EvaluationResult:
         win_rate = total_wins / num_episodes
 
         # Compute per-episode K/D for standard deviation
-        per_episode_kd = [
-            k / max(d, 1) for k, d in zip(episode_kills, episode_deaths)
-        ]
+        per_episode_kd = [k / max(d, 1) for k, d in zip(episode_kills, episode_deaths)]
         kd_ratio_std = float(np.std(per_episode_kd)) if len(per_episode_kd) > 1 else 0.0
 
         # Win rate standard deviation
@@ -237,9 +235,8 @@ class EvaluationManager:
         # Statistical significance test (one-sample t-test against opponent K/D)
         # H0: agent_kd <= opponent_kd, H1: agent_kd > opponent_kd
         if agent_eval.kd_ratio_std > 0 and agent_eval.total_episodes > 1:
-            t_stat = (
-                (agent_eval.kd_ratio - opponent_kd)
-                / (agent_eval.kd_ratio_std / np.sqrt(agent_eval.total_episodes))
+            t_stat = (agent_eval.kd_ratio - opponent_kd) / (
+                agent_eval.kd_ratio_std / np.sqrt(agent_eval.total_episodes)
             )
             p_value = float(1 - stats.t.cdf(t_stat, df=agent_eval.total_episodes - 1))
         else:

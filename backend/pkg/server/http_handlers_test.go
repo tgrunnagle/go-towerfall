@@ -251,7 +251,9 @@ func TestHandleCreateGame_TrainingModeResponse(t *testing.T) {
 	}
 
 	var response CreateGameHTTPResponse
-	json.NewDecoder(rr.Body).Decode(&response)
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	// Verify all standard fields are present
 	if response.RoomID == "" {
@@ -301,7 +303,9 @@ func TestHandleGetRoomState(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 	if !createResp.Success {
 		t.Fatalf("Failed to create test game: %s", createResp.Error)
 	}
@@ -397,7 +401,7 @@ func TestHandleGetRoomState(t *testing.T) {
 				req.Header.Set("X-Player-Token", tt.token)
 			case "bearer":
 				req.Header.Set("Authorization", "Bearer "+tt.token)
-			// "query" case is already in URL
+				// "query" case is already in URL
 			}
 
 			rr := httptest.NewRecorder()
@@ -495,7 +499,9 @@ func TestHandleGetRoomState_ResponseContainsPlayerState(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	// Get room state
 	req := httptest.NewRequest(http.MethodGet, "/api/rooms/"+createResp.RoomID+"/state", nil)
@@ -505,7 +511,9 @@ func TestHandleGetRoomState_ResponseContainsPlayerState(t *testing.T) {
 	server.HandleGetRoomState(rr, req)
 
 	var response GetRoomStateResponse
-	json.NewDecoder(rr.Body).Decode(&response)
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	// Verify player object exists in the state
 	playerState, exists := response.ObjectStates[createResp.PlayerID]
@@ -609,7 +617,9 @@ func TestHandleBotAction(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 	if !createResp.Success {
 		t.Fatalf("Failed to create test game: %s", createResp.Error)
 	}
@@ -863,7 +873,9 @@ func TestHandleBotAction_KeyCaseInsensitive(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	playerID := createResp.PlayerID
@@ -933,7 +945,9 @@ func TestHandleResetGame(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 	if !createResp.Success {
 		t.Fatalf("Failed to create test game: %s", createResp.Error)
 	}
@@ -1117,7 +1131,9 @@ func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	playerID := createResp.PlayerID
@@ -1130,7 +1146,9 @@ func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
 	server.HandleGetRoomState(getStateRR, getStateReq)
 
 	var initialState GetRoomStateResponse
-	json.NewDecoder(getStateRR.Body).Decode(&initialState)
+	if err := json.NewDecoder(getStateRR.Body).Decode(&initialState); err != nil {
+		t.Fatalf("Failed to decode initial state response: %v", err)
+	}
 	initialPlayerState := initialState.ObjectStates[playerID]
 	initialX := initialPlayerState["x"].(float64)
 	initialY := initialPlayerState["y"].(float64)
@@ -1147,7 +1165,16 @@ func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
 	botActionReq.Header.Set("Authorization", "Bearer "+playerToken)
 	server.HandleBotAction(httptest.NewRecorder(), botActionReq)
 
-	// Reset the game
+	// Get the room and player object for direct state verification
+	room, exists := server.GetRoom(roomID)
+	if !exists {
+		t.Fatal("Room should exist")
+	}
+
+	// Stop the tick loop to prevent background ticks from modifying state
+	room.StopTickLoop()
+
+	// Reset the game via HTTP API
 	resetReq := httptest.NewRequest(http.MethodPost, "/api/rooms/"+roomID+"/reset", nil)
 	resetReq.Header.Set("X-Player-Token", playerToken)
 	resetRR := httptest.NewRecorder()
@@ -1157,50 +1184,45 @@ func TestHandleResetGame_ResetsPlayerState(t *testing.T) {
 		t.Fatalf("HandleResetGame() failed with status %v", resetRR.Code)
 	}
 
-	// Get state after reset
-	getStateReq2 := httptest.NewRequest(http.MethodGet, "/api/rooms/"+roomID+"/state", nil)
-	getStateReq2.Header.Set("X-Player-Token", playerToken)
-	getStateRR2 := httptest.NewRecorder()
-	server.HandleGetRoomState(getStateRR2, getStateReq2)
-
-	var resetState GetRoomStateResponse
-	json.NewDecoder(getStateRR2.Body).Decode(&resetState)
-	resetPlayerState := resetState.ObjectStates[playerID]
-
-	// Verify player is still in the game
-	if resetPlayerState == nil {
+	// Verify player state is reset by checking raw state values directly
+	// Note: We use GetStateValue() instead of the HTTP API's GetState() because
+	// PlayerGameObject.GetState() applies extrapolation (including gravity) based on
+	// time elapsed since lastLocUpdateTime, which causes flaky tests.
+	playerObj, exists := room.ObjectManager.GetObject(playerID)
+	if !exists {
 		t.Fatal("Player should still exist after reset")
 	}
 
 	// Verify dx and dy are reset to 0
-	if dx, ok := resetPlayerState["dx"].(float64); !ok || dx != 0.0 {
-		t.Errorf("Player dx after reset = %v, want 0", resetPlayerState["dx"])
+	if dx, exists := playerObj.GetStateValue("dx"); !exists || dx.(float64) != 0.0 {
+		t.Errorf("Player dx after reset = %v, want 0", dx)
 	}
-	if dy, ok := resetPlayerState["dy"].(float64); !ok || dy != 0.0 {
-		t.Errorf("Player dy after reset = %v, want 0", resetPlayerState["dy"])
+	if dy, exists := playerObj.GetStateValue("dy"); !exists || dy.(float64) != 0.0 {
+		t.Errorf("Player dy after reset = %v, want 0", dy)
 	}
 
 	// Verify player is not dead
-	if dead, ok := resetPlayerState["dead"].(bool); !ok || dead {
-		t.Errorf("Player dead after reset = %v, want false", resetPlayerState["dead"])
+	if dead, exists := playerObj.GetStateValue("dead"); !exists || dead.(bool) {
+		t.Errorf("Player dead after reset = %v, want false", dead)
 	}
 
 	// Verify arrows are reset to starting count (4)
-	// Note: The state key is "ac" for arrow count, and it comes as float64 from JSON
-	if arrowCount, ok := resetPlayerState["ac"].(float64); !ok || arrowCount != 4.0 {
-		t.Errorf("Player arrows after reset = %v, want 4", resetPlayerState["ac"])
+	if arrowCount, exists := playerObj.GetStateValue("ac"); !exists || arrowCount.(int) != 4 {
+		t.Errorf("Player arrows after reset = %v, want 4", arrowCount)
 	}
 
-	// Note: Position may have changed to a new respawn location, so we just verify it's set
-	if _, ok := resetPlayerState["x"].(float64); !ok {
+	// Verify position is set (may have changed to a new respawn location)
+	resetX, xExists := playerObj.GetStateValue("x")
+	resetY, yExists := playerObj.GetStateValue("y")
+	if !xExists {
 		t.Error("Player x position should be set after reset")
 	}
-	if _, ok := resetPlayerState["y"].(float64); !ok {
+	if !yExists {
 		t.Error("Player y position should be set after reset")
 	}
 
 	// Log initial and reset positions for informational purposes
-	t.Logf("Initial position: (%v, %v), Reset position: (%v, %v)", initialX, initialY, resetPlayerState["x"], resetPlayerState["y"])
+	t.Logf("Initial position: (%v, %v), Reset position: (%v, %v)", initialX, initialY, resetX, resetY)
 }
 
 func TestHandleGetRoomStats(t *testing.T) {
@@ -1219,7 +1241,9 @@ func TestHandleGetRoomStats(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 	if !createResp.Success {
 		t.Fatalf("Failed to create test game: %s", createResp.Error)
 	}
@@ -1315,7 +1339,7 @@ func TestHandleGetRoomStats(t *testing.T) {
 				req.Header.Set("X-Player-Token", tt.token)
 			case "bearer":
 				req.Header.Set("Authorization", "Bearer "+tt.token)
-			// "query" case is already in URL
+				// "query" case is already in URL
 			}
 
 			rr := httptest.NewRecorder()
@@ -1410,7 +1434,9 @@ func TestHandleGetRoomStats_ReturnsPlayerStats(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	playerID := createResp.PlayerID
@@ -1423,7 +1449,9 @@ func TestHandleGetRoomStats_ReturnsPlayerStats(t *testing.T) {
 	server.HandleGetRoomStats(rr, req)
 
 	var response GetRoomStatsHTTPResponse
-	json.NewDecoder(rr.Body).Decode(&response)
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if !response.Success {
 		t.Fatalf("HandleGetRoomStats() failed: %s", response.Error)
@@ -1466,7 +1494,9 @@ func TestHandleGetRoomStats_WithMultiplePlayers(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	player1Token := createResp.PlayerToken
@@ -1488,7 +1518,9 @@ func TestHandleGetRoomStats_WithMultiplePlayers(t *testing.T) {
 	server.HandleGetRoomStats(rr, req)
 
 	var response GetRoomStatsHTTPResponse
-	json.NewDecoder(rr.Body).Decode(&response)
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if !response.Success {
 		t.Fatalf("HandleGetRoomStats() failed: %s", response.Error)
@@ -1541,7 +1573,9 @@ func TestHandleGetRoomStats_StatsResetAfterGameReset(t *testing.T) {
 	server.HandleCreateGame(createRR, createHttpReq)
 
 	var createResp CreateGameHTTPResponse
-	json.NewDecoder(createRR.Body).Decode(&createResp)
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
 
 	roomID := createResp.RoomID
 	playerID := createResp.PlayerID
@@ -1560,7 +1594,9 @@ func TestHandleGetRoomStats_StatsResetAfterGameReset(t *testing.T) {
 	server.HandleGetRoomStats(rr1, req1)
 
 	var response1 GetRoomStatsHTTPResponse
-	json.NewDecoder(rr1.Body).Decode(&response1)
+	if err := json.NewDecoder(rr1.Body).Decode(&response1); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if response1.PlayerStats[playerID].Kills != 2 || response1.PlayerStats[playerID].Deaths != 1 {
 		t.Errorf("Stats before reset: kills=%d deaths=%d, want kills=2 deaths=1",
@@ -1579,7 +1615,9 @@ func TestHandleGetRoomStats_StatsResetAfterGameReset(t *testing.T) {
 	server.HandleGetRoomStats(rr2, req2)
 
 	var response2 GetRoomStatsHTTPResponse
-	json.NewDecoder(rr2.Body).Decode(&response2)
+	if err := json.NewDecoder(rr2.Body).Decode(&response2); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if response2.PlayerStats[playerID].Kills != 0 || response2.PlayerStats[playerID].Deaths != 0 {
 		t.Errorf("Stats after reset: kills=%d deaths=%d, want kills=0 deaths=0",

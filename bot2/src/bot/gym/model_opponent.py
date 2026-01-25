@@ -154,7 +154,11 @@ class ModelOpponent:
         Args:
             state: Current game state.
         """
-        if not self._running or self._client is None or self._observation_builder is None:
+        if (
+            not self._running
+            or self._client is None
+            or self._observation_builder is None
+        ):
             return
 
         try:

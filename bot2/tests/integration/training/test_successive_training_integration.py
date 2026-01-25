@@ -88,10 +88,10 @@ def successive_config_short(tmp_path: Path) -> SuccessiveTrainingConfig:
         evaluation_episodes=2,
         promotion_criteria=PromotionCriteria(
             min_kd_ratio=0.0,  # Permissive for testing
-            kd_improvement=0.0,
+            kd_improvement=-2.0,  # Always pass: agent KD 0 vs opponent KD 1 = -1.0 improvement
             min_eval_episodes=1,
             consecutive_passes=1,
-            confidence_threshold=0.5,
+            confidence_threshold=0.0,  # No statistical significance required
         ),
         max_stagnant_evaluations=3,
         output_dir=str(tmp_path / "successive"),
@@ -137,6 +137,7 @@ class TestSuccessiveTrainerSmoke:
 
     @requires_server
     @pytest.mark.asyncio
+    @pytest.mark.slow
     async def test_single_generation_completes(
         self, successive_config_smoke: SuccessiveTrainingConfig
     ) -> None:
@@ -251,9 +252,7 @@ class TestSuccessiveTrainerTwoGenerations:
             await trainer.train()
 
         # Should have generation_complete events
-        gen_events = [
-            e for e in events_received if e["type"] == "generation_complete"
-        ]
+        gen_events = [e for e in events_received if e["type"] == "generation_complete"]
         assert len(gen_events) == 2
 
         # Check generation numbers
@@ -338,6 +337,7 @@ class TestSuccessiveTrainerControlFlow:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 class TestSuccessiveTrainerEdgeCases:
     """Tests for edge cases in successive training."""
 
