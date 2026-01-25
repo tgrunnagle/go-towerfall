@@ -12,6 +12,9 @@ func main() {
 	srv := server.NewServer()
 	log.Printf("Starting server on :4000")
 
+	// Health check endpoint
+	http.HandleFunc("/health", srv.HandleHealth)
+
 	// WebSocket endpoint
 	http.HandleFunc("/ws", srv.HandleWebSocket)
 

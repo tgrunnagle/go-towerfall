@@ -71,3 +71,9 @@ type TrainingSessionInfo struct {
 type GetTrainingSessionsResponse struct {
 	Sessions []TrainingSessionInfo `json:"sessions"`
 }
+
+// HealthCheckResponse represents the response to a health check request
+type HealthCheckResponse struct {
+	Status    string `json:"status"`
+	Timestamp string `json:"timestamp"`
+}

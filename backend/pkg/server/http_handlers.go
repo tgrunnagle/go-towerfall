@@ -995,3 +995,34 @@ func (s *Server) HandleGetTrainingSessions(w http.ResponseWriter, r *http.Reques
 		Sessions: sessions,
 	})
 }
+
+// HandleHealth handles HTTP requests for server health checks
+func (s *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow GET requests
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		writeJSON(w, map[string]interface{}{
+			"error": "Method not allowed",
+		})
+		return
+	}
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	writeJSON(w, HealthCheckResponse{
+		Status:    "ok",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	})
+}
