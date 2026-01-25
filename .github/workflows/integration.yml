@@ -21,11 +21,11 @@ jobs:
         run: |
           echo "Waiting for services to be ready..."
           for i in {1..30}; do
-            if curl -s http://localhost:4000/api/maps > /dev/null 2>&1; then
+            if curl -s http://localhost:4000/health > /dev/null 2>&1; then
               echo "Services are ready!"
               break
             fi
-            echo "Waiting... ($i/3)"
+            echo "Waiting... ($i/30)"
             sleep 2
           done
 
