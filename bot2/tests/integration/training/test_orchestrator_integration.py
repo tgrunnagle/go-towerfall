@@ -128,6 +128,7 @@ class TestOrchestratorSmoke:
 
     @requires_server
     @pytest.mark.asyncio
+    @pytest.mark.slow
     async def test_short_training_completes(
         self, orchestrator_config_smoke: OrchestratorConfig
     ) -> None:
@@ -289,6 +290,7 @@ class TestOrchestratorShortTraining:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 class TestOrchestratorRegistry:
     """Tests for model registry integration."""
 

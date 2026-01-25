@@ -4,7 +4,7 @@ on:
   workflow_call:
 
 jobs:
-  bot2-lint:
+  bot2-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
       - name: Run bot2 type checking
         run: task bot2:typecheck
 
-  backend-lint:
+  backend-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,3 +42,6 @@ jobs:
 
       - name: Run go vet
         run: task be:vet
+
+      - name: Run build
+        run: task be:build
