@@ -274,7 +274,9 @@ class ObservationBuilder:
             # Backend sends shooting_start_time in milliseconds, convert to seconds
             current_time_ms = time.time() * 1000.0
             elapsed_time = (current_time_ms - player.shooting_start_time) / 1000.0
-            power_ratio = min(1.0, max(0.0, elapsed_time / self.constants.MAX_ARROW_POWER_TIME))
+            power_ratio = min(
+                1.0, max(0.0, elapsed_time / self.constants.MAX_ARROW_POWER_TIME)
+            )
             # Normalize to [-1, 1] range: 0 power = -1, max power = 1
             obs[10] = (power_ratio * 2.0) - 1.0
         else:
