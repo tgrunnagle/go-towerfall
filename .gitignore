@@ -1,6 +1,9 @@
 # Claude Code settings
 .claude/settings.local.json
 
+# Temporary files
+CODE_REVIEW_ISSUES.md
+
 # IDE files
 .idea/
 .vscode/
