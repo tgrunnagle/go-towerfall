@@ -71,7 +71,7 @@ class WebSocketBotClient:
     Example:
         # Create a placeholder client for the runner
         placeholder_client = GameClient(http_url="http://localhost:4000")
-        runner = NeuralNetBotRunner(client=placeholder_client, network=network)
+        runner = NeuralNetBotRunner(network=network, client=placeholder_client)
 
         # WebSocketBotClient will replace the client during start()
         bot_client = WebSocketBotClient(runner=runner, config=config)

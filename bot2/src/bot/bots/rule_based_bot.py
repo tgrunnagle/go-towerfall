@@ -380,13 +380,13 @@ class RuleBasedBotRunner:
 
     def __init__(
         self,
-        client: GameClient,
+        client: GameClient | None = None,
         config: RuleBasedBotConfig | None = None,
     ) -> None:
         """Initialize the bot runner.
 
         Args:
-            client: The game client for server communication.
+            client: The game client for server communication (can be set later).
             config: Optional configuration for the rule-based bot.
         """
         self.client = client

@@ -133,10 +133,8 @@ class TestBotManagerSpawnBot:
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.RuleBasedBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_spawn_rule_based_bot(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -175,16 +173,11 @@ class TestBotManagerSpawnBot:
         # Verify client was created correctly
         mock_client_class.assert_called_once()
 
-        # Verify background task was created
-        mock_create_task.assert_called_once()
-
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.NeuralNetBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_spawn_neural_network_bot_by_model_id(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -232,10 +225,8 @@ class TestBotManagerSpawnBot:
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.NeuralNetBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_spawn_neural_network_bot_by_generation(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -356,36 +347,20 @@ class TestBotManagerSpawnBot:
 
     @pytest.mark.asyncio
     async def test_spawn_neural_network_bot_no_model_specified(self) -> None:
-        """spawn_bot() with neural network but no model_id or generation returns error."""
-        registry = MockModelRegistry()
+        """BotConfig with neural network but no model_id or generation raises ValidationError."""
+        from pydantic import ValidationError
 
-        manager = BotManager(
-            registry=registry,  # type: ignore[arg-type]
-            http_url="http://localhost:4000",
-            ws_url="ws://localhost:4000/ws",
-        )
-
-        request = SpawnBotRequest(
-            room_code="ABC123",
-            bot_config=BotConfig(
+        # Creating BotConfig should raise ValidationError due to validator
+        with pytest.raises(ValidationError, match="model_id or generation"):
+            BotConfig(
                 bot_type="neural_network",
-            ),
-        )
-
-        response = await manager.spawn_bot(request)
-
-        assert response.success is False
-        assert response.bot_id is None
-        assert response.error is not None
-        assert "model_id or generation" in response.error
+            )
 
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.RuleBasedBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_spawn_bot_generates_unique_ids(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -420,10 +395,8 @@ class TestBotManagerDestroyBot:
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.RuleBasedBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_destroy_bot_stops_and_removes(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -470,10 +443,8 @@ class TestBotManagerDestroyBot:
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.RuleBasedBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_destroy_bot_handles_stop_error(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -510,10 +481,8 @@ class TestBotManagerGetBot:
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.RuleBasedBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_get_bot_returns_info(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -554,10 +523,8 @@ class TestBotManagerGetBot:
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.NeuralNetBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_get_bot_includes_model_id(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -612,10 +579,8 @@ class TestBotManagerListBots:
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.RuleBasedBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_list_bots_returns_all_active(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -702,16 +667,16 @@ class TestBotManagerShutdown:
     @pytest.mark.asyncio
     @patch("bot.service.bot_manager.WebSocketBotClient")
     @patch("bot.service.bot_manager.RuleBasedBotRunner")
-    @patch("bot.service.bot_manager.asyncio.create_task")
     async def test_shutdown_stops_all_bots(
         self,
-        mock_create_task: MagicMock,
         mock_runner_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
         """shutdown() stops all active bots."""
         mock_client1 = AsyncMock()
         mock_client2 = AsyncMock()
+        mock_client1.start = AsyncMock()
+        mock_client2.start = AsyncMock()
         mock_client_class.side_effect = [mock_client1, mock_client2]
         mock_runner_class.return_value = MagicMock()
 
@@ -785,11 +750,136 @@ class TestBotManagerBackgroundConnection:
         assert len(manager._bots) == 1
 
         # Wait for background task to complete
-        # Give it a small delay to let the task run
-        await asyncio.sleep(0.1)
+        await manager._await_pending_tasks()
 
         # Bot should be removed from tracking
         assert len(manager._bots) == 0
+
+    @pytest.mark.asyncio
+    @patch("bot.service.bot_manager.WebSocketBotClient")
+    @patch("bot.service.bot_manager.RuleBasedBotRunner")
+    async def test_concurrent_spawn_bot_calls(
+        self,
+        mock_runner_class: MagicMock,
+        mock_client_class: MagicMock,
+    ) -> None:
+        """Multiple concurrent spawn_bot() calls produce unique bot IDs."""
+        mock_client = AsyncMock()
+        mock_client.start = AsyncMock()
+        mock_client_class.return_value = mock_client
+        mock_runner_class.return_value = MagicMock()
+
+        manager = BotManager(
+            registry=None,
+            http_url="http://localhost:4000",
+            ws_url="ws://localhost:4000/ws",
+        )
+
+        # Spawn multiple bots concurrently
+        requests = [
+            SpawnBotRequest(
+                room_code=f"ROOM{i}",
+                bot_config=BotConfig(bot_type="rule_based"),
+            )
+            for i in range(5)
+        ]
+
+        responses = await asyncio.gather(*[manager.spawn_bot(req) for req in requests])
+
+        # All should succeed
+        assert all(r.success for r in responses)
+
+        # All bot IDs should be unique
+        bot_ids = [r.bot_id for r in responses]
+        assert len(bot_ids) == len(set(bot_ids))
+
+        # All bots should be tracked
+        assert len(manager._bots) == 5
+
+    @pytest.mark.asyncio
+    @patch("bot.service.bot_manager.WebSocketBotClient")
+    @patch("bot.service.bot_manager.RuleBasedBotRunner")
+    async def test_destroy_bot_twice_idempotent(
+        self,
+        mock_runner_class: MagicMock,
+        mock_client_class: MagicMock,
+    ) -> None:
+        """destroy_bot() called twice for same bot_id is idempotent."""
+        mock_client = AsyncMock()
+        mock_client.start = AsyncMock()
+        mock_client.stop = AsyncMock()
+        mock_client_class.return_value = mock_client
+        mock_runner_class.return_value = MagicMock()
+
+        manager = BotManager(
+            registry=None,
+            http_url="http://localhost:4000",
+            ws_url="ws://localhost:4000/ws",
+        )
+
+        request = SpawnBotRequest(
+            room_code="ABC123",
+            bot_config=BotConfig(bot_type="rule_based"),
+        )
+
+        response = await manager.spawn_bot(request)
+        bot_id = response.bot_id
+
+        # First destroy should succeed
+        result1 = await manager.destroy_bot(bot_id)
+        assert result1 is True
+
+        # Second destroy should return False (not found)
+        result2 = await manager.destroy_bot(bot_id)
+        assert result2 is False
+
+        # Bot should not be in tracking
+        assert len(manager._bots) == 0
+
+    @pytest.mark.asyncio
+    @patch("bot.service.bot_manager.WebSocketBotClient")
+    @patch("bot.service.bot_manager.RuleBasedBotRunner")
+    async def test_shutdown_with_pending_connections(
+        self,
+        mock_runner_class: MagicMock,
+        mock_client_class: MagicMock,
+    ) -> None:
+        """shutdown() waits for pending background connection tasks."""
+        # Create a mock client that takes time to start
+        mock_client = AsyncMock()
+        connection_started = asyncio.Event()
+
+        async def slow_start(room_code: str, room_password: str) -> None:
+            await asyncio.sleep(0.05)  # Simulate slow connection
+            connection_started.set()
+
+        mock_client.start = AsyncMock(side_effect=slow_start)
+        mock_client.stop = AsyncMock()
+        mock_client_class.return_value = mock_client
+        mock_runner_class.return_value = MagicMock()
+
+        manager = BotManager(
+            registry=None,
+            http_url="http://localhost:4000",
+            ws_url="ws://localhost:4000/ws",
+        )
+
+        # Spawn a bot (connection starts in background)
+        request = SpawnBotRequest(
+            room_code="ABC123",
+            bot_config=BotConfig(bot_type="rule_based"),
+        )
+        await manager.spawn_bot(request)
+
+        # Immediately call shutdown (while connection is pending)
+        assert not connection_started.is_set()
+        await manager.shutdown()
+
+        # Connection should have completed during shutdown
+        assert connection_started.is_set()
+
+        # All tasks should be complete
+        assert len(manager._tasks) == 0
 
 
 class TestPydanticModels:
@@ -834,6 +924,36 @@ class TestPydanticModels:
 
         with pytest.raises(ValidationError):
             BotConfig(bot_type="invalid_type")  # type: ignore[arg-type]
+
+    def test_bot_config_rule_based_with_model_id_raises(self) -> None:
+        """BotConfig raises error for rule_based with model_id."""
+        from pydantic import ValidationError
+
+        with pytest.raises(
+            ValidationError,
+            match="Rule-based bots cannot specify model_id or generation",
+        ):
+            BotConfig(bot_type="rule_based", model_id="ppo_gen_005")
+
+    def test_bot_config_rule_based_with_generation_raises(self) -> None:
+        """BotConfig raises error for rule_based with generation."""
+        from pydantic import ValidationError
+
+        with pytest.raises(
+            ValidationError,
+            match="Rule-based bots cannot specify model_id or generation",
+        ):
+            BotConfig(bot_type="rule_based", generation=5)
+
+    def test_bot_config_neural_network_without_model_or_gen_raises(self) -> None:
+        """BotConfig raises error for neural_network without model_id or generation."""
+        from pydantic import ValidationError
+
+        with pytest.raises(
+            ValidationError,
+            match="Neural network bots require either model_id or generation",
+        ):
+            BotConfig(bot_type="neural_network")
 
     def test_spawn_bot_request_defaults(self) -> None:
         """SpawnBotRequest has correct defaults."""

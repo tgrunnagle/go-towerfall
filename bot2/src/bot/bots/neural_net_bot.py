@@ -289,15 +289,15 @@ class NeuralNetBotRunner:
 
     def __init__(
         self,
-        client: GameClient,
         network: ActorCriticNetwork,
+        client: GameClient | None = None,
         config: NeuralNetBotConfig | None = None,
     ) -> None:
         """Initialize the bot runner.
 
         Args:
-            client: GameClient for server communication
             network: Trained ActorCriticNetwork for inference
+            client: GameClient for server communication (can be set later)
             config: Optional configuration for the neural net bot
         """
         self.client = client

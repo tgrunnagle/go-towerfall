@@ -10,7 +10,7 @@ import logging
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from bot.bots.neural_net_bot import NeuralNetBotConfig, NeuralNetBotRunner
 from bot.bots.rule_based_bot import RuleBasedBotConfig, RuleBasedBotRunner
@@ -36,6 +36,21 @@ class BotConfig(BaseModel):
         default=None, description="Generation number (alternative to model_id)"
     )
     player_name: str = Field(default="Bot", description="Display name for the bot")
+
+    @model_validator(mode="after")
+    def validate_bot_config(self) -> "BotConfig":
+        """Validate that bot configuration is consistent with bot type."""
+        if self.bot_type == "rule_based":
+            if self.model_id is not None or self.generation is not None:
+                raise ValueError(
+                    "Rule-based bots cannot specify model_id or generation"
+                )
+        elif self.bot_type == "neural_network":
+            if self.model_id is None and self.generation is None:
+                raise ValueError(
+                    "Neural network bots require either model_id or generation"
+                )
+        return self
 
 
 class SpawnBotRequest(BaseModel):
@@ -156,6 +171,7 @@ class BotManager:
         self._ws_url = ws_url
         self._device = default_device
         self._bots: dict[str, _BotEntry] = {}
+        self._tasks: set[asyncio.Task] = set()
         self._logger = logging.getLogger(__name__)
 
     async def spawn_bot(self, request: SpawnBotRequest) -> SpawnBotResponse:
@@ -187,7 +203,9 @@ class BotManager:
             self._bots[bot_id] = entry
 
             # Start connection in background - don't await
-            asyncio.create_task(self._connect_bot(bot_id, client, request))
+            task = asyncio.create_task(self._connect_bot(bot_id, client, request))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
 
             self._logger.info(
                 "Bot spawned: %s (%s)", bot_id, request.bot_config.bot_type
@@ -268,6 +286,15 @@ class BotManager:
             return []
         return self._registry.list_models()
 
+    async def _await_pending_tasks(self) -> None:
+        """Await completion of pending background tasks.
+
+        This method is primarily for testing to ensure background connection
+        tasks have completed before assertions.
+        """
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+
     async def shutdown(self) -> None:
         """Gracefully shut down all bots.
 
@@ -281,6 +308,11 @@ class BotManager:
         bot_ids = list(self._bots.keys())
         tasks = [self.destroy_bot(bot_id) for bot_id in bot_ids]
         await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Wait for any pending background tasks to complete
+        if self._tasks:
+            self._logger.info("Waiting for %d background tasks", len(self._tasks))
+            await asyncio.gather(*self._tasks, return_exceptions=True)
 
         self._logger.info("BotManager shutdown complete")
 
@@ -315,7 +347,7 @@ class BotManager:
         if config.bot_type == "rule_based":
             # Create rule-based bot runner
             runner = RuleBasedBotRunner(
-                client=None,  # type: ignore[arg-type] # Will be set by WebSocketBotClient
+                client=None,
                 config=RuleBasedBotConfig(),
             )
         else:  # neural_network
@@ -325,8 +357,8 @@ class BotManager:
 
             # Create neural network bot runner
             runner = NeuralNetBotRunner(
-                client=None,  # type: ignore[arg-type] # Will be set by WebSocketBotClient
                 network=network,
+                client=None,
                 config=NeuralNetBotConfig(device=self._device),
             )
 

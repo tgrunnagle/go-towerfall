@@ -6,6 +6,8 @@
       "Bash(go build:*)",
       "Bash(task:*)",
       "Bash(uv run pytest:*)",
+      "Bash(uv run ty:*)",
+      "Bash(uv run ruff:*)",
       "Bash(tree:*)"
     ]
   }
