@@ -8,6 +8,7 @@ from bot.bots.base_bot import (
     MouseAction,
     MouseButton,
 )
+from bot.bots.neural_net_bot import NeuralNetBot, NeuralNetBotConfig, NeuralNetBotRunner
 from bot.bots.rule_based_bot import RuleBasedBot, RuleBasedBotConfig, RuleBasedBotRunner
 from bot.bots.shooting_utils import (
     ShootingConfig,
@@ -28,6 +29,9 @@ __all__ = [
     "KeyboardKey",
     "MouseAction",
     "MouseButton",
+    "NeuralNetBot",
+    "NeuralNetBotConfig",
+    "NeuralNetBotRunner",
     "RuleBasedBot",
     "RuleBasedBotConfig",
     "RuleBasedBotRunner",
