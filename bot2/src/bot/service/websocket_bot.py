@@ -18,7 +18,13 @@ class BotRunnerProtocol(Protocol):
     """Protocol for bot runners that can process game state updates.
 
     Both NeuralNetBotRunner and RuleBasedBotRunner implement this interface.
+
+    Attributes:
+        client: GameClient instance for sending actions to the server.
+            WebSocketBotClient will set this attribute after constructing the runner.
     """
+
+    client: GameClient | None
 
     async def on_game_state(self, state: GameState) -> None:
         """Handle incoming game state and execute bot actions.
@@ -57,8 +63,17 @@ class WebSocketBotClient:
     to the bot runner for action decisions. Supports any bot runner
     implementing the BotRunnerProtocol.
 
+    The WebSocketBotClient creates its own GameClient and injects it into
+    the runner's client attribute during start(). Bot runners should be
+    instantiated with a GameClient (which will be replaced) or create
+    a placeholder client that will be replaced by WebSocketBotClient.
+
     Example:
-        runner = NeuralNetBotRunner(client=None, network=network)
+        # Create a placeholder client for the runner
+        placeholder_client = GameClient(http_url="http://localhost:4000")
+        runner = NeuralNetBotRunner(client=placeholder_client, network=network)
+
+        # WebSocketBotClient will replace the client during start()
         bot_client = WebSocketBotClient(runner=runner, config=config)
         await bot_client.start(room_code="ABC123", room_password="secret")
         # Bot is now playing in the game...
@@ -91,7 +106,16 @@ class WebSocketBotClient:
         Args:
             room_code: Room code to join.
             room_password: Optional room password.
+
+        Raises:
+            RuntimeError: If the client is already started.
         """
+        # Check if already started to prevent resource leaks
+        if self._running or self._client is not None:
+            raise RuntimeError(
+                "WebSocketBotClient is already started. Call stop() first."
+            )
+
         # Create client in WebSocket mode for real-time updates
         self._client = GameClient(
             http_url=self.config.http_url,
@@ -99,10 +123,9 @@ class WebSocketBotClient:
             mode=ClientMode.WEBSOCKET,
         )
 
-        # Set the runner's client reference
-        # The runner needs the client to send actions
-        if hasattr(self.runner, "client"):
-            self.runner.client = self._client  # type: ignore[attr-defined]
+        # Inject the client into the runner
+        # BotRunnerProtocol defines client as a required attribute
+        self.runner.client = self._client
 
         # Connect to server
         await self._client.connect()

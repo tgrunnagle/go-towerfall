@@ -4,6 +4,7 @@ Tests cover:
 - Initialization with config and default config
 - start() creates GameClient and joins room
 - start() registers message handler
+- start() raises RuntimeError if called twice (idempotency check)
 - stop() closes client connection
 - stop() is safe to call without start
 - stop() is safe to call multiple times
@@ -177,6 +178,24 @@ class TestWebSocketBotClientStart:
         assert runner.client is None
         await bot_client.start(room_code="ROOM123")
         assert runner.client is mock_client
+
+    @pytest.mark.asyncio
+    @patch("bot.service.websocket_bot.GameClient")
+    async def test_start_twice_raises_error(
+        self, mock_game_client_class: MagicMock
+    ) -> None:
+        """start() raises RuntimeError if already started."""
+        mock_client = AsyncMock(spec=GameClient)
+        mock_game_client_class.return_value = mock_client
+
+        runner = MockBotRunner()
+        bot_client = WebSocketBotClient(runner=runner)  # type: ignore[arg-type]
+
+        await bot_client.start(room_code="ROOM123")
+
+        # Attempting to start again should raise RuntimeError
+        with pytest.raises(RuntimeError, match="already started"):
+            await bot_client.start(room_code="ROOM456")
 
 
 class TestWebSocketBotClientStop:
