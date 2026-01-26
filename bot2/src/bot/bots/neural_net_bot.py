@@ -66,7 +66,9 @@ class NeuralNetBot(BaseBot):
             "w": False,
             "s": False,
         }
-        self._previous_aim_direction: float | None = None
+        # Initialize to -1.0 (sentinel value, not a valid aim angle)
+        # First actual aim will be sent, and shooting without aim uses 0.0 as default
+        self._previous_aim_direction: float = -1.0
         self._previous_shooting: bool = False
 
     async def decide_actions(self) -> list[BotAction]:
@@ -215,11 +217,13 @@ class NeuralNetBot(BaseBot):
         actions: list[BotAction] = []
 
         # Calculate aim position from current aim direction
-        aim_x, aim_y = 0.0, 0.0
-        if self._previous_aim_direction is not None:
-            aim_distance = 100.0
-            aim_x = player_x + aim_distance * np.cos(self._previous_aim_direction)
-            aim_y = player_y + aim_distance * np.sin(self._previous_aim_direction)
+        # Use 0.0 (right) as default if no aim direction set yet
+        aim_radians = (
+            self._previous_aim_direction if self._previous_aim_direction >= 0 else 0.0
+        )
+        aim_distance = 100.0
+        aim_x = player_x + aim_distance * np.cos(aim_radians)
+        aim_y = player_y + aim_distance * np.sin(aim_radians)
 
         if action == Action.SHOOT_START:
             if not self._previous_shooting:
@@ -256,7 +260,7 @@ class NeuralNetBot(BaseBot):
             "w": False,
             "s": False,
         }
-        self._previous_aim_direction = None
+        self._previous_aim_direction = -1.0
 
         return actions
 
@@ -272,7 +276,7 @@ class NeuralNetBot(BaseBot):
             "w": False,
             "s": False,
         }
-        self._previous_aim_direction = None
+        self._previous_aim_direction = -1.0
         self._previous_shooting = False
 
 
@@ -302,6 +306,7 @@ class NeuralNetBotRunner:
         self.bot: NeuralNetBot | None = None
         self._previous_keyboard_actions: dict[str, bool] = {}
         self._previous_mouse_state: bool = False
+        self._previous_aim_pos: tuple[float, float] = (0.0, 0.0)
 
     async def on_game_state(self, state: GameState) -> None:
         """Handle incoming game state updates.
@@ -329,9 +334,15 @@ class NeuralNetBotRunner:
             if len(action) == 4:
                 # Mouse action: ("mouse_left", pressed, aim_x, aim_y)
                 _, pressed, aim_x, aim_y = action  # type: ignore[misc]
-                if self._previous_mouse_state != pressed:
+                aim_pos = (aim_x, aim_y)
+                # Send if either mouse state or aim position changed
+                if (
+                    self._previous_mouse_state != pressed
+                    or self._previous_aim_pos != aim_pos
+                ):
                     await self.client.send_mouse_input("left", pressed, aim_x, aim_y)
                     self._previous_mouse_state = pressed
+                    self._previous_aim_pos = aim_pos
             else:
                 # Keyboard action: (key, pressed)
                 key, pressed = action  # type: ignore[misc]
@@ -343,5 +354,6 @@ class NeuralNetBotRunner:
         """Reset the bot runner state for a new game/episode."""
         self._previous_keyboard_actions = {}
         self._previous_mouse_state = False
+        self._previous_aim_pos = (0.0, 0.0)
         if self.bot is not None:
             self.bot.reset()

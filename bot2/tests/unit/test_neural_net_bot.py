@@ -85,7 +85,7 @@ class TestNeuralNetBotInit:
             "w": False,
             "s": False,
         }
-        assert bot._previous_aim_direction is None
+        assert bot._previous_aim_direction == -1.0
         assert bot._previous_shooting is False
 
 
@@ -310,6 +310,22 @@ class TestNeuralNetBotActionTranslation:
         assert len(actions[0]) == 4
         assert actions[0][1] is False  # Mouse released
 
+    def test_shoot_start_without_prior_aim(self, network: ActorCriticNetwork) -> None:
+        """Test SHOOT_START uses default aim (0.0 radians) when no prior aim set."""
+        bot = NeuralNetBot("player-1", network)
+        # Don't set aim direction - should use default 0.0 (right)
+
+        actions = bot._translate_action(Action.SHOOT_START, 100.0, 200.0)
+
+        assert len(actions) == 1
+        assert len(actions[0]) == 4
+        assert actions[0][1] is True  # Mouse pressed
+        # Verify aim position uses default direction (0.0 radians = right)
+        # aim_x = 100.0 + 100.0 * cos(0.0) = 200.0
+        # aim_y = 200.0 + 100.0 * sin(0.0) = 200.0
+        assert actions[0][2] == 200.0  # aim_x
+        assert actions[0][3] == 200.0  # aim_y
+
 
 class TestNeuralNetBotStateDeduplication:
     """Tests for state deduplication - only sending changed inputs."""
@@ -393,7 +409,7 @@ class TestNeuralNetBotReset:
 
         bot.reset()
 
-        assert bot._previous_aim_direction is None
+        assert bot._previous_aim_direction == -1.0
 
     def test_reset_clears_shooting_state(self, network: ActorCriticNetwork) -> None:
         """Test reset clears shooting state."""
@@ -554,11 +570,13 @@ class TestNeuralNetBotRunner:
         runner = NeuralNetBotRunner(mock_client, network)
         runner._previous_keyboard_actions = {"a": True}
         runner._previous_mouse_state = True
+        runner._previous_aim_pos = (100.0, 200.0)
 
         runner.reset()
 
         assert runner._previous_keyboard_actions == {}
         assert runner._previous_mouse_state is False
+        assert runner._previous_aim_pos == (0.0, 0.0)
 
     @pytest.mark.asyncio
     async def test_reset_resets_bot(
