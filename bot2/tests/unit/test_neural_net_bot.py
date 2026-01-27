@@ -323,8 +323,8 @@ class TestNeuralNetBotActionTranslation:
         # Verify aim position uses default direction (0.0 radians = right)
         # aim_x = 100.0 + 100.0 * cos(0.0) = 200.0
         # aim_y = 200.0 + 100.0 * sin(0.0) = 200.0
-        assert actions[0][2] == 200.0  # aim_x
-        assert actions[0][3] == 200.0  # aim_y
+        assert actions[0][2] == 200.0  # aim_x  # type: ignore[index-out-of-bounds]
+        assert actions[0][3] == 200.0  # aim_y  # type: ignore[index-out-of-bounds]
 
 
 class TestNeuralNetBotStateDeduplication:
@@ -474,7 +474,7 @@ class TestNeuralNetBotRunner:
         self, mock_client: GameClient, network: ActorCriticNetwork
     ) -> None:
         """Test runner initializes correctly."""
-        runner = NeuralNetBotRunner(mock_client, network)
+        runner = NeuralNetBotRunner(network=network, client=mock_client)
 
         assert runner.client is mock_client
         assert runner.network is network
@@ -488,7 +488,7 @@ class TestNeuralNetBotRunner:
         game_state: GameState,
     ) -> None:
         """Test runner creates bot on first game state."""
-        runner = NeuralNetBotRunner(mock_client, network)
+        runner = NeuralNetBotRunner(network=network, client=mock_client)
 
         await runner.on_game_state(game_state)
 
@@ -503,7 +503,7 @@ class TestNeuralNetBotRunner:
         mock_client = MagicMock(spec=GameClient)
         mock_client.player_id = None
 
-        runner = NeuralNetBotRunner(mock_client, network)
+        runner = NeuralNetBotRunner(network=network, client=mock_client)
 
         with pytest.raises(ValueError, match="player_id must be set"):
             await runner.on_game_state(game_state)
@@ -516,7 +516,7 @@ class TestNeuralNetBotRunner:
         game_state: GameState,
     ) -> None:
         """Test runner sends keyboard inputs to client."""
-        runner = NeuralNetBotRunner(mock_client, network)
+        runner = NeuralNetBotRunner(network=network, client=mock_client)
 
         await runner.on_game_state(game_state)
 
@@ -531,7 +531,7 @@ class TestNeuralNetBotRunner:
         game_state: GameState,
     ) -> None:
         """Test runner only sends changed keyboard inputs."""
-        runner = NeuralNetBotRunner(mock_client, network)
+        runner = NeuralNetBotRunner(network=network, client=mock_client)
 
         # First call - should send inputs
         await runner.on_game_state(game_state)
@@ -555,7 +555,7 @@ class TestNeuralNetBotRunner:
         game_state: GameState,
     ) -> None:
         """Test runner only sends changed mouse inputs."""
-        runner = NeuralNetBotRunner(mock_client, network)
+        runner = NeuralNetBotRunner(network=network, client=mock_client)
 
         await runner.on_game_state(game_state)
 
@@ -567,7 +567,7 @@ class TestNeuralNetBotRunner:
         self, mock_client: GameClient, network: ActorCriticNetwork
     ) -> None:
         """Test reset clears runner state."""
-        runner = NeuralNetBotRunner(mock_client, network)
+        runner = NeuralNetBotRunner(network=network, client=mock_client)
         runner._previous_keyboard_actions = {"a": True}
         runner._previous_mouse_state = True
         runner._previous_aim_pos = (100.0, 200.0)
@@ -586,7 +586,7 @@ class TestNeuralNetBotRunner:
         game_state: GameState,
     ) -> None:
         """Test reset also resets the bot."""
-        runner = NeuralNetBotRunner(mock_client, network)
+        runner = NeuralNetBotRunner(network=network, client=mock_client)
 
         # Create bot
         await runner.on_game_state(game_state)

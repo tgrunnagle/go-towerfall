@@ -289,15 +289,15 @@ class NeuralNetBotRunner:
 
     def __init__(
         self,
-        client: GameClient,
         network: ActorCriticNetwork,
+        client: GameClient | None = None,
         config: NeuralNetBotConfig | None = None,
     ) -> None:
         """Initialize the bot runner.
 
         Args:
-            client: GameClient for server communication
             network: Trained ActorCriticNetwork for inference
+            client: GameClient for server communication (can be set later)
             config: Optional configuration for the neural net bot
         """
         self.client = client
@@ -318,8 +318,10 @@ class NeuralNetBotRunner:
             state: Current game state from the server
 
         Raises:
-            ValueError: If the client's player_id is not set
+            ValueError: If the client is not set or client's player_id is not set
         """
+        if self.client is None:
+            raise ValueError("Client must be set before calling on_game_state")
         if self.bot is None:
             if self.client.player_id is None:
                 raise ValueError(

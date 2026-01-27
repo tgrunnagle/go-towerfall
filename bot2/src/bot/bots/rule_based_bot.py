@@ -380,13 +380,13 @@ class RuleBasedBotRunner:
 
     def __init__(
         self,
-        client: GameClient,
+        client: GameClient | None = None,
         config: RuleBasedBotConfig | None = None,
     ) -> None:
         """Initialize the bot runner.
 
         Args:
-            client: The game client for server communication.
+            client: The game client for server communication (can be set later).
             config: Optional configuration for the rule-based bot.
         """
         self.client = client
@@ -405,8 +405,10 @@ class RuleBasedBotRunner:
             state: The current game state from the server.
 
         Raises:
-            ValueError: If the client's player_id is not set.
+            ValueError: If the client is not set or client's player_id is not set.
         """
+        if self.client is None:
+            raise ValueError("Client must be set before calling on_game_state")
         if self.bot is None:
             if self.client.player_id is None:
                 raise ValueError(

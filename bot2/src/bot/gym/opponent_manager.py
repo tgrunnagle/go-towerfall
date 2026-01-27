@@ -127,7 +127,7 @@ class RuleBasedOpponent:
         )
 
         # Initialize the bot runner
-        self._runner = RuleBasedBotRunner(self._client, self.config)
+        self._runner = RuleBasedBotRunner(client=self._client, config=self.config)
         self._running = True
 
         self._logger.info(
