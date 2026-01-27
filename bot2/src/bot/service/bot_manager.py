@@ -217,6 +217,8 @@ class BotManager:
         except ValueError as e:
             return SpawnBotResponse(success=False, error=str(e))
         except Exception as e:
+            # Clean up if bot was added before the exception
+            self._bots.pop(bot_id, None)
             self._logger.error("Failed to spawn bot: %s", e)
             return SpawnBotResponse(success=False, error=str(e))
 
@@ -286,11 +288,12 @@ class BotManager:
             return []
         return self._registry.list_models()
 
-    async def _await_pending_tasks(self) -> None:
+    async def await_pending_tasks(self) -> None:
         """Await completion of pending background tasks.
 
-        This method is primarily for testing to ensure background connection
-        tasks have completed before assertions.
+        This method allows callers to wait for background connection tasks to
+        complete. Useful for testing or when you need to ensure bots are fully
+        connected before proceeding.
         """
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)

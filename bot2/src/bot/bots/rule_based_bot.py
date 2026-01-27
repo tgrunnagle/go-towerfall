@@ -405,8 +405,10 @@ class RuleBasedBotRunner:
             state: The current game state from the server.
 
         Raises:
-            ValueError: If the client's player_id is not set.
+            ValueError: If the client is not set or client's player_id is not set.
         """
+        if self.client is None:
+            raise ValueError("Client must be set before calling on_game_state")
         if self.bot is None:
             if self.client.player_id is None:
                 raise ValueError(

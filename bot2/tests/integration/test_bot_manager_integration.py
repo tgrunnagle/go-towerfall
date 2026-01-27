@@ -72,7 +72,7 @@ class TestBotManagerSpawnRuleBasedBot:
                 assert response.bot_id.startswith("bot_")
 
                 # Wait for background connection to complete
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # Verify bot is tracked and connected
                 bot_info = manager.get_bot(response.bot_id)
@@ -135,7 +135,7 @@ class TestBotManagerSpawnRuleBasedBot:
                 assert response.success is True
 
                 # Wait for connection
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # Give bot time to receive game state and potentially send actions
                 await asyncio.sleep(0.5)
@@ -196,7 +196,7 @@ class TestBotManagerLifecycle:
                 assert bot_id is not None
 
                 # Wait for connection
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # Verify bot exists
                 assert manager.get_bot(bot_id) is not None
@@ -272,7 +272,7 @@ class TestBotManagerLifecycle:
                 assert response2.success is True
 
                 # Wait for connections
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # List should have 2 bots
                 bots = manager.list_bots()
@@ -347,7 +347,7 @@ class TestBotManagerMultipleBots:
                 assert len(set(bot_ids)) == 3
 
                 # Wait for all connections
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # All bots should be connected
                 for bot_id in bot_ids:
@@ -433,7 +433,7 @@ class TestBotManagerMultipleBots:
                 assert spawn2.success is True
 
                 # Wait for connections
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # Verify bots are in different rooms
                 assert spawn1.bot_id is not None
@@ -487,7 +487,7 @@ class TestBotManagerErrorHandling:
             assert bot_id is not None
 
             # Wait for background connection to fail
-            await manager._await_pending_tasks()
+            await manager.await_pending_tasks()
 
             # Bot should be removed after failed connection
             bot_info = manager.get_bot(bot_id)
@@ -582,7 +582,7 @@ class TestBotManagerShutdown:
                 assert response.success is True
 
             # Wait for connections
-            await manager._await_pending_tasks()
+            await manager.await_pending_tasks()
 
             # Verify bots are active
             assert len(manager.list_bots()) == 3
@@ -671,7 +671,7 @@ class TestBotManagerConcurrency:
                 assert len(set(bot_ids)) == 5
 
                 # Wait for all connections
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # All bots should be connected
                 bots = manager.list_bots()
@@ -721,7 +721,7 @@ class TestBotManagerConcurrency:
                     )
                 )
                 assert response1.success is True
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # Spawn second bot
                 response2 = await manager.spawn_bot(
@@ -735,7 +735,7 @@ class TestBotManagerConcurrency:
                     )
                 )
                 assert response2.success is True
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # Destroy first bot
                 assert response1.bot_id is not None
@@ -753,7 +753,7 @@ class TestBotManagerConcurrency:
                     )
                 )
                 assert response3.success is True
-                await manager._await_pending_tasks()
+                await manager.await_pending_tasks()
 
                 # Should have 2 bots (bot2 and bot3)
                 bots = manager.list_bots()

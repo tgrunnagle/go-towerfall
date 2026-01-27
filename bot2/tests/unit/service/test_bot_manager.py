@@ -265,6 +265,51 @@ class TestBotManagerSpawnBot:
         registry.get_model_by_generation.assert_called_once_with(3, device="cpu")
 
     @pytest.mark.asyncio
+    @patch("bot.service.bot_manager.WebSocketBotClient")
+    @patch("bot.service.bot_manager.NeuralNetBotRunner")
+    async def test_spawn_neural_network_bot_with_both_model_id_and_generation(
+        self,
+        mock_runner_class: MagicMock,
+        mock_client_class: MagicMock,
+    ) -> None:
+        """spawn_bot() with both model_id and generation uses model_id (precedence)."""
+        mock_client = AsyncMock()
+        mock_client_class.return_value = mock_client
+        mock_runner = MagicMock()
+        mock_runner_class.return_value = mock_runner
+
+        registry = MockModelRegistry()
+        network, metadata = registry.setup_model("ppo_gen_005", generation=5)
+        registry.get_model.return_value = (network, metadata)
+
+        manager = BotManager(
+            registry=registry,  # type: ignore[arg-type]
+            http_url="http://localhost:4000",
+            ws_url="ws://localhost:4000/ws",
+        )
+
+        request = SpawnBotRequest(
+            room_code="ABC123",
+            room_password="",
+            bot_config=BotConfig(
+                bot_type="neural_network",
+                model_id="ppo_gen_005",
+                generation=3,  # Both provided, model_id should take precedence
+                player_name="BothBot",
+            ),
+        )
+
+        response = await manager.spawn_bot(request)
+
+        assert response.success is True
+        assert response.bot_id is not None
+
+        # Verify model was loaded by model_id (not generation)
+        registry.get_model.assert_called_once_with("ppo_gen_005", device="cpu")
+        # get_model_by_generation should NOT have been called
+        registry.get_model_by_generation.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_spawn_neural_network_bot_no_registry(self) -> None:
         """spawn_bot() with neural network but no registry returns error."""
         manager = BotManager(
@@ -750,7 +795,7 @@ class TestBotManagerBackgroundConnection:
         assert len(manager._bots) == 1
 
         # Wait for background task to complete
-        await manager._await_pending_tasks()
+        await manager.await_pending_tasks()
 
         # Bot should be removed from tracking
         assert len(manager._bots) == 0
@@ -824,6 +869,7 @@ class TestBotManagerBackgroundConnection:
 
         response = await manager.spawn_bot(request)
         bot_id = response.bot_id
+        assert bot_id is not None
 
         # First destroy should succeed
         result1 = await manager.destroy_bot(bot_id)
@@ -917,6 +963,19 @@ class TestPydanticModels:
         assert config.bot_type == "neural_network"
         assert config.model_id is None
         assert config.generation == 10
+
+    def test_bot_config_neural_network_with_both_model_id_and_generation(self) -> None:
+        """BotConfig accepts both model_id and generation (model_id takes precedence in _load_model)."""
+        config = BotConfig(
+            bot_type="neural_network",
+            model_id="ppo_gen_005",
+            generation=3,
+        )
+
+        # Both values should be stored
+        assert config.bot_type == "neural_network"
+        assert config.model_id == "ppo_gen_005"
+        assert config.generation == 3
 
     def test_bot_config_invalid_type_raises(self) -> None:
         """BotConfig raises error for invalid bot_type."""
