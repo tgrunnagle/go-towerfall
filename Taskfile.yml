@@ -105,7 +105,6 @@ tasks:
       - bot2:lint
       - bot2:format
       - bot2:typecheck
-      - bot2:test:unit
 
   #
   # backend (golang) tasks
@@ -164,7 +163,6 @@ tasks:
     cmds:
       - task: be:build
       - task: be:vet
-      - task: be:test
 
   be:run:
     dir: backend

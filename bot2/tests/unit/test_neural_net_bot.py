@@ -323,8 +323,8 @@ class TestNeuralNetBotActionTranslation:
         # Verify aim position uses default direction (0.0 radians = right)
         # aim_x = 100.0 + 100.0 * cos(0.0) = 200.0
         # aim_y = 200.0 + 100.0 * sin(0.0) = 200.0
-        assert actions[0][2] == 200.0  # aim_x
-        assert actions[0][3] == 200.0  # aim_y
+        assert actions[0][2] == 200.0  # aim_x  # type: ignore[index-out-of-bounds]
+        assert actions[0][3] == 200.0  # aim_y  # type: ignore[index-out-of-bounds]
 
 
 class TestNeuralNetBotStateDeduplication:

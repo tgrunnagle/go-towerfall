@@ -12,6 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from bot.agent.network import ActorCriticNetwork
 from bot.bots.neural_net_bot import NeuralNetBotConfig, NeuralNetBotRunner
 from bot.bots.rule_based_bot import RuleBasedBotConfig, RuleBasedBotRunner
 from bot.service.websocket_bot import WebSocketBotClient, WebSocketBotClientConfig
@@ -367,7 +368,9 @@ class BotManager:
 
         return WebSocketBotClient(runner=runner, config=ws_config), model_id
 
-    def _load_model(self, config: BotConfig):
+    def _load_model(
+        self, config: BotConfig
+    ) -> tuple[ActorCriticNetwork, ModelMetadata]:
         """Load a neural network model from the registry.
 
         Args:
