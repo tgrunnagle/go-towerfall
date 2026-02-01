@@ -31,6 +31,20 @@ func main() {
 			srv.HandleBotAction(w, r)
 			return
 		}
+		// Check if this is a bot management endpoint: /api/rooms/{roomId}/bots or /api/rooms/{roomId}/bots/{botId}
+		if strings.Contains(r.URL.Path, "/bots") {
+			// DELETE /api/rooms/{roomId}/bots/{botId} - count path segments to distinguish
+			// Path format: /api/rooms/{roomId}/bots/{botId} = 6 segments
+			// Path format: /api/rooms/{roomId}/bots = 5 segments
+			pathSegments := strings.Split(r.URL.Path, "/")
+			if len(pathSegments) == 6 || (r.Method == http.MethodOptions && len(pathSegments) == 6) {
+				srv.HandleRemoveBot(w, r)
+				return
+			}
+			// POST /api/rooms/{roomId}/bots
+			srv.HandleAddBot(w, r)
+			return
+		}
 		// Check if this is a reset endpoint: /api/rooms/{roomId}/reset
 		if strings.HasSuffix(r.URL.Path, "/reset") {
 			srv.HandleResetGame(w, r)

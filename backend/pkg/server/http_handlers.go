@@ -1,14 +1,17 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"go-ws-server/pkg/server/constants"
 	"go-ws-server/pkg/server/game_maps"
 	"go-ws-server/pkg/server/game_objects"
 	"go-ws-server/pkg/server/types"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -153,6 +156,54 @@ type ResetGameHTTPRequest struct {
 
 // ResetGameHTTPResponse represents the response to a reset game request
 type ResetGameHTTPResponse struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+// AddBotRequest represents the request to add a bot to a game room
+type AddBotRequest struct {
+	BotType    string `json:"botType"`              // "rule_based" or "neural_network"
+	ModelID    string `json:"modelId,omitempty"`    // For neural_network bots
+	Generation *int   `json:"generation,omitempty"` // Alternative to modelId
+	PlayerName string `json:"playerName,omitempty"` // Bot's display name (default: "Bot")
+}
+
+// AddBotResponse represents the response when adding a bot
+type AddBotResponse struct {
+	Success bool   `json:"success"`
+	BotID   string `json:"botId,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// RemoveBotResponse represents the response when removing a bot
+type RemoveBotResponse struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+// botServiceSpawnRequest is the internal request format for Bot Service
+type botServiceSpawnRequest struct {
+	RoomCode     string              `json:"room_code"`
+	RoomPassword string              `json:"room_password"`
+	BotConfig    botServiceBotConfig `json:"bot_config"`
+}
+
+type botServiceBotConfig struct {
+	BotType    string `json:"bot_type"`
+	ModelID    string `json:"model_id,omitempty"`
+	Generation *int   `json:"generation,omitempty"`
+	PlayerName string `json:"player_name"`
+}
+
+// botServiceSpawnResponse is the response format from Bot Service
+type botServiceSpawnResponse struct {
+	Success bool   `json:"success"`
+	BotID   string `json:"bot_id,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// botServiceRemoveResponse is the response format from Bot Service for remove operations
+type botServiceRemoveResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
 }
@@ -759,6 +810,27 @@ func extractBotActionPathParams(path string) (roomID string, playerID string, ok
 	return "", "", false
 }
 
+// extractAddBotPathParams extracts roomId from /api/rooms/{roomId}/bots
+func extractAddBotPathParams(path string) (roomID string, ok bool) {
+	prefix := "/api/rooms/"
+	suffix := "/bots"
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return "", false
+	}
+	roomID = strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
+	return roomID, roomID != ""
+}
+
+// extractRemoveBotPathParams extracts roomId and botId from /api/rooms/{roomId}/bots/{botId}
+func extractRemoveBotPathParams(path string) (roomID string, botID string, ok bool) {
+	parts := strings.Split(path, "/")
+	// parts = ["", "api", "rooms", "{roomId}", "bots", "{botId}"]
+	if len(parts) == 6 && parts[1] == "api" && parts[2] == "rooms" && parts[4] == "bots" {
+		return parts[3], parts[5], parts[3] != "" && parts[5] != ""
+	}
+	return "", "", false
+}
+
 // HandleBotAction handles HTTP requests to submit bot actions
 func (s *Server) HandleBotAction(w http.ResponseWriter, r *http.Request) {
 	// Set response headers
@@ -1025,4 +1097,372 @@ func (s *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
 		Status:    "ok",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	})
+}
+
+// getBotServiceURL returns the Bot Service URL from environment or default
+func getBotServiceURL() string {
+	url := os.Getenv("BOT_SERVICE_URL")
+	if url == "" {
+		return "http://localhost:8080"
+	}
+	return url
+}
+
+// HandleAddBot handles POST /api/rooms/{roomId}/bots
+func (s *Server) HandleAddBot(w http.ResponseWriter, r *http.Request) {
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Player-Token")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow POST requests
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract roomId from URL path: /api/rooms/{roomId}/bots
+	roomID, ok := extractAddBotPathParams(r.URL.Path)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Invalid URL format. Expected: /api/rooms/{roomId}/bots",
+		})
+		return
+	}
+
+	if roomID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Room ID is required",
+		})
+		return
+	}
+
+	// Get player token from X-Player-Token header or Authorization header
+	playerToken := r.Header.Get("X-Player-Token")
+	if playerToken == "" {
+		auth := r.Header.Get("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			playerToken = strings.TrimPrefix(auth, "Bearer ")
+		}
+	}
+	if playerToken == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Player token is required (provide via X-Player-Token header or Authorization: Bearer header)",
+		})
+		return
+	}
+
+	// Get room by ID
+	room, exists := s.roomManager.GetGameRoom(roomID)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Room not found",
+		})
+		return
+	}
+
+	// Verify player token belongs to a player in the room
+	if !room.IsPlayerTokenValid(playerToken) {
+		w.WriteHeader(http.StatusForbidden)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Player token is not authorized for this room",
+		})
+		return
+	}
+
+	// Parse request body
+	var req AddBotRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Invalid request format",
+		})
+		return
+	}
+
+	// Validate bot type
+	if req.BotType != "rule_based" && req.BotType != "neural_network" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Invalid botType. Must be 'rule_based' or 'neural_network'",
+		})
+		return
+	}
+
+	// Set default player name if not provided
+	playerName := req.PlayerName
+	if playerName == "" {
+		playerName = "Bot"
+	}
+
+	// Construct Bot Service request
+	botServiceReq := botServiceSpawnRequest{
+		RoomCode:     room.RoomCode,
+		RoomPassword: room.Password,
+		BotConfig: botServiceBotConfig{
+			BotType:    req.BotType,
+			ModelID:    req.ModelID,
+			Generation: req.Generation,
+			PlayerName: playerName,
+		},
+	}
+
+	// Marshal request body
+	reqBody, err := json.Marshal(botServiceReq)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Failed to construct request",
+		})
+		return
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// Forward request to Bot Service
+	botServiceURL := getBotServiceURL()
+	resp, err := client.Post(botServiceURL+"/bots/spawn", "application/json", bytes.NewReader(reqBody))
+	if err != nil {
+		log.Printf("HandleAddBot: Failed to connect to Bot Service: %v", err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Bot Service unavailable",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Failed to read Bot Service response",
+		})
+		return
+	}
+
+	// Handle Bot Service errors
+	if resp.StatusCode == http.StatusNotFound {
+		w.WriteHeader(http.StatusNotFound)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Room not found in Bot Service",
+		})
+		return
+	}
+
+	// Parse Bot Service response
+	var botServiceResp botServiceSpawnResponse
+	if err := json.Unmarshal(respBody, &botServiceResp); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Failed to parse Bot Service response",
+		})
+		return
+	}
+
+	// Update room activity
+	s.serverLock.Lock()
+	s.lastActivity[roomID] = time.Now()
+	s.serverLock.Unlock()
+
+	// Return response
+	w.WriteHeader(http.StatusOK)
+	writeJSON(w, AddBotResponse(botServiceResp))
+
+	if botServiceResp.Success {
+		log.Printf("Bot %s added to room %s via HTTP API", botServiceResp.BotID, roomID)
+	}
+}
+
+// HandleRemoveBot handles DELETE /api/rooms/{roomId}/bots/{botId}
+func (s *Server) HandleRemoveBot(w http.ResponseWriter, r *http.Request) {
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Player-Token")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow DELETE requests
+	if r.Method != "DELETE" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	// Extract roomId and botId from URL path: /api/rooms/{roomId}/bots/{botId}
+	roomID, botID, ok := extractRemoveBotPathParams(r.URL.Path)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Invalid URL format. Expected: /api/rooms/{roomId}/bots/{botId}",
+		})
+		return
+	}
+
+	if roomID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Room ID is required",
+		})
+		return
+	}
+
+	if botID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Bot ID is required",
+		})
+		return
+	}
+
+	// Get player token from X-Player-Token header or Authorization header
+	playerToken := r.Header.Get("X-Player-Token")
+	if playerToken == "" {
+		auth := r.Header.Get("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			playerToken = strings.TrimPrefix(auth, "Bearer ")
+		}
+	}
+	if playerToken == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Player token is required (provide via X-Player-Token header or Authorization: Bearer header)",
+		})
+		return
+	}
+
+	// Get room by ID
+	room, exists := s.roomManager.GetGameRoom(roomID)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Room not found",
+		})
+		return
+	}
+
+	// Verify player token belongs to a player in the room
+	if !room.IsPlayerTokenValid(playerToken) {
+		w.WriteHeader(http.StatusForbidden)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Player token is not authorized for this room",
+		})
+		return
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// Forward DELETE request to Bot Service
+	botServiceURL := getBotServiceURL()
+	req, err := http.NewRequest(http.MethodDelete, botServiceURL+"/bots/"+botID, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Failed to construct request",
+		})
+		return
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("HandleRemoveBot: Failed to connect to Bot Service: %v", err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Bot Service unavailable",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Failed to read Bot Service response",
+		})
+		return
+	}
+
+	// Handle Bot Service 404 (bot not found)
+	if resp.StatusCode == http.StatusNotFound {
+		w.WriteHeader(http.StatusNotFound)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Bot not found",
+		})
+		return
+	}
+
+	// Parse Bot Service response
+	var botServiceResp botServiceRemoveResponse
+	if err := json.Unmarshal(respBody, &botServiceResp); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   "Failed to parse Bot Service response",
+		})
+		return
+	}
+
+	// Update room activity
+	s.serverLock.Lock()
+	s.lastActivity[roomID] = time.Now()
+	s.serverLock.Unlock()
+
+	// Return response
+	w.WriteHeader(http.StatusOK)
+	writeJSON(w, RemoveBotResponse(botServiceResp))
+
+	if botServiceResp.Success {
+		log.Printf("Bot %s removed from room %s via HTTP API", botID, roomID)
+	}
 }
