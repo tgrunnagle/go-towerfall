@@ -7,6 +7,11 @@ from bot.service.bot_manager import (
     SpawnBotRequest,
     SpawnBotResponse,
 )
+from bot.service.bot_service import (
+    app,
+    get_bot_manager,
+    set_bot_manager,
+)
 from bot.service.websocket_bot import (
     BotRunnerProtocol,
     WebSocketBotClient,
@@ -22,4 +27,7 @@ __all__ = [
     "BotManager",
     "SpawnBotRequest",
     "SpawnBotResponse",
+    "app",
+    "get_bot_manager",
+    "set_bot_manager",
 ]
