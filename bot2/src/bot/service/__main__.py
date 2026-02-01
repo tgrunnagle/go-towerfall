@@ -31,7 +31,14 @@ def main() -> None:
     logger = logging.getLogger(__name__)
 
     # Load configuration from environment
-    port = int(os.environ.get("BOT_SERVICE_PORT", "8080"))
+    port_str = os.environ.get("BOT_SERVICE_PORT", "8080")
+    try:
+        port = int(port_str)
+    except ValueError:
+        logger.error(
+            f"Invalid BOT_SERVICE_PORT value: '{port_str}'. Must be an integer."
+        )
+        raise
     host = os.environ.get("BOT_SERVICE_HOST", "0.0.0.0")
     http_url = os.environ.get("GAME_SERVER_HTTP_URL", "http://localhost:4000")
     ws_url = os.environ.get("GAME_SERVER_WS_URL", "ws://localhost:4000/ws")

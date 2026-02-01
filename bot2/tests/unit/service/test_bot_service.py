@@ -383,12 +383,29 @@ class TestRouteOrder:
 class TestBotManagerNotInitialized:
     """Tests for BotManager not initialized error."""
 
-    def test_spawn_bot_manager_not_initialized(self) -> None:
-        """POST /bots/spawn raises RuntimeError when BotManager not initialized."""
-        # Clear the global manager
+    @pytest.fixture(autouse=True)
+    def clear_manager_state(self) -> Generator[None, None, None]:
+        """Clear and restore manager state for each test."""
+        # Import module to access internal state
+        import bot.service.bot_service as bot_service_module
+
+        # Save original state
+        original_manager = bot_service_module._bot_manager
+        original_overrides = app.dependency_overrides.copy()
+
+        # Clear for test
         set_bot_manager(None)  # type: ignore[arg-type]
         app.dependency_overrides.clear()
 
+        yield
+
+        # Restore original state
+        bot_service_module._bot_manager = original_manager
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(original_overrides)
+
+    def test_spawn_bot_manager_not_initialized(self) -> None:
+        """POST /bots/spawn raises RuntimeError when BotManager not initialized."""
         with TestClient(app, raise_server_exceptions=False) as client:
             response = client.post(
                 "/bots/spawn",
@@ -402,9 +419,6 @@ class TestBotManagerNotInitialized:
 
     def test_list_bots_manager_not_initialized(self) -> None:
         """GET /bots raises RuntimeError when BotManager not initialized."""
-        set_bot_manager(None)  # type: ignore[arg-type]
-        app.dependency_overrides.clear()
-
         with TestClient(app, raise_server_exceptions=False) as client:
             response = client.get("/bots")
 
@@ -412,9 +426,6 @@ class TestBotManagerNotInitialized:
 
     def test_health_works_without_manager(self) -> None:
         """GET /health works even when BotManager not initialized."""
-        set_bot_manager(None)  # type: ignore[arg-type]
-        app.dependency_overrides.clear()
-
         with TestClient(app) as client:
             response = client.get("/health")
 
@@ -445,3 +456,204 @@ class TestEdgeCases:
 
         assert response.status_code == 404
         mock_manager.get_bot.assert_called_once_with("bot_abc-123_456")
+
+    def test_url_encoded_space_in_bot_id(
+        self, client: TestClient, mock_manager: MagicMock
+    ) -> None:
+        """Handles URL-encoded space in bot_id."""
+        mock_manager.get_bot.return_value = None
+
+        # URL-encoded space (%20) decodes to a space character
+        response = client.get("/bots/bot%20abc")
+
+        assert response.status_code == 404
+        mock_manager.get_bot.assert_called_once_with("bot abc")
+
+    def test_url_encoded_slash_returns_not_found(
+        self, client: TestClient, mock_manager: MagicMock
+    ) -> None:
+        """URL-encoded slash in bot_id is treated as path separator and returns 404."""
+        mock_manager.get_bot.return_value = None
+
+        # URL-encoded forward slash (%2F) - Starlette/ASGI decodes this as a path separator
+        # which means /bots/bot%2F123 becomes /bots/bot/123 and doesn't match our route
+        response = client.get("/bots/bot%2F123")
+
+        # This returns 404 because /bots/bot/123 doesn't match any route
+        assert response.status_code == 404
+        # get_bot is NOT called because the route doesn't match /bots/{bot_id}
+        mock_manager.get_bot.assert_not_called()
+
+    def test_path_traversal_attempt_returns_not_found(
+        self, client: TestClient, mock_manager: MagicMock
+    ) -> None:
+        """Path traversal attempts don't match route and return 404."""
+        mock_manager.get_bot.return_value = None
+
+        # URL-encoded path traversal - this doesn't match our routes
+        response = client.get("/bots/..%2Fetc%2Fpasswd")
+
+        # This returns 404 because the decoded path doesn't match any route
+        assert response.status_code == 404
+        # get_bot is NOT called because the route doesn't match
+        mock_manager.get_bot.assert_not_called()
+
+
+class TestMainEntry:
+    """Tests for the CLI entry point (__main__.py)."""
+
+    @pytest.fixture
+    def mock_env_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Clear all bot service environment variables to test defaults."""
+        env_vars = [
+            "BOT_SERVICE_PORT",
+            "BOT_SERVICE_HOST",
+            "GAME_SERVER_HTTP_URL",
+            "GAME_SERVER_WS_URL",
+            "MODEL_REGISTRY_PATH",
+            "DEFAULT_DEVICE",
+        ]
+        for var in env_vars:
+            monkeypatch.delenv(var, raising=False)
+
+    def test_main_uses_default_environment_values(
+        self, mock_env_defaults: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """main() uses default values when env vars not set."""
+        from bot.service import __main__ as main_module
+
+        captured_args: dict = {}
+
+        def mock_uvicorn_run(app, host: str, port: int) -> None:
+            captured_args["host"] = host
+            captured_args["port"] = port
+
+        monkeypatch.setattr("bot.service.__main__.uvicorn.run", mock_uvicorn_run)
+        monkeypatch.setattr(
+            "bot.service.__main__.BotManager",
+            lambda **kwargs: MagicMock(),
+        )
+        monkeypatch.setattr("bot.service.__main__.set_bot_manager", lambda m: None)
+
+        main_module.main()
+
+        assert captured_args["host"] == "0.0.0.0"
+        assert captured_args["port"] == 8080
+
+    def test_main_uses_custom_environment_values(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """main() uses custom values from environment variables."""
+        from bot.service import __main__ as main_module
+
+        monkeypatch.setenv("BOT_SERVICE_PORT", "9000")
+        monkeypatch.setenv("BOT_SERVICE_HOST", "127.0.0.1")
+        monkeypatch.setenv("GAME_SERVER_HTTP_URL", "http://game:5000")
+        monkeypatch.setenv("GAME_SERVER_WS_URL", "ws://game:5000/ws")
+        monkeypatch.setenv("DEFAULT_DEVICE", "cuda")
+
+        captured_args: dict = {}
+        captured_manager_args: dict = {}
+
+        def mock_uvicorn_run(app, host: str, port: int) -> None:
+            captured_args["host"] = host
+            captured_args["port"] = port
+
+        def mock_bot_manager(**kwargs) -> MagicMock:
+            captured_manager_args.update(kwargs)
+            return MagicMock()
+
+        monkeypatch.setattr("bot.service.__main__.uvicorn.run", mock_uvicorn_run)
+        monkeypatch.setattr("bot.service.__main__.BotManager", mock_bot_manager)
+        monkeypatch.setattr("bot.service.__main__.set_bot_manager", lambda m: None)
+
+        main_module.main()
+
+        assert captured_args["host"] == "127.0.0.1"
+        assert captured_args["port"] == 9000
+        assert captured_manager_args["http_url"] == "http://game:5000"
+        assert captured_manager_args["ws_url"] == "ws://game:5000/ws"
+        assert captured_manager_args["default_device"] == "cuda"
+
+    def test_main_initializes_model_registry_when_path_provided(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: str
+    ) -> None:
+        """main() initializes ModelRegistry when MODEL_REGISTRY_PATH is set."""
+        from bot.service import __main__ as main_module
+
+        monkeypatch.setenv("MODEL_REGISTRY_PATH", str(tmp_path))
+
+        mock_registry = MagicMock()
+        mock_registry_class = MagicMock(return_value=mock_registry)
+        captured_manager_args: dict = {}
+
+        def mock_bot_manager(**kwargs) -> MagicMock:
+            captured_manager_args.update(kwargs)
+            return MagicMock()
+
+        monkeypatch.setattr("bot.service.__main__.uvicorn.run", lambda *a, **kw: None)
+        monkeypatch.setattr("bot.service.__main__.ModelRegistry", mock_registry_class)
+        monkeypatch.setattr("bot.service.__main__.BotManager", mock_bot_manager)
+        monkeypatch.setattr("bot.service.__main__.set_bot_manager", lambda m: None)
+
+        main_module.main()
+
+        mock_registry_class.assert_called_once_with(str(tmp_path))
+        assert captured_manager_args["registry"] is mock_registry
+
+    def test_main_logs_warning_when_registry_path_not_set(
+        self, mock_env_defaults: None, monkeypatch: pytest.MonkeyPatch, caplog
+    ) -> None:
+        """main() logs warning when MODEL_REGISTRY_PATH is not set."""
+        from bot.service import __main__ as main_module
+
+        monkeypatch.setattr("bot.service.__main__.uvicorn.run", lambda *a, **kw: None)
+        monkeypatch.setattr(
+            "bot.service.__main__.BotManager",
+            lambda **kwargs: MagicMock(),
+        )
+        monkeypatch.setattr("bot.service.__main__.set_bot_manager", lambda m: None)
+
+        with caplog.at_level("WARNING"):
+            main_module.main()
+
+        assert any(
+            "MODEL_REGISTRY_PATH not set" in record.message for record in caplog.records
+        )
+
+    def test_main_passes_none_registry_when_path_not_set(
+        self, mock_env_defaults: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """main() passes None registry when MODEL_REGISTRY_PATH is not set."""
+        from bot.service import __main__ as main_module
+
+        captured_manager_args: dict = {}
+
+        def mock_bot_manager(**kwargs) -> MagicMock:
+            captured_manager_args.update(kwargs)
+            return MagicMock()
+
+        monkeypatch.setattr("bot.service.__main__.uvicorn.run", lambda *a, **kw: None)
+        monkeypatch.setattr("bot.service.__main__.BotManager", mock_bot_manager)
+        monkeypatch.setattr("bot.service.__main__.set_bot_manager", lambda m: None)
+
+        main_module.main()
+
+        assert captured_manager_args["registry"] is None
+
+    def test_main_invalid_port_raises_value_error(
+        self, monkeypatch: pytest.MonkeyPatch, caplog
+    ) -> None:
+        """main() raises ValueError for invalid port value and logs error."""
+        from bot.service import __main__ as main_module
+
+        monkeypatch.setenv("BOT_SERVICE_PORT", "invalid_port")
+
+        with caplog.at_level("ERROR"):
+            with pytest.raises(ValueError, match="invalid literal"):
+                main_module.main()
+
+        assert any(
+            "Invalid BOT_SERVICE_PORT value" in record.message
+            for record in caplog.records
+        )
