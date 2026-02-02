@@ -1108,6 +1108,10 @@ func getBotServiceURL() string {
 	return url
 }
 
+// botServiceClient is a reusable HTTP client for Bot Service requests
+// This enables connection pooling and HTTP keep-alive
+var botServiceClient = &http.Client{Timeout: 10 * time.Second}
+
 // HandleAddBot handles POST /api/rooms/{roomId}/bots
 func (s *Server) HandleAddBot(w http.ResponseWriter, r *http.Request) {
 	// Set response headers
@@ -1190,7 +1194,8 @@ func (s *Server) HandleAddBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse request body (limit to 1MB to prevent abuse)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var req AddBotRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -1240,12 +1245,20 @@ func (s *Server) HandleAddBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create HTTP client with timeout
-	client := &http.Client{Timeout: 10 * time.Second}
-
-	// Forward request to Bot Service
+	// Forward request to Bot Service (using request context for cancellation propagation)
 	botServiceURL := getBotServiceURL()
-	resp, err := client.Post(botServiceURL+"/bots/spawn", "application/json", bytes.NewReader(reqBody))
+	proxyReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, botServiceURL+"/bots/spawn", bytes.NewReader(reqBody))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   "Failed to construct request",
+		})
+		return
+	}
+	proxyReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := botServiceClient.Do(proxyReq)
 	if err != nil {
 		log.Printf("HandleAddBot: Failed to connect to Bot Service: %v", err)
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -1257,8 +1270,8 @@ func (s *Server) HandleAddBot(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Read response body
-	respBody, err := io.ReadAll(resp.Body)
+	// Read response body (limit to 1MB to prevent memory exhaustion)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSON(w, AddBotResponse{
@@ -1274,6 +1287,17 @@ func (s *Server) HandleAddBot(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, AddBotResponse{
 			Success: false,
 			Error:   "Room not found in Bot Service",
+		})
+		return
+	}
+
+	// Handle other non-success status codes from Bot Service
+	if resp.StatusCode >= 400 {
+		log.Printf("HandleAddBot: Bot Service returned status %d", resp.StatusCode)
+		w.WriteHeader(resp.StatusCode)
+		writeJSON(w, AddBotResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Bot Service error (status %d)", resp.StatusCode),
 		})
 		return
 	}
@@ -1394,12 +1418,9 @@ func (s *Server) HandleRemoveBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create HTTP client with timeout
-	client := &http.Client{Timeout: 10 * time.Second}
-
-	// Forward DELETE request to Bot Service
+	// Forward DELETE request to Bot Service (using request context for cancellation propagation)
 	botServiceURL := getBotServiceURL()
-	req, err := http.NewRequest(http.MethodDelete, botServiceURL+"/bots/"+botID, nil)
+	proxyReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, botServiceURL+"/bots/"+botID, nil)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSON(w, RemoveBotResponse{
@@ -1409,7 +1430,7 @@ func (s *Server) HandleRemoveBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := client.Do(req)
+	resp, err := botServiceClient.Do(proxyReq)
 	if err != nil {
 		log.Printf("HandleRemoveBot: Failed to connect to Bot Service: %v", err)
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -1421,8 +1442,8 @@ func (s *Server) HandleRemoveBot(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Read response body
-	respBody, err := io.ReadAll(resp.Body)
+	// Read response body (limit to 1MB to prevent memory exhaustion)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSON(w, RemoveBotResponse{
@@ -1438,6 +1459,17 @@ func (s *Server) HandleRemoveBot(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, RemoveBotResponse{
 			Success: false,
 			Error:   "Bot not found",
+		})
+		return
+	}
+
+	// Handle other non-success status codes from Bot Service
+	if resp.StatusCode >= 400 {
+		log.Printf("HandleRemoveBot: Bot Service returned status %d", resp.StatusCode)
+		w.WriteHeader(resp.StatusCode)
+		writeJSON(w, RemoveBotResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Bot Service error (status %d)", resp.StatusCode),
 		})
 		return
 	}

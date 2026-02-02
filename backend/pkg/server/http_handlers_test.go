@@ -1962,6 +1962,79 @@ func TestHandleAddBot_CORSPreflight(t *testing.T) {
 	}
 }
 
+func TestHandleAddBot_DefaultPlayerName(t *testing.T) {
+	// Track what player_name was received by the mock Bot Service
+	var receivedPlayerName string
+
+	mockBotService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/bots/spawn" && r.Method == http.MethodPost {
+			// Parse the incoming request to check player_name
+			var reqBody struct {
+				BotConfig struct {
+					PlayerName string `json:"player_name"`
+				} `json:"bot_config"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+				t.Errorf("Failed to decode request body: %v", err)
+			}
+			receivedPlayerName = reqBody.BotConfig.PlayerName
+
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": true,
+				"bot_id":  "bot_test_default",
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockBotService.Close()
+
+	os.Setenv("BOT_SERVICE_URL", mockBotService.URL)
+	defer os.Unsetenv("BOT_SERVICE_URL")
+
+	server := NewServer()
+
+	// Create a game first
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "TestPlayer",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
+
+	// Send AddBot request WITHOUT a PlayerName (should default to "Bot")
+	addBotReq := AddBotRequest{
+		BotType: "rule_based",
+		// PlayerName intentionally omitted
+	}
+	body, _ := json.Marshal(addBotReq)
+	req := httptest.NewRequest(http.MethodPost, "/api/rooms/"+createResp.RoomID+"/bots", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Player-Token", createResp.PlayerToken)
+
+	rr := httptest.NewRecorder()
+	server.HandleAddBot(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("HandleAddBot() status = %v, want %v", rr.Code, http.StatusOK)
+	}
+
+	// Verify the Bot Service received "Bot" as the player_name
+	if receivedPlayerName != "Bot" {
+		t.Errorf("Bot Service received player_name = %q, want %q", receivedPlayerName, "Bot")
+	}
+}
+
 func TestHandleAddBot_BotServiceUnavailable(t *testing.T) {
 	// Set BOT_SERVICE_URL to an unreachable address
 	os.Setenv("BOT_SERVICE_URL", "http://localhost:59999")
