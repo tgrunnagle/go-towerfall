@@ -6,6 +6,7 @@ import (
 	"go-ws-server/pkg/server/types"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -1622,5 +1623,700 @@ func TestHandleGetRoomStats_StatsResetAfterGameReset(t *testing.T) {
 	if response2.PlayerStats[playerID].Kills != 0 || response2.PlayerStats[playerID].Deaths != 0 {
 		t.Errorf("Stats after reset: kills=%d deaths=%d, want kills=0 deaths=0",
 			response2.PlayerStats[playerID].Kills, response2.PlayerStats[playerID].Deaths)
+	}
+}
+
+func TestExtractAddBotPathParams(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		wantRoomID string
+		wantOk     bool
+	}{
+		{
+			name:       "Valid path",
+			path:       "/api/rooms/room123/bots",
+			wantRoomID: "room123",
+			wantOk:     true,
+		},
+		{
+			name:       "Valid path with UUID",
+			path:       "/api/rooms/550e8400-e29b-41d4-a716-446655440000/bots",
+			wantRoomID: "550e8400-e29b-41d4-a716-446655440000",
+			wantOk:     true,
+		},
+		{
+			name:   "Invalid path - missing /bots suffix",
+			path:   "/api/rooms/room123",
+			wantOk: false,
+		},
+		{
+			name:   "Invalid path - extra segments",
+			path:   "/api/rooms/room123/bots/extra",
+			wantOk: false,
+		},
+		{
+			name:   "Invalid path - wrong prefix",
+			path:   "/rooms/room123/bots",
+			wantOk: false,
+		},
+		{
+			name:   "Empty room ID",
+			path:   "/api/rooms//bots",
+			wantOk: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			roomID, ok := extractAddBotPathParams(tt.path)
+			if ok != tt.wantOk {
+				t.Errorf("extractAddBotPathParams() ok = %v, want %v", ok, tt.wantOk)
+			}
+			if ok && roomID != tt.wantRoomID {
+				t.Errorf("extractAddBotPathParams() roomID = %v, want %v", roomID, tt.wantRoomID)
+			}
+		})
+	}
+}
+
+func TestExtractRemoveBotPathParams(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		wantRoomID string
+		wantBotID  string
+		wantOk     bool
+	}{
+		{
+			name:       "Valid path",
+			path:       "/api/rooms/room123/bots/bot456",
+			wantRoomID: "room123",
+			wantBotID:  "bot456",
+			wantOk:     true,
+		},
+		{
+			name:       "Valid path with UUIDs",
+			path:       "/api/rooms/550e8400-e29b-41d4-a716-446655440000/bots/6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+			wantRoomID: "550e8400-e29b-41d4-a716-446655440000",
+			wantBotID:  "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+			wantOk:     true,
+		},
+		{
+			name:   "Invalid path - missing bot ID",
+			path:   "/api/rooms/room123/bots",
+			wantOk: false,
+		},
+		{
+			name:   "Invalid path - extra segments",
+			path:   "/api/rooms/room123/bots/bot456/extra",
+			wantOk: false,
+		},
+		{
+			name:   "Invalid path - wrong prefix",
+			path:   "/rooms/room123/bots/bot456",
+			wantOk: false,
+		},
+		{
+			name:   "Empty room ID",
+			path:   "/api/rooms//bots/bot456",
+			wantOk: false,
+		},
+		{
+			name:   "Empty bot ID",
+			path:   "/api/rooms/room123/bots/",
+			wantOk: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			roomID, botID, ok := extractRemoveBotPathParams(tt.path)
+			if ok != tt.wantOk {
+				t.Errorf("extractRemoveBotPathParams() ok = %v, want %v", ok, tt.wantOk)
+			}
+			if ok && roomID != tt.wantRoomID {
+				t.Errorf("extractRemoveBotPathParams() roomID = %v, want %v", roomID, tt.wantRoomID)
+			}
+			if ok && botID != tt.wantBotID {
+				t.Errorf("extractRemoveBotPathParams() botID = %v, want %v", botID, tt.wantBotID)
+			}
+		})
+	}
+}
+
+func TestHandleAddBot(t *testing.T) {
+	// Create a mock Bot Service
+	mockBotService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/bots/spawn" && r.Method == http.MethodPost {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": true,
+				"bot_id":  "bot_test_123",
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockBotService.Close()
+
+	// Set BOT_SERVICE_URL to mock server
+	os.Setenv("BOT_SERVICE_URL", mockBotService.URL)
+	defer os.Unsetenv("BOT_SERVICE_URL")
+
+	server := NewServer()
+
+	// First create a game to get a valid room and player token
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "TestPlayer",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
+	if !createResp.Success {
+		t.Fatalf("Failed to create test game: %s", createResp.Error)
+	}
+
+	roomID := createResp.RoomID
+	playerToken := createResp.PlayerToken
+
+	tests := []struct {
+		name           string
+		url            string
+		token          string
+		tokenLocation  string // "header", "bearer"
+		request        AddBotRequest
+		wantStatusCode int
+		wantSuccess    bool
+		wantError      string
+	}{
+		{
+			name:          "Valid rule-based bot request with X-Player-Token",
+			url:           "/api/rooms/" + roomID + "/bots",
+			token:         playerToken,
+			tokenLocation: "header",
+			request: AddBotRequest{
+				BotType:    "rule_based",
+				PlayerName: "TestBot",
+			},
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+		},
+		{
+			name:          "Valid neural_network bot request with Bearer token",
+			url:           "/api/rooms/" + roomID + "/bots",
+			token:         playerToken,
+			tokenLocation: "bearer",
+			request: AddBotRequest{
+				BotType:    "neural_network",
+				ModelID:    "model_v1",
+				PlayerName: "NeuralBot",
+			},
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+		},
+		{
+			name:          "Missing player token",
+			url:           "/api/rooms/" + roomID + "/bots",
+			tokenLocation: "",
+			request: AddBotRequest{
+				BotType: "rule_based",
+			},
+			wantStatusCode: http.StatusUnauthorized,
+			wantSuccess:    false,
+			wantError:      "Player token is required",
+		},
+		{
+			name:          "Invalid player token",
+			url:           "/api/rooms/" + roomID + "/bots",
+			token:         "invalid-token",
+			tokenLocation: "header",
+			request: AddBotRequest{
+				BotType: "rule_based",
+			},
+			wantStatusCode: http.StatusForbidden,
+			wantSuccess:    false,
+			wantError:      "Player token is not authorized for this room",
+		},
+		{
+			name:          "Room not found",
+			url:           "/api/rooms/nonexistent-room-id/bots",
+			token:         playerToken,
+			tokenLocation: "header",
+			request: AddBotRequest{
+				BotType: "rule_based",
+			},
+			wantStatusCode: http.StatusNotFound,
+			wantSuccess:    false,
+			wantError:      "Room not found",
+		},
+		{
+			name:          "Invalid bot type",
+			url:           "/api/rooms/" + roomID + "/bots",
+			token:         playerToken,
+			tokenLocation: "header",
+			request: AddBotRequest{
+				BotType: "invalid_type",
+			},
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Invalid botType",
+		},
+		{
+			name:           "Invalid URL format",
+			url:            "/api/rooms/" + roomID,
+			token:          playerToken,
+			tokenLocation:  "header",
+			request:        AddBotRequest{BotType: "rule_based"},
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Invalid URL format",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(tt.request)
+			req := httptest.NewRequest(http.MethodPost, tt.url, bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			switch tt.tokenLocation {
+			case "header":
+				req.Header.Set("X-Player-Token", tt.token)
+			case "bearer":
+				req.Header.Set("Authorization", "Bearer "+tt.token)
+			}
+
+			rr := httptest.NewRecorder()
+			server.HandleAddBot(rr, req)
+
+			if rr.Code != tt.wantStatusCode {
+				t.Errorf("HandleAddBot() status = %v, want %v", rr.Code, tt.wantStatusCode)
+			}
+
+			var response AddBotResponse
+			if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+				t.Fatalf("Failed to decode response: %v", err)
+			}
+
+			if response.Success != tt.wantSuccess {
+				t.Errorf("HandleAddBot() success = %v, want %v", response.Success, tt.wantSuccess)
+			}
+
+			if tt.wantError != "" && !strings.Contains(response.Error, tt.wantError) {
+				t.Errorf("HandleAddBot() error = %q, want to contain %q", response.Error, tt.wantError)
+			}
+
+			if tt.wantSuccess && response.BotID == "" {
+				t.Error("HandleAddBot() botId should not be empty for successful requests")
+			}
+		})
+	}
+}
+
+func TestHandleAddBot_MethodNotAllowed(t *testing.T) {
+	server := NewServer()
+
+	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPatch}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/rooms/test-room/bots", nil)
+			rr := httptest.NewRecorder()
+
+			server.HandleAddBot(rr, req)
+
+			if rr.Code != http.StatusMethodNotAllowed {
+				t.Errorf("HandleAddBot() with %s status = %v, want %v", method, rr.Code, http.StatusMethodNotAllowed)
+			}
+		})
+	}
+}
+
+func TestHandleAddBot_CORSPreflight(t *testing.T) {
+	server := NewServer()
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/rooms/test-room/bots", nil)
+	rr := httptest.NewRecorder()
+
+	server.HandleAddBot(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("HandleAddBot() OPTIONS status = %v, want %v", rr.Code, http.StatusOK)
+	}
+
+	if rr.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Error("Missing or incorrect Access-Control-Allow-Origin header")
+	}
+	if rr.Header().Get("Access-Control-Allow-Methods") != "POST, OPTIONS" {
+		t.Error("Missing or incorrect Access-Control-Allow-Methods header")
+	}
+}
+
+func TestHandleAddBot_DefaultPlayerName(t *testing.T) {
+	// Track what player_name was received by the mock Bot Service
+	var receivedPlayerName string
+
+	mockBotService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/bots/spawn" && r.Method == http.MethodPost {
+			// Parse the incoming request to check player_name
+			var reqBody struct {
+				BotConfig struct {
+					PlayerName string `json:"player_name"`
+				} `json:"bot_config"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+				t.Errorf("Failed to decode request body: %v", err)
+			}
+			receivedPlayerName = reqBody.BotConfig.PlayerName
+
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": true,
+				"bot_id":  "bot_test_default",
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockBotService.Close()
+
+	os.Setenv("BOT_SERVICE_URL", mockBotService.URL)
+	defer os.Unsetenv("BOT_SERVICE_URL")
+
+	server := NewServer()
+
+	// Create a game first
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "TestPlayer",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
+
+	// Send AddBot request WITHOUT a PlayerName (should default to "Bot")
+	addBotReq := AddBotRequest{
+		BotType: "rule_based",
+		// PlayerName intentionally omitted
+	}
+	body, _ := json.Marshal(addBotReq)
+	req := httptest.NewRequest(http.MethodPost, "/api/rooms/"+createResp.RoomID+"/bots", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Player-Token", createResp.PlayerToken)
+
+	rr := httptest.NewRecorder()
+	server.HandleAddBot(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("HandleAddBot() status = %v, want %v", rr.Code, http.StatusOK)
+	}
+
+	// Verify the Bot Service received "Bot" as the player_name
+	if receivedPlayerName != "Bot" {
+		t.Errorf("Bot Service received player_name = %q, want %q", receivedPlayerName, "Bot")
+	}
+}
+
+func TestHandleAddBot_BotServiceUnavailable(t *testing.T) {
+	// Set BOT_SERVICE_URL to an unreachable address
+	os.Setenv("BOT_SERVICE_URL", "http://localhost:59999")
+	defer os.Unsetenv("BOT_SERVICE_URL")
+
+	server := NewServer()
+
+	// Create a game first
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "TestPlayer",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	_ = json.NewDecoder(createRR.Body).Decode(&createResp)
+
+	// Try to add a bot
+	addBotReq := AddBotRequest{
+		BotType:    "rule_based",
+		PlayerName: "TestBot",
+	}
+	body, _ := json.Marshal(addBotReq)
+	req := httptest.NewRequest(http.MethodPost, "/api/rooms/"+createResp.RoomID+"/bots", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Player-Token", createResp.PlayerToken)
+
+	rr := httptest.NewRecorder()
+	server.HandleAddBot(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("HandleAddBot() status = %v, want %v", rr.Code, http.StatusServiceUnavailable)
+	}
+
+	var response AddBotResponse
+	_ = json.NewDecoder(rr.Body).Decode(&response)
+
+	if response.Success {
+		t.Error("HandleAddBot() success should be false when Bot Service is unavailable")
+	}
+	if !strings.Contains(response.Error, "Bot Service unavailable") {
+		t.Errorf("HandleAddBot() error = %q, want to contain 'Bot Service unavailable'", response.Error)
+	}
+}
+
+func TestHandleRemoveBot(t *testing.T) {
+	// Create a mock Bot Service
+	mockBotService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/bots/") && r.Method == http.MethodDelete {
+			botID := strings.TrimPrefix(r.URL.Path, "/bots/")
+			if botID == "nonexistent-bot" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": true,
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockBotService.Close()
+
+	// Set BOT_SERVICE_URL to mock server
+	os.Setenv("BOT_SERVICE_URL", mockBotService.URL)
+	defer os.Unsetenv("BOT_SERVICE_URL")
+
+	server := NewServer()
+
+	// First create a game to get a valid room and player token
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "TestPlayer",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	if err := json.NewDecoder(createRR.Body).Decode(&createResp); err != nil {
+		t.Fatalf("Failed to decode create game response: %v", err)
+	}
+	if !createResp.Success {
+		t.Fatalf("Failed to create test game: %s", createResp.Error)
+	}
+
+	roomID := createResp.RoomID
+	playerToken := createResp.PlayerToken
+
+	tests := []struct {
+		name           string
+		url            string
+		token          string
+		tokenLocation  string
+		wantStatusCode int
+		wantSuccess    bool
+		wantError      string
+	}{
+		{
+			name:           "Valid remove bot request with X-Player-Token",
+			url:            "/api/rooms/" + roomID + "/bots/bot123",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+		},
+		{
+			name:           "Valid remove bot request with Bearer token",
+			url:            "/api/rooms/" + roomID + "/bots/bot456",
+			token:          playerToken,
+			tokenLocation:  "bearer",
+			wantStatusCode: http.StatusOK,
+			wantSuccess:    true,
+		},
+		{
+			name:           "Missing player token",
+			url:            "/api/rooms/" + roomID + "/bots/bot123",
+			tokenLocation:  "",
+			wantStatusCode: http.StatusUnauthorized,
+			wantSuccess:    false,
+			wantError:      "Player token is required",
+		},
+		{
+			name:           "Invalid player token",
+			url:            "/api/rooms/" + roomID + "/bots/bot123",
+			token:          "invalid-token",
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusForbidden,
+			wantSuccess:    false,
+			wantError:      "Player token is not authorized for this room",
+		},
+		{
+			name:           "Room not found",
+			url:            "/api/rooms/nonexistent-room-id/bots/bot123",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusNotFound,
+			wantSuccess:    false,
+			wantError:      "Room not found",
+		},
+		{
+			name:           "Bot not found in Bot Service",
+			url:            "/api/rooms/" + roomID + "/bots/nonexistent-bot",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusNotFound,
+			wantSuccess:    false,
+			wantError:      "Bot not found",
+		},
+		{
+			name:           "Invalid URL format - missing bot ID",
+			url:            "/api/rooms/" + roomID + "/bots",
+			token:          playerToken,
+			tokenLocation:  "header",
+			wantStatusCode: http.StatusBadRequest,
+			wantSuccess:    false,
+			wantError:      "Invalid URL format",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodDelete, tt.url, nil)
+
+			switch tt.tokenLocation {
+			case "header":
+				req.Header.Set("X-Player-Token", tt.token)
+			case "bearer":
+				req.Header.Set("Authorization", "Bearer "+tt.token)
+			}
+
+			rr := httptest.NewRecorder()
+			server.HandleRemoveBot(rr, req)
+
+			if rr.Code != tt.wantStatusCode {
+				t.Errorf("HandleRemoveBot() status = %v, want %v", rr.Code, tt.wantStatusCode)
+			}
+
+			var response RemoveBotResponse
+			if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+				t.Fatalf("Failed to decode response: %v", err)
+			}
+
+			if response.Success != tt.wantSuccess {
+				t.Errorf("HandleRemoveBot() success = %v, want %v", response.Success, tt.wantSuccess)
+			}
+
+			if tt.wantError != "" && !strings.Contains(response.Error, tt.wantError) {
+				t.Errorf("HandleRemoveBot() error = %q, want to contain %q", response.Error, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestHandleRemoveBot_MethodNotAllowed(t *testing.T) {
+	server := NewServer()
+
+	methods := []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/rooms/test-room/bots/bot123", nil)
+			rr := httptest.NewRecorder()
+
+			server.HandleRemoveBot(rr, req)
+
+			if rr.Code != http.StatusMethodNotAllowed {
+				t.Errorf("HandleRemoveBot() with %s status = %v, want %v", method, rr.Code, http.StatusMethodNotAllowed)
+			}
+		})
+	}
+}
+
+func TestHandleRemoveBot_CORSPreflight(t *testing.T) {
+	server := NewServer()
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/rooms/test-room/bots/bot123", nil)
+	rr := httptest.NewRecorder()
+
+	server.HandleRemoveBot(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("HandleRemoveBot() OPTIONS status = %v, want %v", rr.Code, http.StatusOK)
+	}
+
+	if rr.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Error("Missing or incorrect Access-Control-Allow-Origin header")
+	}
+	if rr.Header().Get("Access-Control-Allow-Methods") != "DELETE, OPTIONS" {
+		t.Error("Missing or incorrect Access-Control-Allow-Methods header")
+	}
+}
+
+func TestHandleRemoveBot_BotServiceUnavailable(t *testing.T) {
+	// Set BOT_SERVICE_URL to an unreachable address
+	os.Setenv("BOT_SERVICE_URL", "http://localhost:59999")
+	defer os.Unsetenv("BOT_SERVICE_URL")
+
+	server := NewServer()
+
+	// Create a game first
+	createReq := CreateGameHTTPRequest{
+		PlayerName: "TestPlayer",
+		RoomName:   "TestRoom",
+		MapType:    "default",
+	}
+	createBody, _ := json.Marshal(createReq)
+	createHttpReq := httptest.NewRequest(http.MethodPost, "/api/createGame", bytes.NewReader(createBody))
+	createHttpReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	server.HandleCreateGame(createRR, createHttpReq)
+
+	var createResp CreateGameHTTPResponse
+	_ = json.NewDecoder(createRR.Body).Decode(&createResp)
+
+	// Try to remove a bot
+	req := httptest.NewRequest(http.MethodDelete, "/api/rooms/"+createResp.RoomID+"/bots/bot123", nil)
+	req.Header.Set("X-Player-Token", createResp.PlayerToken)
+
+	rr := httptest.NewRecorder()
+	server.HandleRemoveBot(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("HandleRemoveBot() status = %v, want %v", rr.Code, http.StatusServiceUnavailable)
+	}
+
+	var response RemoveBotResponse
+	_ = json.NewDecoder(rr.Body).Decode(&response)
+
+	if response.Success {
+		t.Error("HandleRemoveBot() success should be false when Bot Service is unavailable")
+	}
+	if !strings.Contains(response.Error, "Bot Service unavailable") {
+		t.Errorf("HandleRemoveBot() error = %q, want to contain 'Bot Service unavailable'", response.Error)
 	}
 }
