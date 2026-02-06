@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any, TypeVar
 
 from httpx import AsyncClient, HTTPError, TimeoutException
@@ -34,6 +35,9 @@ from bot.models import (
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
+
+# Default URL (can be overridden by environment variable)
+DEFAULT_HTTP_URL = os.getenv("GAME_SERVER_HTTP_URL", "http://localhost:4000")
 
 
 # =============================================================================
@@ -81,18 +85,20 @@ class GameHTTPClient:
 
     def __init__(
         self,
-        base_url: str = "http://localhost:4000",
+        base_url: str | None = None,
         timeout: float = 30.0,
         max_retries: int = 3,
     ):
         """Initialize the HTTP client.
 
         Args:
-            base_url: Base URL for the game server (default: http://localhost:4000)
+            base_url: Base URL for the game server. If not provided, uses
+                GAME_SERVER_HTTP_URL env var or defaults to http://localhost:4000.
             timeout: Request timeout in seconds (default: 30.0)
             max_retries: Maximum retry attempts for transient failures (default: 3)
         """
-        self.base_url = base_url.rstrip("/")
+        resolved_url = base_url if base_url is not None else DEFAULT_HTTP_URL
+        self.base_url = resolved_url.rstrip("/")
         self.timeout = timeout
         self.max_retries = max_retries
         self._client: AsyncClient | None = None

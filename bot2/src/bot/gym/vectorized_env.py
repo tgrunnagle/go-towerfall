@@ -10,6 +10,7 @@ operations (reset, step) across all parallel environments.
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from typing import Any
 
@@ -28,6 +29,10 @@ from bot.gym.termination import TerminationConfig, TerminationTracker
 from bot.models import GameState, PlayerStatsDTO
 from bot.models.constants import GAME_CONSTANTS
 from bot.observation import ObservationBuilder, ObservationConfig
+
+# Default URLs (can be overridden by environment variables)
+DEFAULT_HTTP_URL = os.getenv("GAME_SERVER_HTTP_URL", "http://localhost:4000")
+DEFAULT_WS_URL = os.getenv("GAME_SERVER_WS_URL", "ws://localhost:4000/ws")
 
 
 class VectorizedTowerfallEnv(gym.vector.VectorEnv):
@@ -68,8 +73,8 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
     def __init__(
         self,
         num_envs: int,
-        http_url: str = "http://localhost:4000",
-        ws_url: str = "ws://localhost:4000/ws",
+        http_url: str | None = None,
+        ws_url: str | None = None,
         player_name: str = "MLBot",
         room_name_prefix: str = "Training",
         map_type: str = "default",
@@ -101,8 +106,9 @@ class VectorizedTowerfallEnv(gym.vector.VectorEnv):
             termination_config: Optional episode termination configuration.
         """
         self.num_envs = num_envs
-        self.http_url = http_url
-        self.ws_url = ws_url
+        # Use environment variable defaults if not provided
+        self.http_url = http_url if http_url is not None else DEFAULT_HTTP_URL
+        self.ws_url = ws_url if ws_url is not None else DEFAULT_WS_URL
         self.player_name = player_name
         self.room_name_prefix = room_name_prefix
         self.map_type = map_type

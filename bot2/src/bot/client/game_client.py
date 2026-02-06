@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from enum import Enum
 from typing import Awaitable, Callable
 
@@ -36,6 +37,11 @@ class ClientMode(Enum):
 
     WEBSOCKET = "websocket"  # Real-time WebSocket-based communication
     REST = "rest"  # Training mode with REST-based actions
+
+
+# Default URLs (can be overridden by environment variables)
+DEFAULT_HTTP_URL = os.getenv("GAME_SERVER_HTTP_URL", "http://localhost:4000")
+DEFAULT_WS_URL = os.getenv("GAME_SERVER_WS_URL", "ws://localhost:4000/ws")
 
 
 class GameClientError(GameHTTPClientError):
@@ -76,27 +82,29 @@ class GameClient:
 
     def __init__(
         self,
-        http_url: str = "http://localhost:4000",
-        ws_url: str = "ws://localhost:4000/ws",
+        http_url: str | None = None,
+        ws_url: str | None = None,
         mode: ClientMode = ClientMode.WEBSOCKET,
         timeout: float = 30.0,
     ):
         """Initialize the GameClient.
 
         Args:
-            http_url: Base URL for REST API.
-            ws_url: WebSocket endpoint URL.
+            http_url: Base URL for REST API. If not provided, uses
+                GAME_SERVER_HTTP_URL env var or defaults to http://localhost:4000.
+            ws_url: WebSocket endpoint URL. If not provided, uses
+                GAME_SERVER_WS_URL env var or defaults to ws://localhost:4000/ws.
             mode: Operating mode (WEBSOCKET or REST).
             timeout: Request timeout in seconds.
         """
-        self.http_url = http_url
-        self.ws_url = ws_url
+        self.http_url = http_url if http_url is not None else DEFAULT_HTTP_URL
+        self.ws_url = ws_url if ws_url is not None else DEFAULT_WS_URL
         self.mode = mode
         self.timeout = timeout
 
         # HTTP client for REST operations
         self._http_client = GameHTTPClient(
-            base_url=http_url,
+            base_url=self.http_url,
             timeout=timeout,
         )
 

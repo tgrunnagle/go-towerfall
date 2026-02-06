@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot2
+  namespace: towerfall
+  labels:
+    app: bot2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bot2
+  template:
+    metadata:
+      labels:
+        app: bot2
+    spec:
+      containers:
+        - name: bot2
+          image: ${IMAGE_REGISTRY}/bot2:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GAME_SERVER_HTTP_URL
+              value: "http://backend-service:4000"
+            - name: GAME_SERVER_WS_URL
+              value: "ws://backend-service:4000/ws"
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "4000m"
+              memory: "8Gi"
+              # GPU support (uncomment if NVIDIA GPU available)
+              # nvidia.com/gpu: "1"

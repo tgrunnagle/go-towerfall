@@ -7,6 +7,7 @@ to provide a standard RL environment interface for training agents.
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 import gymnasium as gym
@@ -22,6 +23,10 @@ from bot.gym.termination import TerminationConfig, TerminationTracker
 from bot.models import GameState, PlayerStatsDTO
 from bot.models.constants import GAME_CONSTANTS
 from bot.observation import ObservationBuilder, ObservationConfig
+
+# Default URLs (can be overridden by environment variables)
+DEFAULT_HTTP_URL = os.getenv("GAME_SERVER_HTTP_URL", "http://localhost:4000")
+DEFAULT_WS_URL = os.getenv("GAME_SERVER_WS_URL", "ws://localhost:4000/ws")
 
 
 class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
@@ -45,8 +50,8 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
 
     def __init__(
         self,
-        http_url: str = "http://localhost:4000",
-        ws_url: str = "ws://localhost:4000/ws",
+        http_url: str | None = None,
+        ws_url: str | None = None,
         player_name: str = "MLBot",
         room_name: str = "Training",
         map_type: str = "default",
@@ -81,9 +86,9 @@ class TowerfallEnv(gym.Env[NDArray[np.float32], int]):
         """
         super().__init__()
 
-        # Configuration
-        self.http_url = http_url
-        self.ws_url = ws_url
+        # Configuration (use environment variable defaults if not provided)
+        self.http_url = http_url if http_url is not None else DEFAULT_HTTP_URL
+        self.ws_url = ws_url if ws_url is not None else DEFAULT_WS_URL
         self.player_name = player_name
         self.room_name = room_name
         self.map_type = map_type

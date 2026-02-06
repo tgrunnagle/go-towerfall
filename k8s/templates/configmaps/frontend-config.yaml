@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: towerfall
+data:
+  config.js: |
+    window.APP_CONFIG = {
+      "BACKEND_WS_URL": "wss://${API_DOMAIN}",
+      "BACKEND_API_URL": "https://${API_DOMAIN}"
+    };
+  nginx.conf: |
+    server {
+        listen 4001;
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+
+        # Serve config.js from ConfigMap
+        location /config.js {
+            alias /etc/nginx/conf.d/config.js;
+            add_header Content-Type application/javascript;
+        }
+
+        # SPA routing - serve index.html for all routes
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Cache static assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }

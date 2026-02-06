@@ -8,6 +8,7 @@ lifecycle, and cleaning up resources.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 
@@ -21,6 +22,9 @@ from bot.training.exceptions import (
     GameServerError,
     MaxGamesExceededError,
 )
+
+# Default URL (can be overridden by environment variable)
+DEFAULT_HTTP_URL = os.getenv("GAME_SERVER_HTTP_URL", "http://localhost:4000")
 
 logger = logging.getLogger(__name__)
 
@@ -71,16 +75,18 @@ class GameServerManager:
 
     def __init__(
         self,
-        http_url: str = "http://localhost:4000",
+        http_url: str | None = None,
         max_concurrent_games: int = 10,
     ) -> None:
         """Initialize the game server manager.
 
         Args:
-            http_url: Base URL of the game server HTTP API.
+            http_url: Base URL of the game server HTTP API. If not provided, uses
+                GAME_SERVER_HTTP_URL env var or defaults to http://localhost:4000.
             max_concurrent_games: Maximum number of concurrent game instances.
         """
-        self._http_url = http_url.rstrip("/")
+        resolved_url = http_url if http_url is not None else DEFAULT_HTTP_URL
+        self._http_url = resolved_url.rstrip("/")
         self._max_concurrent_games = max_concurrent_games
         self._client: httpx.AsyncClient | None = None
         self._games: dict[str, GameInstance] = {}

@@ -185,3 +185,21 @@ tasks:
     desc: Run backend application
     cmds:
       - go run main.go
+
+  #
+  # kubernetes tasks
+  #
+  k8s:install-envsubst:
+    desc: Install envsubst for Windows (required for k8s manifest templating)
+    platforms: [windows]
+    cmds:
+      - go install github.com/a8m/envsubst/cmd/envsubst@latest
+    status:
+      - which envsubst
+
+  k8s:install-kind:
+    desc: Install kind (Kubernetes in Docker) for local cluster development
+    cmds:
+      - go install sigs.k8s.io/kind@latest
+    status:
+      - which kind
