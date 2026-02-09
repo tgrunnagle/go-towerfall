@@ -15,10 +15,14 @@ spec:
       labels:
         app: bot2
     spec:
+      terminationGracePeriodSeconds: 120
       containers:
         - name: bot2
           image: ${IMAGE_REGISTRY}/bot2:latest
           imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              protocol: TCP
           env:
             - name: GAME_SERVER_HTTP_URL
               value: "http://backend-service:4000"
@@ -33,3 +37,19 @@ spec:
               memory: "8Gi"
               # GPU support (uncomment if NVIDIA GPU available)
               # nvidia.com/gpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3

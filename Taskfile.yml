@@ -205,21 +205,21 @@ tasks:
       - which kind
 
   k8s:cluster-create:
-    desc: Create a kind cluster and deploy all services
+    desc: Create an empty kind cluster (use k8s:cluster-setup for full setup)
     deps:
       - k8s:install-kind
     cmds:
       - kind create cluster --name towerfall
       - kubectl config use-context kind-towerfall
-      - echo "Building Docker images..."
-      - docker build -t towerfall/backend:latest ./backend
-      - docker build -t towerfall/frontend:latest ./frontend
-      - docker build -t towerfall/bot2:latest ./bot2
-      - echo "Loading images into kind cluster..."
-      - kind load docker-image towerfall/backend:latest --name towerfall
-      - kind load docker-image towerfall/frontend:latest --name towerfall
-      - kind load docker-image towerfall/bot2:latest --name towerfall
-      - echo "Deploying to cluster..."
+      - echo "Cluster created! Run 'task k8s:build-load' then 'task k8s:deploy'"
+    status:
+      - kind get clusters | grep -q "^towerfall$"
+
+  k8s:cluster-setup:
+    desc: Create a kind cluster, build images, and deploy all services
+    cmds:
+      - task: k8s:cluster-create
+      - task: k8s:build-load
       - task: k8s:deploy
       - echo "Cluster ready! Use 'kubectl get pods -n towerfall' to check status"
 
@@ -237,7 +237,10 @@ tasks:
       - sh: test -f .env
         msg: "k8s/.env file not found. Copy .env.example to .env and configure it."
     cmds:
-      - bash install.sh --apply
+      - cmd: bash install.sh --apply
+        platforms: [linux, darwin]
+      - cmd: powershell -ExecutionPolicy Bypass -File install.ps1 -Apply
+        platforms: [windows]
 
   k8s:build-load:
     desc: Rebuild all Docker images and load into kind cluster

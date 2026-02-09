@@ -12,9 +12,9 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen
 
 COPY src/ ./src/
-RUN uv pip install -e .
+RUN uv sync --frozen
 
 ENV GAME_SERVER_HTTP_URL="http://backend-service:4000"
 ENV GAME_SERVER_WS_URL="ws://backend-service:4000/ws"
 
-CMD ["uv", "run", "python", "-m", "bot"]
+CMD ["uv", "run", "python", "-m", "bot.service"]

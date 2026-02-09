@@ -30,7 +30,9 @@ from bot.models import GameState, PlayerStatsDTO
 from bot.models.constants import GAME_CONSTANTS
 from bot.observation import ObservationBuilder, ObservationConfig
 
-# Default URLs (can be overridden by environment variables)
+# Default URLs from environment variables.
+# Note: These are evaluated at module import time. Set environment variables
+# before importing this module, or pass URLs explicitly to VectorizedTowerfallEnv.__init__.
 DEFAULT_HTTP_URL = os.getenv("GAME_SERVER_HTTP_URL", "http://localhost:4000")
 DEFAULT_WS_URL = os.getenv("GAME_SERVER_WS_URL", "ws://localhost:4000/ws")
 

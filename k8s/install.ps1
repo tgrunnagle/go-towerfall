@@ -47,8 +47,9 @@ Get-ChildItem -Path $TemplatesDir -Filter "*.yaml" -Recurse | ForEach-Object {
     $outputDir = Split-Path -Parent $outputFile
     New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 
-    # Use envsubst to replace placeholders
-    Get-Content $_.FullName | envsubst | Set-Content $outputFile
+    # Use envsubst to replace placeholders (pipe raw content through envsubst)
+    $content = Get-Content $_.FullName -Raw
+    $content | & envsubst | Set-Content $outputFile -NoNewline
     Write-Host "Generated: $outputFile"
 }
 

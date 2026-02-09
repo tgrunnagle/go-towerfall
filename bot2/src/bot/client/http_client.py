@@ -36,7 +36,9 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
-# Default URL (can be overridden by environment variable)
+# Default URL from environment variable.
+# Note: Evaluated at module import time. Set GAME_SERVER_HTTP_URL before importing,
+# or pass base_url explicitly to GameHTTPClient.__init__.
 DEFAULT_HTTP_URL = os.getenv("GAME_SERVER_HTTP_URL", "http://localhost:4000")
 
 

@@ -33,13 +33,13 @@ mkdir -p "$SCRIPT_DIR/generated"
 
 # Process all templates with envsubst
 export_vars=$(printf '${%s} ' "${REQUIRED_VARS[@]}")
-for template in $(find "$SCRIPT_DIR/templates" -name "*.yaml"); do
+while IFS= read -r -d '' template; do
   relative_path="${template#$SCRIPT_DIR/templates/}"
   output_file="$SCRIPT_DIR/generated/$relative_path"
   mkdir -p "$(dirname "$output_file")"
   envsubst "$export_vars" < "$template" > "$output_file"
   echo "Generated: $output_file"
-done
+done < <(find "$SCRIPT_DIR/templates" -name "*.yaml" -print0)
 
 # Apply if --apply flag provided
 if [[ "${1:-}" == "--apply" ]]; then
