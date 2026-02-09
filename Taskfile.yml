@@ -185,3 +185,84 @@ tasks:
     desc: Run backend application
     cmds:
       - go run main.go
+
+  #
+  # kubernetes tasks
+  #
+  k8s:install-envsubst:
+    desc: Install envsubst for Windows (required for k8s manifest templating)
+    platforms: [windows]
+    cmds:
+      - go install github.com/a8m/envsubst/cmd/envsubst@latest
+    status:
+      - which envsubst
+
+  k8s:install-kind:
+    desc: Install kind (Kubernetes in Docker) for local cluster development
+    cmds:
+      - go install sigs.k8s.io/kind@latest
+    status:
+      - which kind
+
+  k8s:cluster-create:
+    desc: Create an empty kind cluster (use k8s:cluster-setup for full setup)
+    deps:
+      - k8s:install-kind
+    cmds:
+      - kind create cluster --name towerfall
+      - kubectl config use-context kind-towerfall
+      - echo "Cluster created! Run 'task k8s:build-load' then 'task k8s:deploy'"
+    status:
+      - kind get clusters | grep -q "^towerfall$"
+
+  k8s:cluster-destroy:
+    desc: Delete the kind cluster and all resources
+    cmds:
+      - kind delete cluster --name towerfall
+    status:
+      - '! kind get clusters | grep -q "^towerfall$"'
+
+  k8s:deploy:
+    dir: k8s
+    desc: Generate manifests and deploy to current cluster
+    preconditions:
+      - sh: test -f .env
+        msg: "k8s/.env file not found. Copy .env.example to .env and configure it."
+    cmds:
+      - cmd: bash install.sh --apply
+        platforms: [linux, darwin]
+      - cmd: powershell -ExecutionPolicy Bypass -File install.ps1 -Apply
+        platforms: [windows]
+
+  k8s:build-load:
+    desc: Rebuild all Docker images and load into kind cluster
+    cmds:
+      - docker build -t towerfall/backend:latest ./backend
+      - docker build -t towerfall/frontend:latest ./frontend
+      - docker build -t towerfall/bot2:latest ./bot2
+      - kind load docker-image towerfall/backend:latest --name towerfall
+      - kind load docker-image towerfall/frontend:latest --name towerfall
+      - kind load docker-image towerfall/bot2:latest --name towerfall
+      - cmd: kubectl rollout restart -n towerfall deployment/backend deployment/frontend deployment/bot2 2>/dev/null || echo "Note - Deployments not yet created, skipping restart"
+        ignore_error: true
+
+  k8s:cluster-setup:
+    desc: Create a kind cluster, build images, and deploy all services
+    cmds:
+      - task: k8s:cluster-create
+      - task: k8s:build-load
+      - task: k8s:deploy
+      - echo "Cluster ready! Use 'kubectl get pods -n towerfall' to check status"
+
+  k8s:logs:
+    desc: View logs from all towerfall pods
+    cmds:
+      - kubectl logs -n towerfall -l app=backend --tail=50
+      - kubectl logs -n towerfall -l app=frontend --tail=50
+      - kubectl logs -n towerfall -l app=bot2 --tail=50
+      - kubectl logs -n towerfall -l app=cloudflared --tail=50
+
+  k8s:status:
+    desc: Show status of all towerfall resources
+    cmds:
+      - kubectl get pods,svc,deployments,configmaps -n towerfall
