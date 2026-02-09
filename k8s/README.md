@@ -23,9 +23,33 @@ This directory contains Kubernetes manifests for deploying the go-towerfall appl
 | `FRONTEND_DOMAIN` | Domain for frontend | `game.example.com` |
 | `IMAGE_REGISTRY` | Container registry prefix | `ghcr.io/user` or `towerfall` |
 
-## Quick Start: Local Kind Cluster
+## Quick Start Using Task Commands
 
-This section covers deploying to a local kind cluster for development and testing.
+The fastest way to get started is using the automated Task commands:
+
+```bash
+# 1. Configure environment (copy and edit with your values)
+cd k8s
+cp .env.example .env
+# Edit .env with your Cloudflare tunnel credentials
+
+# 2. One command to create cluster, build images, and deploy everything
+task k8s:cluster-setup
+
+# 3. Check status
+task k8s:status
+
+# 4. View logs
+task k8s:logs
+```
+
+That's it! The cluster is now running. Use `task k8s:build-load` to rebuild and redeploy after code changes.
+
+---
+
+## Manual Deployment (Advanced)
+
+This section covers deploying to a local kind cluster step by step for development and testing.
 
 ### 1. Install Prerequisites
 

@@ -215,14 +215,6 @@ tasks:
     status:
       - kind get clusters | grep -q "^towerfall$"
 
-  k8s:cluster-setup:
-    desc: Create a kind cluster, build images, and deploy all services
-    cmds:
-      - task: k8s:cluster-create
-      - task: k8s:build-load
-      - task: k8s:deploy
-      - echo "Cluster ready! Use 'kubectl get pods -n towerfall' to check status"
-
   k8s:cluster-destroy:
     desc: Delete the kind cluster and all resources
     cmds:
@@ -251,15 +243,26 @@ tasks:
       - kind load docker-image towerfall/backend:latest --name towerfall
       - kind load docker-image towerfall/frontend:latest --name towerfall
       - kind load docker-image towerfall/bot2:latest --name towerfall
-      - kubectl rollout restart -n towerfall deployment/backend deployment/frontend deployment/bot2
+      - cmd: kubectl rollout restart -n towerfall deployment/backend deployment/frontend deployment/bot2 2>/dev/null || echo "Note - Deployments not yet created, skipping restart"
+        ignore_error: true
+
+  k8s:cluster-setup:
+    desc: Create a kind cluster, build images, and deploy all services
+    cmds:
+      - task: k8s:cluster-create
+      - task: k8s:build-load
+      - task: k8s:deploy
+      - echo "Cluster ready! Use 'kubectl get pods -n towerfall' to check status"
 
   k8s:logs:
     desc: View logs from all towerfall pods
     cmds:
       - kubectl logs -n towerfall -l app=backend --tail=50
       - kubectl logs -n towerfall -l app=frontend --tail=50
+      - kubectl logs -n towerfall -l app=bot2 --tail=50
+      - kubectl logs -n towerfall -l app=cloudflared --tail=50
 
   k8s:status:
     desc: Show status of all towerfall resources
     cmds:
-      - kubectl get pods,svc,deployments -n towerfall
+      - kubectl get pods,svc,deployments,configmaps -n towerfall

@@ -6,6 +6,12 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+# Validate envsubst is available
+if (-not (Get-Command envsubst -ErrorAction SilentlyContinue)) {
+    Write-Error "ERROR: envsubst not found. Run: task k8s:install-envsubst"
+    exit 1
+}
+
 # Load .env file if present
 $EnvFile = Join-Path $ScriptDir ".env"
 if (Test-Path $EnvFile) {

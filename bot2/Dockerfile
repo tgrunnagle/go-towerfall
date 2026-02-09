@@ -12,8 +12,9 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen
 
 COPY src/ ./src/
-RUN uv sync --frozen
 
+# bot.service provides a FastAPI wrapper around ML bots for Kubernetes orchestration
+# It exposes /health on port 8080 for liveness/readiness probes
 ENV GAME_SERVER_HTTP_URL="http://backend-service:4000"
 ENV GAME_SERVER_WS_URL="ws://backend-service:4000/ws"
 
